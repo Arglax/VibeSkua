@@ -10,11 +10,74 @@
     <!-- Search Scripts (client) / Script Repo (Manager): search row, one list (each row: name, full description, path
          with size and date, all tags; Start / Load / Queue / more always on the right), and a footer with the repo
          counts and the bulk actions. The Manager hides Start. -->
-    <Grid RowDefinitions="Auto,*,Auto" Margin="12" RowSpacing="10">
+    <UserControl.Styles>
+        <!-- Placement is set here rather than on the controls so a narrow host (phones) can restack the rows. -->
+        <Style Selector="ComboBox.repo-scope">
+            <Setter Property="Grid.Column" Value="1" />
+            <Setter Property="Width" Value="120" />
+        </Style>
+        <Style Selector="ComboBox.repo-filter">
+            <Setter Property="Grid.Column" Value="2" />
+            <Setter Property="Width" Value="140" />
+        </Style>
+        <Style Selector="ToggleButton.repo-sort">
+            <Setter Property="Grid.Column" Value="3" />
+        </Style>
+        <Style Selector="StackPanel.repo-actions">
+            <Setter Property="Grid.Column" Value="2" />
+        </Style>
+
+        <!-- Narrow: search on its own line with the pickers under it, row buttons under the text, footer counts above the buttons -->
+        <Style Selector="Grid#RepoLayout.compact TextBox.repo-search">
+            <Setter Property="Grid.ColumnSpan" Value="4" />
+        </Style>
+        <Style Selector="Grid#RepoLayout.compact ComboBox.repo-scope">
+            <Setter Property="Grid.Row" Value="1" />
+            <Setter Property="Grid.Column" Value="0" />
+            <Setter Property="Width" Value="NaN" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="0,8,0,0" />
+        </Style>
+        <Style Selector="Grid#RepoLayout.compact ComboBox.repo-filter">
+            <Setter Property="Grid.Row" Value="1" />
+            <Setter Property="Grid.Column" Value="1" />
+            <Setter Property="Grid.ColumnSpan" Value="2" />
+            <Setter Property="Width" Value="NaN" />
+            <Setter Property="Margin" Value="0,8,0,0" />
+        </Style>
+        <Style Selector="Grid#RepoLayout.compact ToggleButton.repo-sort">
+            <Setter Property="Grid.Row" Value="1" />
+            <Setter Property="Margin" Value="0,8,0,0" />
+        </Style>
+        <Style Selector="Grid#RepoLayout.compact StackPanel.repo-actions">
+            <Setter Property="Grid.Row" Value="1" />
+            <Setter Property="Grid.Column" Value="0" />
+            <Setter Property="Grid.ColumnSpan" Value="3" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Margin" Value="0,8,0,0" />
+        </Style>
+        <Style Selector="Grid#RepoLayout.compact StackPanel.repo-actions > Button.w90">
+            <Setter Property="Width" Value="NaN" />
+            <Setter Property="Padding" Value="8,0" />
+        </Style>
+        <Style Selector="Grid#RepoLayout.compact TextBlock.repo-counts">
+            <Setter Property="Grid.ColumnSpan" Value="5" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+        <Style Selector="Grid#RepoLayout.compact Grid.repo-footer > Button">
+            <Setter Property="Grid.Row" Value="1" />
+        </Style>
+        <Style Selector="Grid#RepoLayout.compact Grid.repo-footer > Button.w112">
+            <Setter Property="Width" Value="NaN" />
+            <Setter Property="Padding" Value="8,0" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid x:Name="RepoLayout" RowDefinitions="Auto,*,Auto" Margin="12" RowSpacing="10">
 
         <!-- 1. Search, what it looks in, category, name order -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8" IsEnabled="{Binding !IsBusy}">
-            <TextBox Grid.Column="0" Watermark="Search scripts by name, path or tag" Text="{Binding SearchText, Mode=TwoWay}">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" IsEnabled="{Binding !IsBusy}">
+            <TextBox Classes="repo-search" Watermark="Search scripts by name, path or tag" Text="{Binding SearchText, Mode=TwoWay}">
                 <TextBox.InnerLeftContent>
                     <materialIcons:MaterialIcon Kind="Magnify" Width="15" Height="15" Margin="10,0,0,0" Foreground="{DynamicResource SkuaMutedTextBrush}" />
                 </TextBox.InnerLeftContent>
@@ -27,11 +90,11 @@
                     </Button>
                 </TextBox.InnerRightContent>
             </TextBox>
-            <ComboBox Grid.Column="1" Width="120" ItemsSource="{Binding SearchScopes}" SelectedItem="{Binding SearchScope, Mode=TwoWay}"
+            <ComboBox Classes="repo-scope" ItemsSource="{Binding SearchScopes}" SelectedItem="{Binding SearchScope, Mode=TwoWay}"
                       ToolTip.Tip="Search in: all, name, tags, description or file path" />
-            <ComboBox Grid.Column="2" Width="140" ItemsSource="{Binding FilterOptions}" SelectedItem="{Binding FilterBy, Mode=TwoWay}"
+            <ComboBox Classes="repo-filter" ItemsSource="{Binding FilterOptions}" SelectedItem="{Binding FilterBy, Mode=TwoWay}"
                       ToolTip.Tip="Category" />
-            <ToggleButton Grid.Column="3" Classes="app-toggle" Width="32" Padding="0" HorizontalContentAlignment="Center"
+            <ToggleButton Classes="app-toggle repo-sort" Width="32" Padding="0" HorizontalContentAlignment="Center"
                           IsChecked="{Binding SortDescending, Mode=TwoWay}"
                           ToolTip.Tip="{Binding SortDirectionText, StringFormat='Order: {0}'}">
                 <materialIcons:MaterialIcon Kind="{Binding SortDirectionIcon}" Width="16" Height="16" />
@@ -113,7 +176,7 @@
 
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="scriptRepo:ScriptInfoViewModel">
-                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12">
                                     <Ellipse Grid.Column="0" Width="8" Height="8" Fill="{Binding StatusColor}" VerticalAlignment="Top" Margin="0,5,0,0"
                                              ToolTip.Tip="{Binding StatusText}" />
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
@@ -157,7 +220,7 @@
                                     </StackPanel>
 
                                     <!-- Always there, so nothing moves on hover. 90x30: a little larger than the small buttons, still clear of the text -->
-                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                    <StackPanel Classes="repo-actions" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                         <Button Classes="skua-button skua-primary w90" Height="30" MinHeight="30"
                                                 IsVisible="{Binding #Root.((scriptRepo:ScriptRepoViewModel)DataContext).ShowStartButton}"
                                                 Command="{Binding StartScriptCommand}" CommandParameter="{Binding .}"
@@ -292,8 +355,8 @@
         </Grid>
 
         <!-- 3. Repo counts and bulk actions -->
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6" IsEnabled="{Binding !IsBusy}">
-            <TextBlock Grid.Column="0" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource SkuaMutedTextBrush}"
+        <Grid Grid.Row="2" Classes="repo-footer" ColumnDefinitions="*,Auto,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="6" IsEnabled="{Binding !IsBusy}">
+            <TextBlock Grid.Column="0" Classes="repo-counts" FontSize="11" VerticalAlignment="Center" Foreground="{DynamicResource SkuaMutedTextBrush}"
                        TextTrimming="CharacterEllipsis">
                 <Run Text="{Binding ScriptQuantity, StringFormat='{}{0:N0} scripts'}" />
                 <Run Text="·" />

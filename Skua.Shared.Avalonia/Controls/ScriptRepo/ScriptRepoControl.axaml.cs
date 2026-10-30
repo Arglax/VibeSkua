@@ -9,6 +9,8 @@ public partial class ScriptRepoControl : UserControl
     {
         InitializeComponent();
         ScriptList.AddHandler(ScrollViewer.ScrollChangedEvent, ScriptList_ScrollChanged);
+        // Phones and narrow windows: restack the rows (styles in the XAML).
+        SizeChanged += (_, e) => RepoLayout.Classes.Set("compact", e.NewSize.Width < 600);
     }
 
     // Rows differ in height (wrapped tags). Scrolling up, the virtualizing panel places newly realized rows from an

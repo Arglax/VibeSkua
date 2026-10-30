@@ -1,0 +1,162 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:controls="clr-namespace:MoVibeSkua.Android.Controls"
+             xmlns:vm="clr-namespace:MoVibeSkua.Android.ViewModels"
+             xmlns:appVm="clr-namespace:Skua.App.Avalonia.ViewModels"
+             xmlns:appUc="clr-namespace:Skua.App.Avalonia.UserControls"
+             x:Class="MoVibeSkua.Android.Views.MobileShellView"
+             x:DataType="vm:ShellViewModel"
+             Background="{DynamicResource SkuaPageBrush}">
+
+    <UserControl.DataTemplates>
+        <DataTemplate x:DataType="vm:RailAction">
+            <Button Classes="mobile-rail" Classes.active="{Binding IsActive}" Command="{Binding Command}">
+                <StackPanel Spacing="1">
+                    <materialIcons:MaterialIcon Kind="{Binding Icon}" Width="22" Height="22" />
+                    <TextBlock Text="{Binding Label}" Classes="mobile-rail-label" />
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+        <!-- Desktop shows Auto as a fixed 360px card; scale it down to fit a narrow panel. -->
+        <DataTemplate x:DataType="appVm:AutoViewModel">
+            <Viewbox Stretch="Uniform" StretchDirection="DownOnly" VerticalAlignment="Top" Margin="8">
+                <appUc:AutoUserControl />
+            </Viewbox>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <!-- Rows and columns are arranged in code: rails beside the game in landscape, bars above and
+         below it in portrait. -->
+    <Grid x:Name="Root">
+
+        <!-- Portrait top bar -->
+        <Border x:Name="TopBar" Classes="mobile-topbar">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+                <Button Grid.Column="0" Classes="mobile-icon" Command="{Binding ToggleMenuCommand}">
+                    <materialIcons:MaterialIcon Kind="Menu" />
+                </Button>
+                <Button Grid.Column="1" Classes="mobile-icon" Command="{Binding BackCommand}" IsVisible="{Binding HasPage}">
+                    <materialIcons:MaterialIcon Kind="ArrowLeft" />
+                </Button>
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="6,0">
+                    <TextBlock Text="{Binding PageTitle}" FontWeight="SemiBold" FontSize="15" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource SkuaMutedTextBrush}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <Button Grid.Column="3" Classes="skua-button skua-primary mobile-script" Content="{Binding ToggleScriptText}" Command="{Binding ToggleScriptCommand}" />
+                <Button Grid.Column="4" Classes="mobile-icon" Command="{Binding ToggleGameMaximizedCommand}">
+                    <materialIcons:MaterialIcon Kind="Fullscreen" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Landscape left rail: navigation and the script button within thumb reach. -->
+        <Border x:Name="LeftRailFrame" Classes="mobile-railframe">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <Button Grid.Row="0" Classes="mobile-rail" Command="{Binding ToggleMenuCommand}">
+                    <StackPanel Spacing="1">
+                        <materialIcons:MaterialIcon Kind="Menu" Width="22" Height="22" />
+                        <TextBlock Text="Menu" Classes="mobile-rail-label" />
+                    </StackPanel>
+                </Button>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden">
+                    <ItemsControl ItemsSource="{Binding LeftRail}" />
+                </ScrollViewer>
+                <Button Grid.Row="2" Classes="mobile-rail mobile-rail-script" Classes.running="{Binding IsScriptRunning}" Command="{Binding ToggleScriptCommand}">
+                    <StackPanel Spacing="1">
+                        <Panel>
+                            <materialIcons:MaterialIcon Kind="Play" Width="26" Height="26" IsVisible="{Binding !IsScriptRunning}" />
+                            <materialIcons:MaterialIcon Kind="Stop" Width="26" Height="26" IsVisible="{Binding IsScriptRunning}" />
+                        </Panel>
+                        <TextBlock Text="{Binding ToggleScriptText}" Classes="mobile-rail-label" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Right rail in landscape, bottom bar in portrait: quick tools. -->
+        <Border x:Name="RightRailFrame" Classes="mobile-railframe">
+            <Grid x:Name="RightRailGrid" RowDefinitions="*,Auto">
+                <ScrollViewer x:Name="RightRailScroll" Grid.Row="0" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Hidden">
+                    <ItemsControl x:Name="RightRailItems" ItemsSource="{Binding RightRail}" />
+                </ScrollViewer>
+                <Button x:Name="MaximizeButton" Grid.Row="1" Classes="mobile-rail" Command="{Binding ToggleGameMaximizedCommand}">
+                    <StackPanel Spacing="1">
+                        <materialIcons:MaterialIcon Kind="Fullscreen" Width="22" Height="22" />
+                        <TextBlock Text="Game" Classes="mobile-rail-label" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+
+        <SplitView x:Name="Split"
+                   IsPaneOpen="{Binding IsMenuOpen}"
+                   DisplayMode="Inline"
+                   OpenPaneLength="250"
+                   PaneBackground="{DynamicResource SkuaSurfaceBrush}">
+            <SplitView.Pane>
+                <Grid RowDefinitions="Auto,*">
+                    <Border Grid.Row="0" Padding="16,10" BorderBrush="{DynamicResource SkuaBorderBrush}" BorderThickness="0,0,0,1">
+                        <StackPanel>
+                            <TextBlock Text="MoVibeSkua" FontWeight="SemiBold" FontSize="15" />
+                            <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource SkuaMutedTextBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                    <ScrollViewer Grid.Row="1">
+                        <ItemsControl ItemsSource="{Binding MenuGroups}" Margin="0,4,0,24">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ShellMenuGroup">
+                                    <StackPanel Margin="0,6,0,2">
+                                        <TextBlock Text="{Binding Header}" Classes="mobile-menu-header" />
+                                        <ItemsControl ItemsSource="{Binding Entries}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:ShellMenuEntry">
+                                                    <Button Classes="mobile-menu-item" Content="{Binding Header}" Command="{Binding Command}" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </SplitView.Pane>
+
+            <!-- Game and the current tool page, placed in code. -->
+            <Grid x:Name="Body">
+                <Border x:Name="GameFrame" Background="Black">
+                    <controls:GameView x:Name="Game" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <Border x:Name="PageFrame" Classes="mobile-page" IsVisible="False">
+                    <Grid RowDefinitions="Auto,*">
+                        <Border x:Name="PageHeader" Grid.Row="0" Classes="mobile-pageheader">
+                            <Grid ColumnDefinitions="*,Auto,Auto">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding PageTitle}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding StatusText}" FontSize="10" Foreground="{DynamicResource SkuaMutedTextBrush}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Classes="mobile-icon" Command="{Binding TogglePageWideCommand}">
+                                    <Panel>
+                                        <materialIcons:MaterialIcon Kind="ArrowExpandHorizontal" IsVisible="{Binding !IsPageWide}" />
+                                        <materialIcons:MaterialIcon Kind="ArrowCollapseHorizontal" IsVisible="{Binding IsPageWide}" />
+                                    </Panel>
+                                </Button>
+                                <Button Grid.Column="2" Classes="mobile-icon" Command="{Binding BackCommand}">
+                                    <materialIcons:MaterialIcon Kind="Close" />
+                                </Button>
+                            </Grid>
+                        </Border>
+                        <ContentControl Grid.Row="1"
+                                        Content="{Binding CurrentPage.Content, FallbackValue={x:Null}}"
+                                        HorizontalContentAlignment="Stretch"
+                                        VerticalContentAlignment="Stretch" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </SplitView>
+
+        <!-- Dialogs from MobileDialogService; spans the whole grid (set in code). -->
+        <Panel x:Name="DialogLayer" IsVisible="False" Background="#99000000" />
+    </Grid>
+</UserControl>

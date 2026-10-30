@@ -143,13 +143,15 @@ public static class ClientFileSources
 
     private static string GetInformationalVersion()
     {
-        string? informational = Assembly.GetEntryAssembly()?
+        // Android has no entry assembly; every project shares the version from Directory.Build.props.
+        Assembly assembly = Assembly.GetEntryAssembly() ?? typeof(ClientFileSources).Assembly;
+        string? informational = assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion;
 
         if (!string.IsNullOrWhiteSpace(informational))
             return informational.Split('+', 2)[0];
 
-        return Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "0.0.0.0";
+        return assembly.GetName().Version?.ToString() ?? "0.0.0.0";
     }
 }

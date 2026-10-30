@@ -37,6 +37,18 @@ public class Compiler : CSharpScriptExecution
     private static readonly ConcurrentDictionary<int, string> _compiledRegistry = new();
     private static readonly ConcurrentDictionary<string, Assembly> _loadedAssemblies = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Extra source compiled into every script assembly, such as platform shims. Part of the cache key.
+    /// </summary>
+    public static string ScriptPrelude { get; set; } = string.Empty;
+
+    private static IEnumerable<SyntaxTree> WithPrelude(SyntaxTree tree)
+    {
+        yield return tree;
+        if (ScriptPrelude.Length > 0)
+            yield return CSharpSyntaxTree.ParseText(ScriptPrelude, _parseOptions);
+    }
+
     public static bool FastVerifyAssembly(string path)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
@@ -206,7 +218,7 @@ public class Compiler : CSharpScriptExecution
         CSharpCompilation compilation = CSharpCompilation.Create(GeneratedClassName + ".cs")
             .WithOptions(_compilationOptions)
             .WithReferences(References)
-            .AddSyntaxTrees(tree);
+            .AddSyntaxTrees(WithPrelude(tree));
 
         if (SaveGeneratedCode)
             GeneratedClassCode = sourceWithNamespaces;
@@ -475,7 +487,7 @@ public class Compiler : CSharpScriptExecution
         CSharpCompilation compilation = CSharpCompilation.Create(assemblyName)
             .WithOptions(_compilationOptions)
             .WithReferences(References)
-            .AddSyntaxTrees(tree);
+            .AddSyntaxTrees(WithPrelude(tree));
 
         if (SaveGeneratedCode)
             GeneratedClassCode = source;

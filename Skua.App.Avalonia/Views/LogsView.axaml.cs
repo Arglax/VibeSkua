@@ -9,6 +9,7 @@ public partial class LogsView : UserControl
     public LogsView()
     {
         InitializeComponent();
+        SizeChanged += (_, e) => LogsBar.Classes.Set("compact", e.NewSize.Width < 520);
     }
 
     // Copy lives on the tab row; the open tab knows which lines are selected.

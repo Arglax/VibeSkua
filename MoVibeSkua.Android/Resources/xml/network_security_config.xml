@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- The game page and its proxy run on loopback, and Skua's own APIs (server list, news) are
+         still plain HTTP, so cleartext has to be allowed everywhere like on desktop. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

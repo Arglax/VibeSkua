@@ -1,0 +1,98 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>MoVibeSkua.Android</RootNamespace>
+    <AssemblyName>MoVibeSkua</AssemblyName>
+    <ApplicationId>com.arglax.movibeskua</ApplicationId>
+    <ApplicationTitle>MoVibeSkua</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <!-- Scripts are compiled and loaded at runtime and use reflection everywhere: keep the JIT and every member. -->
+    <AndroidLinkMode>None</AndroidLinkMode>
+    <!-- Generated marshal-method stubs go stale between incremental multi-ABI builds (UnsatisfiedLinkError on n_onCreate). -->
+    <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
+    <PublishTrimmed>false</PublishTrimmed>
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <AndroidUseAssemblyStore>true</AndroidUseAssemblyStore>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="Skua.ClientId" Value="MoVibeSkuaAndroid" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Android" />
+    <!-- Skia 2.88 deadlocks in its static initializers under the .NET 10 Android runtime. -->
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Android" />
+    <PackageReference Include="Avalonia.Controls.ColorPicker" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Material.Avalonia" />
+    <PackageReference Include="Material.Icons" />
+    <PackageReference Include="Material.Icons.Avalonia" />
+    <PackageReference Include="Xamarin.AndroidX.Webkit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Skua.Core\Skua.Core.csproj" />
+    <ProjectReference Include="..\Skua.Core.Interfaces\Skua.Core.Interfaces.csproj" />
+    <ProjectReference Include="..\Skua.Core.Models\Skua.Core.Models.csproj" />
+    <ProjectReference Include="..\Skua.Core.Utils\Skua.Core.Utils.csproj" />
+    <ProjectReference Include="..\Skua.Shared.Avalonia\Skua.Shared.Avalonia.csproj" />
+    <ProjectReference Include="..\Skua.Flash.Ruffle\Skua.Flash.Ruffle.csproj" />
+    <ProjectReference Include="..\Skua.Compat.WinForms\Skua.Compat.WinForms.csproj" />
+    <ProjectReference Include="..\Skua.Core.Generators\Skua.Core.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <!--
+    The desktop client's view models, views and helpers are compiled in from Skua.App.Avalonia so the
+    port tracks upstream. Only the pieces bound to Win32, WinForms or multiple windows are replaced.
+  -->
+  <PropertyGroup>
+    <DesktopAppDir>..\Skua.App.Avalonia\</DesktopAppDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(DesktopAppDir)**\*.cs"
+             Exclude="$(DesktopAppDir)obj\**;$(DesktopAppDir)bin\**;$(DesktopAppDir)Program.cs;$(DesktopAppDir)App.axaml.cs;$(DesktopAppDir)Flash\**;$(DesktopAppDir)Controls\WinFormsFlashHost.cs;$(DesktopAppDir)Views\MainWindow.axaml.cs;$(DesktopAppDir)Views\TabbedHostWindow.axaml.cs;$(DesktopAppDir)Services\DialogService.cs;$(DesktopAppDir)Services\WindowService.cs;$(DesktopAppDir)Services\FileDialogService.cs;$(DesktopAppDir)Services\ScreenshotService.cs;$(DesktopAppDir)Services\SoundService.cs"
+             Link="Desktop\%(RecursiveDir)%(Filename)%(Extension)" />
+    <AvaloniaXaml Include="$(DesktopAppDir)**\*.axaml"
+                  Exclude="$(DesktopAppDir)obj\**;$(DesktopAppDir)bin\**;$(DesktopAppDir)App.axaml;$(DesktopAppDir)Views\MainWindow.axaml;$(DesktopAppDir)Views\TabbedHostWindow.axaml"
+                  Link="Desktop\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AndroidJavaSource Include="Java\**\*.java" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AndroidAsset Include="$(DesktopAppDir)QuestData.json" Link="Assets\seed\QuestData.json" />
+    <AndroidAsset Include="$(DesktopAppDir)AdvancedSkills.json" Link="Assets\seed\AdvancedSkills.json" />
+  </ItemGroup>
+
+  <!--
+    Roslyn needs metadata files to compile scripts, but on Android assemblies live inside the APK.
+    Ship every compile reference (framework reference pack + Skua + packages) as assets; the app
+    extracts them on first run and hands them to the script compiler.
+  -->
+  <Target Name="PackScriptReferences" AfterTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <_ScriptRef Include="@(ReferencePath)" Condition="'%(Extension)' == '.dll' And '%(Filename)' != 'Mono.Android' And '%(Filename)' != 'Java.Interop' And !$([System.String]::Copy('%(Filename)').StartsWith('Xamarin.')) And !$([System.String]::Copy('%(Filename)').StartsWith('Avalonia.Android'))" />
+      <AndroidAsset Include="@(_ScriptRef)" Link="Assets\refs\%(Filename)%(Extension)" LogicalName="refs/%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

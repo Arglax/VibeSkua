@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MoVibeSkua.Android.ViewModels"
+             x:Class="MoVibeSkua.Android.Views.LoginView"
+             x:DataType="vm:LoginViewModel">
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="10" MaxWidth="480">
+            <TextBlock Text="Log in with your AQW account. Skua keeps you logged in and relogs after disconnects."
+                       TextWrapping="Wrap" Foreground="{DynamicResource SkuaMutedTextBrush}" />
+            <TextBox Text="{Binding Username}" Watermark="Username" />
+            <TextBox Text="{Binding Password}" Watermark="Password" PasswordChar="•" />
+            <ComboBox ItemsSource="{Binding Servers}" SelectedItem="{Binding Server}" HorizontalAlignment="Stretch"
+                      PlaceholderText="Server" />
+            <CheckBox IsChecked="{Binding Remember}" Content="Remember on this device" />
+            <Grid ColumnDefinitions="*,8,*">
+                <Button Grid.Column="0" Classes="skua-button skua-primary" HorizontalAlignment="Stretch"
+                        Content="Log in" Command="{Binding LoginCommand}" IsEnabled="{Binding !IsBusy}" />
+                <Button Grid.Column="2" Classes="skua-button" HorizontalAlignment="Stretch"
+                        Content="Log out" Command="{Binding LogoutCommand}" />
+            </Grid>
+            <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

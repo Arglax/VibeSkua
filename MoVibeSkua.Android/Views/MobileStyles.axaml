@@ -1,0 +1,129 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Touch sizing on top of the shared desktop theme. -->
+    <Style Selector="Border.mobile-topbar">
+        <Setter Property="Background" Value="{DynamicResource SkuaSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SkuaBorderBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="Padding" Value="2,2,6,2" />
+        <Setter Property="MinHeight" Value="48" />
+    </Style>
+
+    <Style Selector="Button.mobile-icon">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Width" Value="44" />
+        <Setter Property="Height" Value="44" />
+        <Setter Property="Padding" Value="10" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button.mobile-script">
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="12,4" />
+        <Setter Property="Margin" Value="4,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Side rails (landscape) / bottom bar (portrait). -->
+    <Style Selector="Border.mobile-railframe">
+        <Setter Property="Background" Value="{DynamicResource SkuaSurfaceBrush}" />
+        <Setter Property="Width" Value="68" />
+        <Setter Property="Padding" Value="2,4" />
+    </Style>
+    <Style Selector="Border.mobile-railframe.bottom">
+        <Setter Property="Width" Value="NaN" />
+        <Setter Property="Height" Value="60" />
+        <Setter Property="Padding" Value="4,2" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SkuaBorderBrush}" />
+        <Setter Property="BorderThickness" Value="0,1,0,0" />
+    </Style>
+
+    <Style Selector="Button.mobile-rail">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Width" Value="62" />
+        <Setter Property="MinHeight" Value="54" />
+        <Setter Property="Padding" Value="2,6" />
+        <Setter Property="Margin" Value="1,2" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.mobile-rail.active">
+        <Setter Property="Background" Value="{DynamicResource SkuaBorderBrush}" />
+    </Style>
+    <Style Selector="Button.mobile-rail-script">
+        <Setter Property="Background" Value="#2E7D32" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="MinHeight" Value="64" />
+    </Style>
+    <Style Selector="Button.mobile-rail-script.running">
+        <Setter Property="Background" Value="#C62828" />
+    </Style>
+    <Style Selector="TextBlock.mobile-rail-label">
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="MaxWidth" Value="60" />
+    </Style>
+
+    <Style Selector="Border.mobile-pageheader">
+        <Setter Property="Background" Value="{DynamicResource SkuaSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SkuaBorderBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="Padding" Value="10,0,2,0" />
+        <Setter Property="MinHeight" Value="44" />
+    </Style>
+
+    <Style Selector="TextBlock.mobile-menu-header">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Margin" Value="16,8,16,2" />
+        <Setter Property="Foreground" Value="{DynamicResource SkuaMutedTextBrush}" />
+    </Style>
+
+    <Style Selector="Button.mobile-menu-item">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="MinHeight" Value="42" />
+        <Setter Property="Padding" Value="20,8" />
+        <Setter Property="CornerRadius" Value="0" />
+    </Style>
+
+    <Style Selector="Border.mobile-page">
+        <Setter Property="Background" Value="{DynamicResource SkuaPageBrush}" />
+        <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+
+    <Style Selector="Border.mobile-dialog">
+        <Setter Property="Background" Value="{DynamicResource SkuaPageBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SkuaBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Margin" Value="12" />
+        <Setter Property="MaxWidth" Value="640" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button">
+        <Setter Property="MinHeight" Value="36" />
+    </Style>
+    <Style Selector="TextBox">
+        <Setter Property="MinHeight" Value="40" />
+    </Style>
+    <Style Selector="ComboBox">
+        <Setter Property="MinHeight" Value="40" />
+    </Style>
+    <Style Selector="CheckBox">
+        <Setter Property="MinHeight" Value="36" />
+    </Style>
+    <Style Selector="ScrollBar">
+        <Setter Property="AllowAutoHide" Value="True" />
+    </Style>
+</Styles>

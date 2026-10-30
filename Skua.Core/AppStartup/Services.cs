@@ -50,6 +50,12 @@ public static class Services
         }
     }
 
+    /// <summary>
+    /// Extra folders of reference assemblies for the script compiler. Needed where loaded assemblies
+    /// have no file on disk (Android packs them inside the APK).
+    /// </summary>
+    public static List<string> ScriptReferenceDirectories { get; } = new();
+
     private static List<PortableExecutableReference>? _cachedBaseReferences;
     private static readonly object _referenceCacheLock = new();
 
@@ -76,6 +82,14 @@ public static class Services
 
                         if (IsManagedAssembly(path))
                             assemblyMap[fileName] = path;
+                    }
+
+                    foreach (string dir in ScriptReferenceDirectories)
+                    {
+                        if (!Directory.Exists(dir))
+                            continue;
+                        foreach (string dll in Directory.EnumerateFiles(dir, "*.dll"))
+                            AddAssemblyPath(dll);
                     }
 
                     foreach (Assembly asm in AppDomain.CurrentDomain.GetAssemblies())

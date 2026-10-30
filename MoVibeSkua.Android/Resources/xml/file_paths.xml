@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Skua's data folder (scripts included) lives under the app's files directory. -->
+<paths>
+    <files-path name="skua" path="." />
+</paths>

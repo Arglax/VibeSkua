@@ -729,7 +729,7 @@ public partial class ScriptManager : ObservableObject, IScriptManager, IDisposab
     private static int ComputeCacheHash(string source, List<string> includedFiles)
     {
         using SHA256 sha256 = SHA256.Create();
-        byte[] sourceBytes = Encoding.UTF8.GetBytes(source);
+        byte[] sourceBytes = Encoding.UTF8.GetBytes(Compiler.ScriptPrelude + source);
         byte[] sourceHash = sha256.ComputeHash(sourceBytes);
         using MemoryStream ms = new();
         ms.Write(sourceHash, 0, sourceHash.Length);
@@ -899,7 +899,7 @@ public partial class ScriptManager : ObservableObject, IScriptManager, IDisposab
             foreach (string file in orderedFiles)
             {
                 string src = sourceCache.TryGetValue(file, out string? cached) ? cached : File.ReadAllText(file);
-                byte[] srcBytes = Encoding.UTF8.GetBytes(src);
+                byte[] srcBytes = Encoding.UTF8.GetBytes(Compiler.ScriptPrelude + src);
                 if (dependencyGraph.TryGetValue(file, out List<string>? fileDeps) && fileDeps.Count > 0)
                 {
                     using MemoryStream ms = new();

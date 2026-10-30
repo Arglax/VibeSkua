@@ -3,9 +3,25 @@
              xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              x:Class="Skua.App.Avalonia.Views.LogsView">
 
+    <UserControl.Styles>
+        <!-- Narrow (phones): tabs get the whole first line, the actions go under them as text-only buttons -->
+        <Style Selector="Grid#LogsBar.compact > ListBox">
+            <Setter Property="Grid.ColumnSpan" Value="5" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+        <Style Selector="Grid#LogsBar.compact > Button">
+            <Setter Property="Grid.Row" Value="1" />
+            <Setter Property="Width" Value="NaN" />
+            <Setter Property="Padding" Value="10,0" />
+        </Style>
+        <Style Selector="Grid#LogsBar.compact > Button materialIcons|MaterialIcon">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+    </UserControl.Styles>
+
     <Grid Margin="12" RowDefinitions="Auto,*" RowSpacing="10">
         <!-- Log tabs; the actions apply to the open tab -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+        <Grid Grid.Row="0" x:Name="LogsBar" ColumnDefinitions="*,Auto,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8">
             <ListBox Grid.Column="0"
                      Classes="top-tabs-client"
                      ItemsSource="{Binding LogTabs}"
