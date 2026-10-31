@@ -90,7 +90,7 @@ public partial class ScriptLoaderViewModel : BotControlViewModelBase
     [RelayCommand]
     private void OpenBrowserForm()
     {
-        _processService.OpenLink(@"https://discord.gg/Xz5bF6q2CX");
+        _processService.OpenLink(@"https://github.com/Arglax/MoVibeSkua/issues");
     }
 
     [RelayCommand]

@@ -32,19 +32,22 @@
 
         <!-- Portrait top bar -->
         <Border x:Name="TopBar" Classes="mobile-topbar">
-            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
                 <Button Grid.Column="0" Classes="mobile-icon" Command="{Binding ToggleMenuCommand}">
                     <materialIcons:MaterialIcon Kind="Menu" />
                 </Button>
-                <Button Grid.Column="1" Classes="mobile-icon" Command="{Binding BackCommand}" IsVisible="{Binding HasPage}">
+                <Button Grid.Column="1" Classes="mobile-icon" Command="{Binding BackCommand}" IsVisible="{Binding HasPreviousPage}">
                     <materialIcons:MaterialIcon Kind="ArrowLeft" />
                 </Button>
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="6,0">
                     <TextBlock Text="{Binding PageTitle}" FontWeight="SemiBold" FontSize="15" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource SkuaMutedTextBrush}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
-                <Button Grid.Column="3" Classes="skua-button skua-primary mobile-script" Content="{Binding ToggleScriptText}" Command="{Binding ToggleScriptCommand}" />
-                <Button Grid.Column="4" Classes="mobile-icon" Command="{Binding ToggleGameMaximizedCommand}">
+                <Button Grid.Column="3" Classes="mobile-icon" Command="{Binding CloseAllPagesCommand}" IsVisible="{Binding HasPage}">
+                    <materialIcons:MaterialIcon Kind="Close" />
+                </Button>
+                <Button Grid.Column="4" Classes="skua-button skua-primary mobile-script" Content="{Binding ToggleScriptText}" Command="{Binding ToggleScriptCommand}" />
+                <Button Grid.Column="5" Classes="mobile-icon" Command="{Binding ToggleGameMaximizedCommand}">
                     <materialIcons:MaterialIcon Kind="Fullscreen" />
                 </Button>
             </Grid>
@@ -132,18 +135,21 @@
                 <Border x:Name="PageFrame" Classes="mobile-page" IsVisible="False">
                     <Grid RowDefinitions="Auto,*">
                         <Border x:Name="PageHeader" Grid.Row="0" Classes="mobile-pageheader">
-                            <Grid ColumnDefinitions="*,Auto,Auto">
-                                <StackPanel VerticalAlignment="Center">
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                                <Button Grid.Column="0" Classes="mobile-icon" Command="{Binding BackCommand}" IsVisible="{Binding HasPreviousPage}">
+                                    <materialIcons:MaterialIcon Kind="ArrowLeft" />
+                                </Button>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding PageTitle}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" />
                                     <TextBlock Text="{Binding StatusText}" FontSize="10" Foreground="{DynamicResource SkuaMutedTextBrush}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
-                                <Button Grid.Column="1" Classes="mobile-icon" Command="{Binding TogglePageWideCommand}">
+                                <Button Grid.Column="2" Classes="mobile-icon" Command="{Binding TogglePageWideCommand}">
                                     <Panel>
                                         <materialIcons:MaterialIcon Kind="ArrowExpandHorizontal" IsVisible="{Binding !IsPageWide}" />
                                         <materialIcons:MaterialIcon Kind="ArrowCollapseHorizontal" IsVisible="{Binding IsPageWide}" />
                                     </Panel>
                                 </Button>
-                                <Button Grid.Column="2" Classes="mobile-icon" Command="{Binding BackCommand}">
+                                <Button Grid.Column="3" Classes="mobile-icon" Command="{Binding CloseAllPagesCommand}">
                                     <materialIcons:MaterialIcon Kind="Close" />
                                 </Button>
                             </Grid>

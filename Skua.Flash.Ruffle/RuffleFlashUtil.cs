@@ -3,6 +3,8 @@ using Skua.Core.Flash;
 using Skua.Core.Interfaces;
 using Skua.Core.Messaging;
 using Skua.Core.Utils;
+using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Xml.Linq;
 
 namespace Skua.Flash.Ruffle;
@@ -14,6 +16,7 @@ public class RuffleFlashUtil : IFlashUtil
 {
     private readonly IMessenger _messenger;
     private readonly Lazy<IScriptManager> _lazyManager;
+    private readonly ConcurrentDictionary<string, long> _lastErrorTrace = new();
 
     public RuffleFlashUtil(IMessenger messenger, Lazy<IScriptManager> manager, RuffleHost host)
     {
@@ -88,9 +91,24 @@ public class RuffleFlashUtil : IFlashUtil
         catch (Exception e)
         {
             if (function != "isKicked")
+            {
                 _messenger.Send<FlashErrorMessage>(new(e, function, args));
+                TraceError(function, e);
+            }
             return default;
         }
+    }
+
+    /// <summary>
+    /// The Flash log only keeps the function name; trace why it failed, at most every 30s per function.
+    /// </summary>
+    private void TraceError(string function, Exception e)
+    {
+        long now = Environment.TickCount64;
+        if (_lastErrorTrace.TryGetValue(function, out long last) && now - last < 30_000)
+            return;
+        _lastErrorTrace[function] = now;
+        Trace.WriteLine($"[Flash] {function} failed: {e.GetType().Name}: {e.Message}");
     }
 
     public object FromFlashXml(XElement el) => FlashValues.FromFlashXml(el);

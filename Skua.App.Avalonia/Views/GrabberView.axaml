@@ -59,8 +59,11 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid ColumnDefinitions="164,*" Margin="14,12,0,0" ColumnSpacing="0">
-        <ListBox Grid.Column="0"
+    <!-- Narrow screens swap the sidebar for a picker above the tab (see code-behind). -->
+    <Grid x:Name="LayoutRoot" ColumnDefinitions="164,*" RowDefinitions="Auto,*" Margin="14,12,0,0" ColumnSpacing="0">
+        <ListBox x:Name="NavList"
+                 Grid.Column="0"
+                 Grid.RowSpan="2"
                  Classes="grabber-nav"
                  Margin="0,0,0,12"
                  ItemsSource="{Binding NavItems}"
@@ -79,6 +82,24 @@
             </ListBox.DataTemplates>
         </ListBox>
 
-        <ContentControl Grid.Column="1" Content="{Binding SelectedTab}" />
+        <ComboBox x:Name="TabPicker"
+                  Grid.Column="0"
+                  Grid.ColumnSpan="2"
+                  IsVisible="False"
+                  HorizontalAlignment="Stretch"
+                  Margin="14,0,14,10"
+                  ItemsSource="{Binding GrabberTabs}"
+                  SelectedItem="{Binding SelectedTab}">
+            <ComboBox.ItemTemplate>
+                <DataTemplate DataType="grabber:GrabberListViewModel">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <materialIcons:MaterialIcon Kind="{Binding Icon}" Width="16" Height="16" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+
+        <ContentControl x:Name="TabContent" Grid.Column="1" Grid.RowSpan="2" Content="{Binding SelectedTab}" />
     </Grid>
 </UserControl>

@@ -96,6 +96,7 @@ public sealed partial class ShellViewModel : ObservableObject
         _bot = bot;
         ScriptLoader = scriptLoader;
         ScriptLoader.PropertyChanged += OnScriptLoaderChanged;
+        Pages.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasPreviousPage));
         BuildMenu();
         BuildRails();
         if (mainMenu.Plugins is System.Collections.Specialized.INotifyCollectionChanged plugins)
@@ -143,6 +144,9 @@ public sealed partial class ShellViewModel : ObservableObject
 
     public bool HasPage => CurrentPage is not null;
 
+    /// <summary>A page opened before the current one, which back returns to.</summary>
+    public bool HasPreviousPage => Pages.Count > 1;
+
     public string PageTitle => CurrentPage?.Title ?? "MoVibeSkua";
 
     public string ToggleScriptText => ScriptLoader.ToggleScriptText;
@@ -150,13 +154,13 @@ public sealed partial class ShellViewModel : ObservableObject
     public bool IsScriptRunning => Ioc.Default.GetRequiredService<IScriptManager>().ScriptRunning;
 
     /// <summary>
-    /// Opens a page, or closes it when it is already the one showing (rail buttons toggle).
+    /// Opens a page, or closes the pages when it is already the one showing (rail buttons toggle).
     /// </summary>
     public void TogglePage(string key, Action open)
     {
         if (CurrentPage?.Key == key)
         {
-            Back();
+            CloseAllPages();
             return;
         }
         open();
