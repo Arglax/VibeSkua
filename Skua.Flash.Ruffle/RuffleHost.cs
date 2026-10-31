@@ -480,7 +480,8 @@ public sealed partial class RuffleHost : IDisposable
 
     /// <summary>
     /// Ruffle evaluates ExternalInterface.call names as JavaScript ("(name)(...args)"), which breaks
-    /// names such as "pre-load". Route every call through the bridge instead.
+    /// names such as "pre-load". Route every call through the bridge instead. The on-screen keyboard
+    /// calls go to the bridge too, which keeps Ruffle's hidden text input focused on touch screens.
     /// </summary>
     private static byte[] PatchRuffle(byte[] data)
     {
@@ -489,6 +490,14 @@ public sealed partial class RuffleHost : IDisposable
             $"return window.__skuaExt?window.__skuaExt({m.Groups[1].Value},{m.Groups[2].Value}):new Function(`return (${{{m.Groups[1].Value}}})(...arguments);`)(...{m.Groups[2].Value})");
         if (ReferenceEquals(patched, js) || patched == js)
             Trace.WriteLine("[RuffleHost] WARNING: ExternalInterface patch did not apply; names that are not JS identifiers will fail.");
+
+        foreach (string method in new[] { "openVirtualKeyboard", "closeVirtualKeyboard" })
+        {
+            string definition = method + "(){";
+            if (!patched.Contains(definition, StringComparison.Ordinal))
+                Trace.WriteLine($"[RuffleHost] WARNING: {method} patch did not apply; typing into game text fields may not work.");
+            patched = patched.Replace(definition, $"{definition}if(window.__skuaKeyboard)return window.__skuaKeyboard.{method}(this);", StringComparison.Ordinal);
+        }
         return Encoding.UTF8.GetBytes(patched);
     }
 

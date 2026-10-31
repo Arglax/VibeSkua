@@ -123,8 +123,9 @@
                 </Grid>
             </SplitView.Pane>
 
-            <!-- Game and the current tool page, placed in code. -->
-            <Grid x:Name="Body">
+            <!-- Game and the current tool page, placed in code. The two rows and columns stay put (only their
+                 sizes change), so a hidden page never points at a row or column that is gone. -->
+            <Grid x:Name="Body" ColumnDefinitions="*,0" RowDefinitions="*,0">
                 <Border x:Name="GameFrame" Background="Black">
                     <controls:GameView x:Name="Game" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>

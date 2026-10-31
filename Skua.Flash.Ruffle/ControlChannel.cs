@@ -41,6 +41,11 @@ public sealed class ControlChannel : IDisposable
     /// </summary>
     public event Action<string>? PageLog;
 
+    /// <summary>
+    /// Raised when a Flash text field takes focus and the page wants the on-screen keyboard shown.
+    /// </summary>
+    public event Action? KeyboardRequested;
+
     public bool IsConnected => _socket?.State == WebSocketState.Open;
 
     public TimeSpan CallTimeout { get; set; } = TimeSpan.FromSeconds(15);
@@ -115,6 +120,10 @@ public sealed class ControlChannel : IDisposable
                     string line = root.TryGetProperty("m", out JsonElement m) ? m.ToString() : string.Empty;
                     Trace.WriteLine($"[Ruffle] {line}");
                     PageLog?.Invoke(line);
+                    break;
+
+                case "keyboard":
+                    KeyboardRequested?.Invoke();
                     break;
             }
         }

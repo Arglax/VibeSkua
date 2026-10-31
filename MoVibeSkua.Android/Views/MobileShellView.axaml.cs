@@ -206,12 +206,15 @@ public partial class MobileShellView : UserControl
         bool showPage = _vm is { HasPage: true, IsGameMaximized: false };
         double width = Body.Bounds.Width;
         double height = Body.Bounds.Height;
+        ColumnDefinition pageColumn = Body.ColumnDefinitions[1];
+        RowDefinition gameRow = Body.RowDefinitions[0];
+        RowDefinition pageRow = Body.RowDefinitions[1];
 
-        Body.RowDefinitions.Clear();
-        Body.ColumnDefinitions.Clear();
         PageFrame.IsVisible = showPage;
         PageHeader.IsVisible = _landscape == true;
-        Place(GameFrame, 0, 0);
+        pageColumn.Width = new GridLength(0);
+        gameRow.Height = new GridLength(1, GridUnitType.Star);
+        pageRow.Height = new GridLength(0);
 
         if (!showPage)
             return;
@@ -223,15 +226,13 @@ public partial class MobileShellView : UserControl
             double pageWidth = _vm!.IsPageWide
                 ? width - Math.Max(150, width * 0.22)
                 : Math.Clamp(width * 0.46, Math.Min(320, width - 160), Math.Max(320, width - 200));
-            Body.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
-            Body.ColumnDefinitions.Add(new ColumnDefinition(pageWidth, GridUnitType.Pixel));
+            pageColumn.Width = new GridLength(pageWidth);
             Place(PageFrame, 0, 1);
         }
         else
         {
-            double gameHeight = Math.Min(height * 0.42, width / GameAspect);
-            Body.RowDefinitions.Add(new RowDefinition(gameHeight, GridUnitType.Pixel));
-            Body.RowDefinitions.Add(new RowDefinition(1, GridUnitType.Star));
+            gameRow.Height = new GridLength(Math.Min(height * 0.42, width / GameAspect));
+            pageRow.Height = new GridLength(1, GridUnitType.Star);
             Place(PageFrame, 1, 0);
         }
     }

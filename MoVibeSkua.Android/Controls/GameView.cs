@@ -9,8 +9,10 @@ using AView = Android.Views.View;
 using AWebView = Android.Webkit.WebView;
 using Android.Content;
 using Android.Graphics;
+using Android.Views.InputMethods;
 using Android.Webkit;
 using Avalonia.Android;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Platform;
 
@@ -26,6 +28,11 @@ public class GameView : NativeControlHost
     private static string? _pendingUrl;
 
     public static AWebView? WebView => _webView;
+
+    // Avalonia's peer for native hosts throws when Android's accessibility bridge asks for its
+    // children, which killed the app whenever an accessibility service (TalkBack, password managers,
+    // UI automation) read the screen.
+    protected override AutomationPeer OnCreateAutomationPeer() => new ControlAutomationPeer(this);
 
     public static void Navigate(string url)
     {
@@ -45,6 +52,35 @@ public class GameView : NativeControlHost
     {
         AWebView? view = _webView;
         view?.Post(() => view.Alpha = covered ? 0f : 1f);
+    }
+
+    /// <summary>
+    /// Whether a screen point lands on the game while it is showing.
+    /// </summary>
+    public static bool Contains(float screenX, float screenY)
+    {
+        AWebView? view = _webView;
+        if (view is null || !view.IsShown || view.Alpha == 0f)
+            return false;
+        int[] location = new int[2];
+        view.GetLocationOnScreen(location);
+        return screenX >= location[0] && screenX < location[0] + view.Width
+            && screenY >= location[1] && screenY < location[1] + view.Height;
+    }
+
+    /// <summary>
+    /// Shows the on-screen keyboard for the game text field that has focus.
+    /// </summary>
+    public static void ShowKeyboard()
+    {
+        AWebView? view = _webView;
+        view?.Post(() =>
+        {
+            if (!view.HasFocus)
+                view.RequestFocus();
+            InputMethodManager? imm = view.Context?.GetSystemService(Context.InputMethodService) as InputMethodManager;
+            imm?.ShowSoftInput(view, 0);
+        });
     }
 
     public static void Resume()

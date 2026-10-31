@@ -14,10 +14,13 @@
             <CheckBox IsChecked="{Binding Remember}" Content="Remember on this device" />
             <Grid ColumnDefinitions="*,8,*">
                 <Button Grid.Column="0" Classes="skua-button skua-primary" HorizontalAlignment="Stretch"
-                        Content="Log in" Command="{Binding LoginCommand}" IsEnabled="{Binding !IsBusy}" />
+                        Content="Log in" Command="{Binding LoginCommand}" IsVisible="{Binding !IsBusy}" />
+                <Button Grid.Column="0" Classes="skua-button" HorizontalAlignment="Stretch"
+                        Content="Cancel" Command="{Binding CancelLoginCommand}" IsVisible="{Binding IsBusy}" />
                 <Button Grid.Column="2" Classes="skua-button" HorizontalAlignment="Stretch"
                         Content="Log out" Command="{Binding LogoutCommand}" />
             </Grid>
+            <ProgressBar IsIndeterminate="True" Height="4" IsVisible="{Binding IsBusy}" />
             <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
         </StackPanel>
     </ScrollViewer>

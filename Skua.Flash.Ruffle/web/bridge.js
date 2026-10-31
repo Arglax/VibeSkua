@@ -58,6 +58,38 @@
         return undefined;
     };
 
+    // Ruffle types through a hidden <input> that it focuses when a Flash text field takes focus. A tap
+    // on the game then focuses the player container (the browser does it when the tap ends), which
+    // pulls focus off that input: the keyboard closes, or stays up typing into nothing. Keep the input
+    // focused while Flash's text field has focus, and ask the app to show the keyboard, since a field
+    // tapped again after the keyboard was dismissed has nothing new to focus.
+    // The patched ruffle.js calls these instead of its own methods.
+    let keyboardWanted = false;
+    function focusKeyboard(p) {
+        setTimeout(() => {
+            if (!keyboardWanted) return;
+            if (!p.isVirtualKeyboardFocused()) p.virtualKeyboard.focus({ preventScroll: true });
+            send({ t: "keyboard" });
+        }, 0);
+    }
+    window.__skuaKeyboard = {
+        openVirtualKeyboard(p) {
+            keyboardWanted = true;
+            if (!p.__skuaKeyboard) {
+                p.__skuaKeyboard = true;
+                p.container.addEventListener("mousedown", e => {
+                    if (keyboardWanted && p.isVirtualKeyboardFocused()) e.preventDefault();
+                });
+                p.container.addEventListener("focus", () => focusKeyboard(p));
+            }
+            focusKeyboard(p);
+        },
+        closeVirtualKeyboard(p) {
+            keyboardWanted = false;
+            if (p.isVirtualKeyboardFocused()) p.container.focus({ preventScroll: true });
+        }
+    };
+
     function handle(msg) {
         switch (msg.t) {
             case "call": {

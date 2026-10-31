@@ -6,9 +6,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Android.Content;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Skua.Core.Interfaces;
+using Skua.Core.Messaging;
+using Skua.Core.Models;
 using Skua.Core.Models.Servers;
 
 namespace MoVibeSkua.Android.ViewModels;
@@ -20,8 +24,10 @@ namespace MoVibeSkua.Android.ViewModels;
 public sealed partial class LoginViewModel : ObservableObject
 {
     private const string PrefsName = "movibeskua.login";
+    private const string ReloginTag = "[Relogin]";
     private readonly IScriptInterface _bot;
     private readonly ISharedPreferences? _prefs;
+    private CancellationTokenSource? _loginCts;
 
     public LoginViewModel(IScriptInterface bot)
     {
@@ -78,8 +84,12 @@ public sealed partial class LoginViewModel : ObservableObject
         }
 
         SaveCredentials();
+        using CancellationTokenSource cts = new();
+        _loginCts = cts;
         IsBusy = true;
         Status = $"Logging in to {Server}...";
+        // Relogin reports each attempt to the script log; mirror it here so a slow login doesn't look frozen.
+        WeakReferenceMessenger.Default.Register<LoginViewModel, AddLogMessage>(this, static (r, m) => r.OnLog(m));
         try
         {
             string user = Username.Trim();
@@ -89,9 +99,15 @@ public sealed partial class LoginViewModel : ObservableObject
             {
                 _bot.Servers.SetLoginInfo(user, pass);
                 _bot.Servers.IsIntentionalLogout = false;
-                return _bot.Servers.EnsureRelogin(server);
+                return _bot.Servers.EnsureRelogin(server, cts.Token);
             });
-            Status = ok ? "Logged in." : "Login did not complete. Check your details or try another server.";
+            Status = ok ? "Logged in."
+                : cts.IsCancellationRequested ? "Login cancelled."
+                : "Login did not complete. Check your details or try another server.";
+        }
+        catch (OperationCanceledException)
+        {
+            Status = "Login cancelled.";
         }
         catch (Exception ex)
         {
@@ -99,8 +115,31 @@ public sealed partial class LoginViewModel : ObservableObject
         }
         finally
         {
+            WeakReferenceMessenger.Default.Unregister<AddLogMessage>(this);
+            _loginCts = null;
             IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    private void CancelLogin()
+    {
+        _loginCts?.Cancel();
+        Status = "Cancelling...";
+    }
+
+    private void OnLog(AddLogMessage message)
+    {
+        int tag = message.Text.IndexOf(ReloginTag, StringComparison.Ordinal);
+        if (message.LogType != LogType.Script || tag < 0)
+            return;
+        string text = message.Text[(tag + ReloginTag.Length)..].Trim();
+        System.Diagnostics.Trace.WriteLine($"[Login] {text}");
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (IsBusy)
+                Status = text;
+        });
     }
 
     [RelayCommand]

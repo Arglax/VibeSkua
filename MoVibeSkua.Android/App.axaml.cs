@@ -128,6 +128,8 @@ public partial class App : Application
         RuffleFlashUtil flash = Ioc.Default.GetRequiredService<RuffleFlashUtil>();
         flash.PageRequested -= GameView.Navigate;
         flash.PageRequested += GameView.Navigate;
+        flash.Host.Control.KeyboardRequested -= GameView.ShowKeyboard;
+        flash.Host.Control.KeyboardRequested += GameView.ShowKeyboard;
 
         Ioc.Default.GetRequiredService<SkuaStartupHandler>().Execute();
         Trace.WriteLine("[Startup] initializing flash");
