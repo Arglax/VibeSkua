@@ -42,8 +42,29 @@ public class RuffleFlashUtil : IFlashUtil
             PageRequested?.Invoke(Host.PageUrl);
     }
 
+    /// <summary>
+    /// AQW settings that keep the game away from BitmapData.draw, which Ruffle's WebGL renderer cannot run.
+    /// The failure aborts the whole AS3 script instead of throwing something the game can catch, and the
+    /// cached map background (bSmoothBG off) is drawn right before the player is set up on every map, so
+    /// with it the avatar, HUD, skills and other players never load. Players cached in crowds and the
+    /// game's own touch mode draw bitmaps too.
+    /// </summary>
+    private static readonly (string Path, object Value)[] _drawFreeSettings =
+    {
+        ("litePreference.data.bSmoothBG", true),
+        ("litePreference.data.bCachePlayers", false),
+        ("litePreference.data.sCrowd", "off"),
+        ("litePreference.data.sTouchMode", "off")
+    };
+
     private void OnExternalCall(string name, string argsJson)
     {
+        if (name == "loaded")
+        {
+            foreach ((string path, object value) in _drawFreeSettings)
+                Call("setGameObject", typeof(string), path, value);
+        }
+
         try
         {
             FlashCall?.Invoke(name, FlashValues.ExternalArgs(argsJson));
