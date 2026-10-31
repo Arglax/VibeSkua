@@ -11,8 +11,8 @@
     <AssemblyName>MoVibeSkua</AssemblyName>
     <ApplicationId>com.arglax.movibeskua</ApplicationId>
     <ApplicationTitle>MoVibeSkua</ApplicationTitle>
-    <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>2</ApplicationVersion>
+    <ApplicationDisplayVersion>0.1.1</ApplicationDisplayVersion>
     <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
