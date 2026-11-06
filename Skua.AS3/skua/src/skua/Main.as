@@ -42,7 +42,7 @@ public class Main extends MovieClip {
     private var urlLoader:URLLoader;
     private var vars:Object;
     private var loader:Loader;
-    private var sTitle:String = '<font color="#FDAF2D">AURAS!!!</font>';
+    private var sTitle:String = '<font color="#FDAF2D">AQWChill-Mobile</font>';
     private var stg:Stage;
     private var gameDomain:ApplicationDomain;
     private var customBGLoader:Loader;

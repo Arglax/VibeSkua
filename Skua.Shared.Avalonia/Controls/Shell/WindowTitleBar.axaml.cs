@@ -98,6 +98,14 @@ public partial class WindowTitleBar : UserControl
         };
     }
 
+    // A view shown as a page (PluginWindow on a host without windows) has no window to title or move;
+    // the host's page header takes this bar's place.
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        IsVisible = e.Root is Window;
+    }
+
     private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
         if (e.Property == Window.WindowStateProperty && e.NewValue is WindowState state)

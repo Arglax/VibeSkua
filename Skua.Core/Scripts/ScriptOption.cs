@@ -204,6 +204,20 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
         }
     }
 
+    // Fields rather than properties: the option list is built from every public property.
+    /// <summary>The name Streamer Mode shows in place of the player's own.</summary>
+    public static string StreamerName = "VibeSkuaUser";
+
+    /// <summary>The guild tag text Streamer Mode shows in place of the player's own.</summary>
+    public static string StreamerGuild = "Hidden";
+
+    /// <summary>
+    /// The host draws the player's own name tag, guild tag and portrait name itself (MoVibeSkua does it
+    /// in the game page, keeping the AFK prefix and guild brackets), so the loop below leaves them alone
+    /// instead of fighting it.
+    /// </summary>
+    public static bool NameTagsDrawnByHost = false;
+
     private string _originalName = string.Empty;
     private string _originalGuild = string.Empty;
     private bool _originalHidePlayers = false;
@@ -213,15 +227,15 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
     {
         if (enabled)
         {
-            if (CustomName != "Hidden" && CustomName != "VibeSkuaUser")
+            if (CustomName != "Hidden" && CustomName != StreamerName)
                 _originalName = CustomName;
-            if (CustomGuild != "Hidden")
+            if (CustomGuild != StreamerGuild)
                 _originalGuild = CustomGuild;
 
             _originalHidePlayers = HidePlayers;
             HidePlayers = true;
-            CustomName = "VibeSkuaUser";
-            CustomGuild = "Hidden";
+            CustomName = StreamerName;
+            CustomGuild = StreamerGuild;
 
             _streamerModeCts?.Cancel();
             _streamerModeCts?.Dispose();
@@ -238,9 +252,12 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
                         if (flash == null) return;
 
                         // Override visuals only, NEVER overwrite objData as it breaks shops/inventory
-                        flash.Call("setGameObject", "world.myAvatar.pMC.pname.ti.text", "VibeSkuaUser");
-                        flash.Call("setGameObject", "world.myAvatar.pMC.pname.tg.text", "Hidden");
-                        flash.Call("setGameObject", "world.rootClass.ui.mcPortrait.strName.text", "VibeSkuaUser");
+                        if (!NameTagsDrawnByHost)
+                        {
+                            flash.Call("setGameObject", "world.myAvatar.pMC.pname.ti.text", StreamerName);
+                            flash.Call("setGameObject", "world.myAvatar.pMC.pname.tg.text", StreamerGuild);
+                            flash.Call("setGameObject", "world.rootClass.ui.mcPortrait.strName.text", StreamerName);
+                        }
                         flash.Call("setGameObject", "world.rootClass.ui.mcPortraitTarget.strName.text", "Hidden");
 
                         // Hide Gold/Coins visually instead of wiping the client's cached integer amounts

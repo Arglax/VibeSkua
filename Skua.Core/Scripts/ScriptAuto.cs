@@ -60,18 +60,83 @@ public partial class ScriptAuto : ObservableObject, IScriptAuto
     [ObservableProperty]
     private bool _isRunning;
 
+    [ObservableProperty]
+    private string? _targetInfo;
+
+    public bool IsHunting { get; private set; }
+
+    private int _lastTargetMapID = -1;
+    private int _failedAttacks;
+
+    /// <summary>
+    /// Attacks a monster in the cell, noting it as the target. Attacks that keep failing while the cell has
+    /// living monsters mean the player stands somewhere the game can't fight from (a cell entered without a
+    /// valid pad leaves the character "flat" in the middle): re-enter the cell at a valid pad.
+    /// </summary>
+    private bool AttackNoted(int mapID)
+    {
+        bool ok = Combat.Attack(mapID);
+        AfterAttack(ok,
+            () => Monsters.CurrentAvailableMonsters.FirstOrDefault(m => m.MapID == mapID),
+            () => Monsters.CurrentAvailableMonsters.Any(m => m.MapID == mapID && m.Alive));
+        return ok;
+    }
+
+    private bool AttackNoted(string name)
+    {
+        bool ok = Combat.Attack(name);
+        AfterAttack(ok,
+            () => Player.Target,
+            () => Monsters.CurrentAvailableMonsters.Any(m => m.Alive && (name == "*" || m.Name.Trim().Equals(name.Trim(), StringComparison.OrdinalIgnoreCase))));
+        return ok;
+    }
+
+    /// <param name="ok">Whether the attack started.</param>
+    /// <param name="target">Reads the engaged monster (only called after a successful attack).</param>
+    /// <param name="aliveHere">Whether the monster that couldn't be attacked is alive in this cell; only
+    /// those failures count, so waiting for a respawn or skipping other cells never triggers a re-entry.</param>
+    private void AfterAttack(bool ok, Func<Monster?> target, Func<bool> aliveHere)
+    {
+        if (ok)
+        {
+            _failedAttacks = 0;
+            Monster? monster = target();
+            if (monster is null || monster.MapID == _lastTargetMapID)
+                return;
+            _lastTargetMapID = monster.MapID;
+            TargetInfo = $"{monster.Name} · MapID {monster.MapID} · MonID {monster.ID} · {monster.Cell}";
+            _logger.ScriptLog($"[Auto] Target: {TargetInfo}");
+            MonsterIdLog.Record(Map.Name, monster);
+            return;
+        }
+
+        if (!aliveHere() || ++_failedAttacks < 15)
+            return;
+        _failedAttacks = 0;
+        if (Combat.StopAttacking)
+        {
+            _logger.ScriptLog("[Auto] Attacks are paused (counter-attack/ultra helper); waiting.");
+            return;
+        }
+        _logger.ScriptLog($"[Auto] Can't attack from here; re-entering {Player.Cell} at a valid pad.");
+        Map.Jump(Player.Cell, Player.Pad);
+        Thread.Sleep(500);
+    }
+
     private Task? _autoTask;
     private CancellationTokenSource? _ctsAuto;
 
     public void StartAutoAttack(string? className = null, ClassUseMode classUseMode = ClassUseMode.Base, int[]? manualMapIDs = null)
     {
         _ctsAuto = new CancellationTokenSource();
+        IsHunting = false;
         _DoActionAuto(hunt: false, className, classUseMode, manualMapIDs);
     }
 
     public void StartAutoHunt(string? className = null, ClassUseMode classUseMode = ClassUseMode.Base, int[]? manualMapIDs = null)
     {
         _ctsAuto = new CancellationTokenSource();
+        IsHunting = true;
         _DoActionAuto(hunt: true, className, classUseMode, manualMapIDs);
     }
 
@@ -135,6 +200,14 @@ public partial class ScriptAuto : ObservableObject, IScriptAuto
                 Skills.Stop();
                 Boosts.Stop();
                 Options.InfiniteRange = false;
+                // Leave the fight: re-entering the current cell drops the monsters' aggro, so they stop
+                // hitting a player who stopped fighting. Other players see nothing.
+                try
+                {
+                    if (Player.Playing && Player.InCombat)
+                        Combat.Exit();
+                }
+                catch { /* ignored */ }
                 _ctsAuto?.Dispose();
                 _ctsAuto = null;
                 IsRunning = false;
@@ -150,6 +223,9 @@ public partial class ScriptAuto : ObservableObject, IScriptAuto
     private async Task _Attack(CancellationToken token, int[]? manualMapIDs = null)
     {
         Trace.WriteLine("Auto attack started.");
+        _lastTargetMapID = -1;
+        _failedAttacks = 0;
+        TargetInfo = null;
         Player.SetSpawnPoint();
 
         _priorityMapIDs = manualMapIDs;
@@ -198,7 +274,7 @@ public partial class ScriptAuto : ObservableObject, IScriptAuto
 
                 if (currentTarget.HasValue)
                 {
-                    Combat.Attack(currentTarget.Value);
+                    AttackNoted(currentTarget.Value);
                     Thread.Sleep(200);
                     // Immediately re-evaluate priorities (no extra delay)
                     continue;
@@ -211,7 +287,7 @@ public partial class ScriptAuto : ObservableObject, IScriptAuto
                 // Attack specific monster by MapID only
                 if (Monsters.Exists(_targetMapID))
                 {
-                    if (Combat.Attack(_targetMapID))
+                    if (AttackNoted(_targetMapID))
                         Kill.Monster(_targetMapID, token);
                 }
                 Thread.Sleep(Options.ActionDelay);
@@ -226,18 +302,24 @@ public partial class ScriptAuto : ObservableObject, IScriptAuto
             {
                 if (fastWildcard)
                 {
-                    // Fast wildcard: only alive monsters, break after first successful engage
-                    foreach (Monster monster in Monsters.MapMonsters)
+                    // Fast wildcard: only alive monsters in this cell, break after first successful engage
+                    bool engaged = false;
+                    foreach (Monster monster in Monsters.CurrentMonsters)
                     {
                         if (token.IsCancellationRequested)
                             return;
                         if (!monster.Alive)
                             continue;
-                        if (!Combat.Attack(monster.MapID))
+                        if (!AttackNoted(monster.MapID))
                             continue;
                         Kill.Monster(monster.MapID, token);
+                        engaged = true;
                         break;
                     }
+                    // Nothing to fight (empty cell, all dead): without a pause this asked the game for
+                    // its monster list nonstop, which on Android also slows the game's own frames.
+                    if (!engaged)
+                        Thread.Sleep(100);
                     continue;
                 }
 
@@ -248,7 +330,7 @@ public partial class ScriptAuto : ObservableObject, IScriptAuto
                     if (token.IsCancellationRequested)
                         return;
 
-                    if (!Combat.Attack(monster.MapID))
+                    if (!AttackNoted(monster.MapID))
                         continue;
 
                     Kill.Monster(monster.MapID, token);
@@ -263,6 +345,9 @@ public partial class ScriptAuto : ObservableObject, IScriptAuto
     private async Task _Hunt(CancellationToken token, int[]? manualMapIDs = null)
     {
         Trace.WriteLine("Auto hunt started.");
+        _lastTargetMapID = -1;
+        _failedAttacks = 0;
+        TargetInfo = null;
 
         _priorityMapIDs = manualMapIDs;
 
@@ -279,7 +364,9 @@ public partial class ScriptAuto : ObservableObject, IScriptAuto
         }
         else if (!Combat.StopAttacking)
         {
-            _target = string.Join('|', Monsters.CurrentMonsters.Select(m => m.Name));
+            // Everything in the cell; with an empty cell, everything on the map.
+            List<Monster> here = Monsters.CurrentMonsters;
+            _target = string.Join('|', (here.Count > 0 ? here : Monsters.MapMonsters).Select(m => m.Name).Distinct());
             _targetMapID = -1;
         }
 
@@ -325,7 +412,7 @@ public partial class ScriptAuto : ObservableObject, IScriptAuto
                         Monster? targetMonster = Monsters.MapMonsters.FirstOrDefault(m => m.MapID == currentTarget.Value);
                         while (targetMonster?.HP > 0 && !token.IsCancellationRequested)
                         {
-                            Combat.Attack(currentTarget.Value);
+                            AttackNoted(currentTarget.Value);
                             Thread.Sleep(Options.ActionDelay);
                             targetMonster = Monsters.MapMonsters.FirstOrDefault(m => m.MapID == currentTarget.Value);
                         }
@@ -369,7 +456,7 @@ public partial class ScriptAuto : ObservableObject, IScriptAuto
                         Monster? targetMonster = Monsters.MapMonsters.FirstOrDefault(m => m.MapID == _targetMapID);
                         while (targetMonster?.HP > 0 && !token.IsCancellationRequested)
                         {
-                            Combat.Attack(_targetMapID);
+                            AttackNoted(_targetMapID);
                             Thread.Sleep(Options.ActionDelay);
                             targetMonster = Monsters.MapMonsters.FirstOrDefault(m => m.MapID == _targetMapID);
                         }
@@ -379,7 +466,7 @@ public partial class ScriptAuto : ObservableObject, IScriptAuto
                 }
             }
         }
-        else if (!string.IsNullOrEmpty(_target) && _target != "*")
+        else if (!string.IsNullOrEmpty(_target) && _target != "*" && !_target.Contains('|'))
         {
             while (!token.IsCancellationRequested)
             {
@@ -409,7 +496,7 @@ public partial class ScriptAuto : ObservableObject, IScriptAuto
                         Monster? targetMonster = Monsters.CurrentMonsters.FirstOrDefault(m => m.Name == _target);
                         while (targetMonster?.HP > 0 && !token.IsCancellationRequested)
                         {
-                            Combat.Attack(_target);
+                            AttackNoted(_target);
                             Thread.Sleep(Options.ActionDelay);
                             targetMonster = Monsters.CurrentMonsters.FirstOrDefault(m => m.Name == _target);
                         }
@@ -419,41 +506,50 @@ public partial class ScriptAuto : ObservableObject, IScriptAuto
                 }
             }
         }
+        else
         {
-            string[] names = _target.Split('|');
-            List<string> cells = names.SelectMany(n => Monsters.GetLivingMonsterDataLeafCells(n)).Distinct().ToList();
+            // Several names (or "*"): the targets are recomputed every pass, so cells that respawn are
+            // found again. The current cell comes first, so a fight in progress isn't left for a jump.
+            string[] names = _target == "*" || string.IsNullOrEmpty(_target)
+                ? new[] { "*" }
+                : _target.Split('|', StringSplitOptions.RemoveEmptyEntries);
 
             while (!token.IsCancellationRequested)
             {
-                for (int i = cells.Count - 1; i >= 0; i--)
+                List<string> cells = names.SelectMany(n => Monsters.GetLivingMonsterDataLeafCells(n)).Distinct().ToList();
+                if (cells.Count == 0)
                 {
-                    if (Player.Cell != cells[i] && !token.IsCancellationRequested)
+                    Thread.Sleep(300);
+                    continue;
+                }
+                if (cells.Remove(Player.Cell))
+                    cells.Insert(0, Player.Cell);
+
+                foreach (string cell in cells)
+                {
+                    if (token.IsCancellationRequested)
+                        break;
+
+                    if (Player.Cell != cell)
                     {
                         if (Environment.TickCount - _lastHuntTick < Options.HuntDelay)
                             Thread.Sleep(Options.HuntDelay - Environment.TickCount + _lastHuntTick);
-                        Map.Jump(cells[i], "Left");
+                        Map.Jump(cell, "Left");
                         _lastHuntTick = Environment.TickCount;
                     }
 
+                    bool fought = false;
                     foreach (string mon in names)
                     {
-                        if (token.IsCancellationRequested)
-                            break;
-
-                        if (Monsters.Exists(mon) && !token.IsCancellationRequested)
+                        while (!token.IsCancellationRequested && Monsters.Exists(mon) && AttackNoted(mon))
                         {
-                            if (!Combat.Attack(mon))
-                            {
-                                cells.RemoveAt(i);
-                                continue;
-                            }
                             Thread.Sleep(Options.ActionDelay);
                             Kill.Monster(mon, token);
-                            break;
+                            fought = true;
                         }
-
-                        cells.RemoveAt(i);
                     }
+                    if (!fought)
+                        Thread.Sleep(200);
                 }
             }
         }

@@ -79,14 +79,14 @@ internal class Options
             new CommandOptionItemViewModel<IRelayCommand>("Test Discord Webhook", new AsyncRelayCommand(async () => {
                 await Ioc.Default.GetRequiredService<IDiscordWebhookService>().TestWebhookAsync();
             })) { ActionText = "Test" },
-            CreateSettingOptionItem<string>("Skua Nexus Webhook URL", "URL to send Skua Nexus notifications and live bot statistics", "NexusWebhookUrl"),
-            new CommandOptionItemViewModel<IRelayCommand>("Test Skua Nexus Webhook", new AsyncRelayCommand(async () => {
+            CreateSettingOptionItem<string>("MVS Nexus Webhook URL", "URL to send MVS Nexus notifications and live bot statistics", "NexusWebhookUrl"),
+            new CommandOptionItemViewModel<IRelayCommand>("Test MVS Nexus Webhook", new AsyncRelayCommand(async () => {
                 await Ioc.Default.GetRequiredService<IDiscordWebhookService>().TestNexusWebhookAsync();
             })) { ActionText = "Test" },
             CreateSettingOptionItem<bool>("Notify on Script Started", "Send alerts and initial statistics when a script starts running", "WebhookNotifyStarted"),
             CreateSettingOptionItem<bool>("Notify on Script Stopped", "Send session summary and statistics when a script finishes or stops", "WebhookNotifyStopped"),
             CreateSettingOptionItem<bool>("Notify on Script Crashed", "Send alerts when a script crashes with an error", "WebhookNotifyCrashed"),
-            CreateSettingOptionItem<bool>("Notify on Relog", "Send alerts when Skua disconnects and relogs", "WebhookNotifyRelogged"),
+            CreateSettingOptionItem<bool>("Notify on Relog", "Send alerts when MVS disconnects and relogs", "WebhookNotifyRelogged"),
             CreateSettingOptionItem<bool>("Notify on Item Drop", "Send webhook notifications (and screenshot) when a specific item drops", "WebhookNotifyItemDrops"),
             CreateSettingOptionItem<string>("Drop List", "Comma-separated list of items to notify on drop", "WebhookNotifyItemDropsList"),
             CreateSettingOptionItem<bool>("Enable Health Pings", "Whether to send periodic health and bot statistics pings to Discord", "WebhookNotifyHealthPing"),
@@ -119,6 +119,11 @@ internal class Options
                     Directory.Delete(macromedia, true);
             })) { ActionText = "Clear" }
         };
+
+        // Nothing in the Android app reads these: it has no window title, Ruffle has no Flash Player
+        // cache or animation setting, and junk item updates only run in the desktop Manager.
+        if (OperatingSystem.IsAndroid())
+            appOptions.RemoveAll(o => o.Tag is "ShowUsernameInTitle" or "ClientAnim" or "ClearFlashCache" or "CheckJunkItemsUpdates" or "AutoUpdateJunkItems");
 
         return new ApplicationOptionsViewModel(appOptions);
 

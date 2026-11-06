@@ -77,7 +77,12 @@ public class ApplicationThemesViewModel : BotControlViewModelBase
     public IRelayCommand SetCurrentThemeCommand { get; }
     public IRelayCommand RemoveThemeCommand { get; }
 
-    public List<string> Tabs { get; } = new() { "Palette & Accents", "Theme Library", "Custom Backgrounds" };
+    // The Android app has no window title bar or background artwork to set.
+    public List<string> Tabs { get; } = OperatingSystem.IsAndroid()
+        ? new() { "Palette & Accents", "Theme Library" }
+        : new() { "Palette & Accents", "Theme Library", "Custom Backgrounds" };
+
+    public bool HasTitleBar => !OperatingSystem.IsAndroid();
 
     public string SelectedTab
     {

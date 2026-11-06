@@ -21,6 +21,9 @@ public partial class LogTabViewModel : ObservableRecipient
         _logService = logService;
         _dispatcherService = dispatcherService;
         _logType = logType;
+        // The tab is made the first time a log page opens: show what was logged before that (a script
+        // started earlier logged into the service, and its lines were missing here).
+        Logs.AddRange(logService.GetLogs(logType));
     }
 
     private readonly ILogService _logService;

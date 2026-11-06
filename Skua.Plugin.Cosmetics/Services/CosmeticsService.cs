@@ -281,11 +281,11 @@ public class CosmeticsService : IDisposable
             using var response = await _httpClient.GetAsync(OpenSheetApiUrl, HttpCompletionOption.ResponseHeadersRead);
             response.EnsureSuccessStatusCode();
 
-            using var stream = await response.Content.ReadAsStreamAsync();
-            using var reader = new StreamReader(stream);
-            using var jsonReader = new JsonTextReader(reader);
+            // Download first and parse off the UI thread: reading the response stream as it parses
+            // runs on the UI thread here, which Android refuses (NetworkOnMainThreadException).
+            string json = await response.Content.ReadAsStringAsync();
             var serializer = JsonSerializer.CreateDefault();
-            var remoteList = serializer.Deserialize<List<CosmeticItem>>(jsonReader);
+            var remoteList = await Task.Run(() => JsonConvert.DeserializeObject<List<CosmeticItem>>(json));
 
             if (remoteList == null || remoteList.Count == 0)
             {

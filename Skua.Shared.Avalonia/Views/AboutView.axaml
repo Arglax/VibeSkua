@@ -26,7 +26,7 @@
                     <TextBlock FontSize="16"
                                FontWeight="Bold"
                                Foreground="{DynamicResource SkuaTextBrush}"
-                               Text="About VibeSkua" />
+                               Text="About MVS" />
                 </StackPanel>
                 <materialIcons:MaterialIcon Grid.Column="1"
                                             Kind="Information"

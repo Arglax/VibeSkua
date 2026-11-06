@@ -182,7 +182,8 @@ public class MobileDialogService : IDialogService
 
     private static Control BuildButtons(string title, string message, string[] buttons, Action<string> close)
     {
-        SelectableTextBlock label = new() { Text = message, TextWrapping = TextWrapping.Wrap, FontSize = 14, LineHeight = 20 };
+        // Plain text so a drag scrolls a long message instead of selecting it; Copy takes the whole text.
+        TextBlock label = new() { Text = message, TextWrapping = TextWrapping.Wrap, FontSize = 14, LineHeight = 20 };
         ScrollViewer scroll = new() { Content = label, MaxHeight = 420 };
 
         Button copy = Plain("Copy", () => Ioc.Default.GetService<IClipboardService>()?.SetText(message));
@@ -204,7 +205,9 @@ public class MobileDialogService : IDialogService
     private static Border BuildCard(string title, Control content, Control footer, bool stretch = false)
     {
         TextBlock header = new() { Text = title, FontSize = 16, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
-        Grid layout = new() { RowDefinitions = new RowDefinitions(stretch ? "Auto,*,Auto" : "Auto,Auto,Auto"), RowSpacing = 12, Margin = new Thickness(16) };
+        // The content row takes what the screen has left, so a long message scrolls inside the card
+        // rather than pushing the buttons off a short landscape screen.
+        Grid layout = new() { RowDefinitions = new RowDefinitions("Auto,*,Auto"), RowSpacing = 12, Margin = new Thickness(16) };
         Grid.SetRow(header, 0);
         Grid.SetRow(content, 1);
         Grid.SetRow(footer, 2);

@@ -22,6 +22,16 @@ public interface IScriptAuto : INotifyPropertyChanged
     bool IsRunning { get; }
 
     /// <summary>
+    /// True when the running (or last) Auto is Auto Hunt, false for Auto Attack.
+    /// </summary>
+    bool IsHunting { get; }
+
+    /// <summary>
+    /// The monster Auto Attack/Hunt last engaged, as "Name · MapID n · MonID n · cell", or null.
+    /// </summary>
+    string? TargetInfo { get; }
+
+    /// <summary>
     /// Starts the Auto Attack function.
     /// </summary>
     /// <param name="className">The name of the class to use.</param>

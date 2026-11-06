@@ -1,13 +1,39 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+    <Styles.Resources>
+        <LinearGradientBrush x:Key="AqwGoldBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#FFF4C0" />
+            <GradientStop Offset="0.45" Color="#F7C948" />
+            <GradientStop Offset="1" Color="#C8861A" />
+        </LinearGradientBrush>
+        <SolidColorBrush x:Key="AqwTrimBrush" Color="#8C6A2B" />
+        <SolidColorBrush x:Key="AqwLabelBrush" Color="#EAD9A8" />
+        <LinearGradientBrush x:Key="AqwRailBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#1E150D" />
+            <GradientStop Offset="1" Color="#0E0905" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="AqwActiveBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#7A1717" />
+            <GradientStop Offset="1" Color="#3F0A0A" />
+        </LinearGradientBrush>
+        <SolidColorBrush x:Key="AqwHoverBrush" Color="#2EF7C948" />
+        <LinearGradientBrush x:Key="AqwStartBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#4E9E36" />
+            <GradientStop Offset="1" Color="#1F5C17" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="AqwStopBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#C0352A" />
+            <GradientStop Offset="1" Color="#6E0F0F" />
+        </LinearGradientBrush>
+    </Styles.Resources>
+
     <!-- Touch sizing on top of the shared desktop theme. -->
     <Style Selector="Border.mobile-topbar">
         <Setter Property="Background" Value="{DynamicResource SkuaSurfaceBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource SkuaBorderBrush}" />
         <Setter Property="BorderThickness" Value="0,0,0,1" />
-        <Setter Property="Padding" Value="2,2,6,2" />
-        <Setter Property="MinHeight" Value="48" />
+        <!-- Padding and MinHeight: MobileShellView.ApplyInsets (they grow into a camera cutout). -->
     </Style>
 
     <Style Selector="Button.mobile-icon">
@@ -27,47 +53,91 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- Side rails (landscape) / bottom bar (portrait). -->
+    <!-- Side rails (landscape) / bottom bar (portrait), styled after AQW's own HUD: a dark panel with a
+         gold trim, gold icons, and a maroon plate behind the open page. They stay dark in the light
+         theme too, so the gold keeps its contrast. -->
     <Style Selector="Border.mobile-railframe">
-        <Setter Property="Background" Value="{DynamicResource SkuaSurfaceBrush}" />
-        <Setter Property="Width" Value="68" />
-        <Setter Property="Padding" Value="2,4" />
+        <Setter Property="Background" Value="{StaticResource AqwRailBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource AqwTrimBrush}" />
+        <!-- Size and padding: MobileShellView.ApplyInsets (they grow into a camera cutout). -->
+    </Style>
+    <Style Selector="Border.mobile-railframe.left">
+        <Setter Property="BorderThickness" Value="0,0,1,0" />
+    </Style>
+    <Style Selector="Border.mobile-railframe.right">
+        <Setter Property="BorderThickness" Value="1,0,0,0" />
     </Style>
     <Style Selector="Border.mobile-railframe.bottom">
-        <Setter Property="Width" Value="NaN" />
-        <Setter Property="Height" Value="60" />
-        <Setter Property="Padding" Value="4,2" />
-        <Setter Property="BorderBrush" Value="{DynamicResource SkuaBorderBrush}" />
         <Setter Property="BorderThickness" Value="0,1,0,0" />
     </Style>
 
     <Style Selector="Button.mobile-rail">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{StaticResource AqwGoldBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="10" />
         <Setter Property="Width" Value="62" />
-        <Setter Property="MinHeight" Value="54" />
+        <Setter Property="MinHeight" Value="52" />
         <Setter Property="Padding" Value="2,6" />
-        <Setter Property="Margin" Value="1,2" />
+        <Setter Property="Margin" Value="1,1" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.mobile-rail.active">
-        <Setter Property="Background" Value="{DynamicResource SkuaBorderBrush}" />
+        <Setter Property="Background" Value="{StaticResource AqwActiveBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource AqwTrimBrush}" />
     </Style>
+    <!-- The button theme recolors its content while touched; keep the gold and the plates. -->
+    <Style Selector="Button.mobile-rail:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AqwHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource AqwTrimBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource AqwGoldBrush}" />
+    </Style>
+    <Style Selector="Button.mobile-rail:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AqwHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource AqwTrimBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource AqwGoldBrush}" />
+    </Style>
+    <Style Selector="Button.mobile-rail.active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AqwActiveBrush}" />
+    </Style>
+
     <Style Selector="Button.mobile-rail-script">
-        <Setter Property="Background" Value="#2E7D32" />
-        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Background" Value="{StaticResource AqwStartBrush}" />
+        <Setter Property="Foreground" Value="#FFF6DC" />
+        <Setter Property="BorderBrush" Value="{StaticResource AqwGoldBrush}" />
         <Setter Property="MinHeight" Value="64" />
     </Style>
     <Style Selector="Button.mobile-rail-script.running">
-        <Setter Property="Background" Value="#C62828" />
+        <Setter Property="Background" Value="{StaticResource AqwStopBrush}" />
     </Style>
+    <Style Selector="Button.mobile-rail-script:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AqwStartBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource AqwGoldBrush}" />
+        <Setter Property="Foreground" Value="#FFF6DC" />
+    </Style>
+    <Style Selector="Button.mobile-rail-script:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AqwStartBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource AqwGoldBrush}" />
+        <Setter Property="Foreground" Value="#FFF6DC" />
+    </Style>
+    <Style Selector="Button.mobile-rail-script.running:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AqwStopBrush}" />
+    </Style>
+    <Style Selector="Button.mobile-rail-script.running:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AqwStopBrush}" />
+    </Style>
+
     <Style Selector="TextBlock.mobile-rail-label">
         <Setter Property="FontSize" Value="10" />
+        <Setter Property="Foreground" Value="{StaticResource AqwLabelBrush}" />
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         <Setter Property="MaxWidth" Value="60" />
+    </Style>
+    <Style Selector="Button.mobile-rail-script TextBlock.mobile-rail-label">
+        <Setter Property="Foreground" Value="#FFF6DC" />
     </Style>
 
     <Style Selector="Border.mobile-pageheader">
@@ -98,6 +168,21 @@
     <Style Selector="Border.mobile-page">
         <Setter Property="Background" Value="{DynamicResource SkuaPageBrush}" />
         <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+
+    <Style Selector="Border.mobile-pagegrip">
+        <Setter Property="Width" Value="20" />
+        <Setter Property="Background" Value="{StaticResource AqwRailBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource AqwTrimBrush}" />
+        <Setter Property="BorderThickness" Value="1,0,0,0" />
+    </Style>
+    <Style Selector="Border.mobile-pagegrip-pill">
+        <Setter Property="Width" Value="5" />
+        <Setter Property="Height" Value="48" />
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="Background" Value="{StaticResource AqwGoldBrush}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
     <Style Selector="Border.mobile-dialog">

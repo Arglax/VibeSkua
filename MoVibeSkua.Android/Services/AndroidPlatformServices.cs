@@ -29,7 +29,7 @@ public class AndroidClipboardService : IClipboardService
         {
             ClipboardManager? manager = Manager;
             if (manager is not null)
-                manager.PrimaryClip = ClipData.NewPlainText("Skua", text);
+                manager.PrimaryClip = ClipData.NewPlainText("MVS", text);
         });
     }
 

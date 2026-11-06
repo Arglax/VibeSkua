@@ -4,6 +4,7 @@ using System.Reflection;
 using Avalonia.Threading;
 using Skua.Core.Interfaces;
 using Skua.Core.Options;
+using Skua.Shared.Avalonia.Services;
 
 namespace ButlerV5;
 
@@ -144,8 +145,9 @@ public class ButlerV5Plugin : ISkuaPlugin
     private object? _hostMenuItem;
     private Broadcaster? _broadcaster;
     private Follower? _follower;
-    private RosterWindow? _window;
-    private SettingsWindow? _settingsWindow;
+    private PluginWindow? _window;
+    private RosterWindow? _roster;
+    private PluginWindow? _settingsWindow;
 
     private CancellationTokenSource? _orderWatcherCts;
     private Task? _orderWatcher;
@@ -537,9 +539,13 @@ public class ButlerV5Plugin : ISkuaPlugin
             {
                 if (_settingsWindow == null)
                 {
-                    _settingsWindow = new SettingsWindow(this);
-                    _settingsWindow.Closed += (_, _) => _settingsWindow = null;
-                    _settingsWindow.Show();
+                    SettingsWindow view = new(this);
+                    _settingsWindow = PluginWindow.Show(view, "ButlerV5 Avalonia - Settings", 900, 630, 720, 440);
+                    _settingsWindow.Closed += (_, _) =>
+                    {
+                        view.OnClosed();
+                        _settingsWindow = null;
+                    };
                 }
                 else
                 {
@@ -562,13 +568,18 @@ public class ButlerV5Plugin : ISkuaPlugin
             {
                 if (_window == null)
                 {
-                    _window = new RosterWindow(this);
-                    _window.Closed += (_, _) => _window = null;
-                    _window.Show();
+                    RosterWindow view = _roster = new(this);
+                    _window = PluginWindow.Show(view, "ButlerV5 Avalonia", 560, 490, 450, 320);
+                    _window.Closed += (_, _) =>
+                    {
+                        view.OnClosed();
+                        _window = null;
+                        _roster = null;
+                    };
                 }
                 else
                 {
-                    _window.RefreshRoster();
+                    _roster?.RefreshRoster();
                     _window.Activate();
                 }
             });

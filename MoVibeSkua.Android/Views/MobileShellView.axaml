@@ -7,7 +7,10 @@
              xmlns:appUc="clr-namespace:Skua.App.Avalonia.UserControls"
              x:Class="MoVibeSkua.Android.Views.MobileShellView"
              x:DataType="vm:ShellViewModel"
+             TopLevel.AutoSafeAreaPadding="False"
              Background="{DynamicResource SkuaPageBrush}">
+    <!-- AutoSafeAreaPadding off: ApplyInsets in code-behind handles the cutout and system bars, and
+         Avalonia's own padding on top of it left the cutout's width empty twice. -->
 
     <UserControl.DataTemplates>
         <DataTemplate x:DataType="vm:RailAction">
@@ -18,11 +21,15 @@
                 </StackPanel>
             </Button>
         </DataTemplate>
-        <!-- Desktop shows Auto as a fixed 360px card; scale it down to fit a narrow panel. -->
+        <!-- Desktop shows Auto as a fixed 360px card; scale it down to fit a narrow panel's width only.
+             Inside the scroller its height is unlimited, so a long monster list scrolls instead of
+             shrinking the whole card. -->
         <DataTemplate x:DataType="appVm:AutoViewModel">
-            <Viewbox Stretch="Uniform" StretchDirection="DownOnly" VerticalAlignment="Top" Margin="8">
-                <appUc:AutoUserControl />
-            </Viewbox>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <Viewbox Stretch="Uniform" StretchDirection="DownOnly" VerticalAlignment="Top" Margin="8">
+                    <appUc:AutoUserControl />
+                </Viewbox>
+            </ScrollViewer>
         </DataTemplate>
     </UserControl.DataTemplates>
 
@@ -32,8 +39,8 @@
 
         <!-- Portrait top bar -->
         <Border x:Name="TopBar" Classes="mobile-topbar">
-            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
-                <Button Grid.Column="0" Classes="mobile-icon" Command="{Binding ToggleMenuCommand}">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto">
+                <Button Grid.Column="0" Classes="mobile-icon" Command="{Binding ToggleMenuCommand}" IsVisible="{Binding IsBotMode}">
                     <materialIcons:MaterialIcon Kind="Menu" />
                 </Button>
                 <Button Grid.Column="1" Classes="mobile-icon" Command="{Binding BackCommand}" IsVisible="{Binding HasPreviousPage}">
@@ -46,17 +53,22 @@
                 <Button Grid.Column="3" Classes="mobile-icon" Command="{Binding CloseAllPagesCommand}" IsVisible="{Binding HasPage}">
                     <materialIcons:MaterialIcon Kind="Close" />
                 </Button>
-                <Button Grid.Column="4" Classes="skua-button skua-primary mobile-script" Content="{Binding ToggleScriptText}" Command="{Binding ToggleScriptCommand}" />
+                <Button Grid.Column="4" Classes="skua-button skua-primary mobile-script" Content="{Binding ToggleScriptText}" Command="{Binding ToggleScriptCommand}" IsVisible="{Binding IsBotMode}" />
                 <Button Grid.Column="5" Classes="mobile-icon" Command="{Binding ToggleGameMaximizedCommand}">
                     <materialIcons:MaterialIcon Kind="Fullscreen" />
+                </Button>
+                <!-- The crest, as in landscape: 1 tap Support MVS, 2 taps game buttons / bot tools. -->
+                <Button Grid.Column="6" Classes="mobile-icon" Padding="2" Command="{Binding CrestTapCommand}">
+                    <Image Source="avares://MoVibeSkua/Images/mvs-crest.png" Width="30" Height="30" />
                 </Button>
             </Grid>
         </Border>
 
-        <!-- Landscape left rail: navigation and the script button within thumb reach. -->
-        <Border x:Name="LeftRailFrame" Classes="mobile-railframe">
+        <!-- Landscape left rail: the game's buttons by default; in bot mode navigation and the script
+             button within thumb reach. -->
+        <Border x:Name="LeftRailFrame" Classes="mobile-railframe left">
             <Grid RowDefinitions="Auto,*,Auto">
-                <Button Grid.Row="0" Classes="mobile-rail" Command="{Binding ToggleMenuCommand}">
+                <Button Grid.Row="0" Classes="mobile-rail" Command="{Binding ToggleMenuCommand}" IsVisible="{Binding IsBotMode}">
                     <StackPanel Spacing="1">
                         <materialIcons:MaterialIcon Kind="Menu" Width="22" Height="22" />
                         <TextBlock Text="Menu" Classes="mobile-rail-label" />
@@ -65,7 +77,7 @@
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden">
                     <ItemsControl ItemsSource="{Binding LeftRail}" />
                 </ScrollViewer>
-                <Button Grid.Row="2" Classes="mobile-rail mobile-rail-script" Classes.running="{Binding IsScriptRunning}" Command="{Binding ToggleScriptCommand}">
+                <Button Grid.Row="2" Classes="mobile-rail mobile-rail-script" Classes.running="{Binding IsScriptRunning}" Command="{Binding ToggleScriptCommand}" IsVisible="{Binding IsBotMode}">
                     <StackPanel Spacing="1">
                         <Panel>
                             <materialIcons:MaterialIcon Kind="Play" Width="26" Height="26" IsVisible="{Binding !IsScriptRunning}" />
@@ -78,30 +90,38 @@
         </Border>
 
         <!-- Right rail in landscape, bottom bar in portrait: quick tools. -->
-        <Border x:Name="RightRailFrame" Classes="mobile-railframe">
-            <Grid x:Name="RightRailGrid" RowDefinitions="*,Auto">
+        <Border x:Name="RightRailFrame" Classes="mobile-railframe right">
+            <Grid x:Name="RightRailGrid" RowDefinitions="*,Auto,Auto">
                 <ScrollViewer x:Name="RightRailScroll" Grid.Row="0" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Hidden">
-                    <ItemsControl x:Name="RightRailItems" ItemsSource="{Binding RightRail}" />
+                    <ItemsControl x:Name="RightRailItems" />
                 </ScrollViewer>
-                <Button x:Name="MaximizeButton" Grid.Row="1" Classes="mobile-rail" Command="{Binding ToggleGameMaximizedCommand}">
-                    <StackPanel Spacing="1">
-                        <materialIcons:MaterialIcon Kind="Fullscreen" Width="22" Height="22" />
-                        <TextBlock Text="Game" Classes="mobile-rail-label" />
-                    </StackPanel>
+                <!-- The MVS guide, just above the crest (game buttons only; landscape). -->
+                <Panel x:Name="GuideSlot" Grid.Row="1">
+                    <Button Classes="mobile-rail" Command="{Binding OpenGuideCommand}" IsVisible="{Binding !IsBotMode}">
+                        <StackPanel Spacing="1">
+                            <materialIcons:MaterialIcon Kind="HelpCircle" Width="22" Height="22" />
+                            <TextBlock Text="Guide" Classes="mobile-rail-label" />
+                        </StackPanel>
+                    </Button>
+                </Panel>
+                <!-- The app's crest: one tap opens Support MVS, two quick taps switch the rails between the
+                     game's buttons and the bot tools. -->
+                <Button x:Name="MaximizeButton" Grid.Row="2" Classes="mobile-rail" Padding="2" Command="{Binding CrestTapCommand}">
+                    <Image Source="avares://MoVibeSkua/Images/mvs-crest.png" Width="50" Height="50" RenderOptions.BitmapInterpolationMode="HighQuality" />
                 </Button>
             </Grid>
         </Border>
 
         <SplitView x:Name="Split"
                    IsPaneOpen="{Binding IsMenuOpen}"
-                   DisplayMode="Inline"
+                   DisplayMode="Overlay"
                    OpenPaneLength="250"
                    PaneBackground="{DynamicResource SkuaSurfaceBrush}">
             <SplitView.Pane>
                 <Grid RowDefinitions="Auto,*">
                     <Border Grid.Row="0" Padding="16,10" BorderBrush="{DynamicResource SkuaBorderBrush}" BorderThickness="0,0,0,1">
                         <StackPanel>
-                            <TextBlock Text="MoVibeSkua" FontWeight="SemiBold" FontSize="15" />
+                            <TextBlock Text="MVS" FontWeight="SemiBold" FontSize="15" />
                             <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource SkuaMutedTextBrush}" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
@@ -126,15 +146,20 @@
                 </Grid>
             </SplitView.Pane>
 
-            <!-- Game and the current tool page, placed in code. The two rows and columns stay put (only their
-                 sizes change), so a hidden page never points at a row or column that is gone. -->
-            <Grid x:Name="Body" ColumnDefinitions="*,0" RowDefinitions="*,0">
+            <!-- Game and the current tool page, placed in code: the page lies over the game in landscape and
+                 sits below it in portrait. The two rows stay put (only their sizes change), so a hidden page
+                 never points at a row that is gone. -->
+            <Grid x:Name="Body" RowDefinitions="*,0">
                 <Border x:Name="GameFrame" Background="Black">
                     <controls:GameView x:Name="Game" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
                 <Border x:Name="PageFrame" Classes="mobile-page" IsVisible="False">
-                    <Grid RowDefinitions="Auto,*">
-                        <Border x:Name="PageHeader" Grid.Row="0" Classes="mobile-pageheader">
+                    <Grid RowDefinitions="Auto,*" ColumnDefinitions="Auto,*">
+                        <!-- Landscape only: drag to make the page cover more or less of the game. -->
+                        <Border x:Name="PageGrip" Grid.RowSpan="2" Classes="mobile-pagegrip">
+                            <Border Classes="mobile-pagegrip-pill" />
+                        </Border>
+                        <Border x:Name="PageHeader" Grid.Row="0" Grid.Column="1" Classes="mobile-pageheader">
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                                 <Button Grid.Column="0" Classes="mobile-icon" Command="{Binding BackCommand}" IsVisible="{Binding HasPreviousPage}">
                                     <materialIcons:MaterialIcon Kind="ArrowLeft" />
@@ -154,10 +179,8 @@
                                 </Button>
                             </Grid>
                         </Border>
-                        <ContentControl Grid.Row="1"
-                                        Content="{Binding CurrentPage.Content, FallbackValue={x:Null}}"
-                                        HorizontalContentAlignment="Stretch"
-                                        VerticalContentAlignment="Stretch" />
+                        <!-- Page views are added and shown in code (ShowCurrentPageView), which keeps them. -->
+                        <Panel x:Name="PageHost" Grid.Row="1" Grid.Column="1" />
                     </Grid>
                 </Border>
             </Grid>

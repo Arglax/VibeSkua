@@ -119,7 +119,7 @@ public class DiscordWebhookService : IDiscordWebhookService, IDisposable
             if (bot.Servers != null && !string.IsNullOrWhiteSpace(bot.Servers.CachedUsername))
                 return bot.Servers.CachedUsername!;
         }
-        return "VibeSkua Bot";
+        return "MVS Bot";
     }
 
     private void OnScriptStarted(ScriptStartedMessage msg)
@@ -424,7 +424,7 @@ public class DiscordWebhookService : IDiscordWebhookService, IDisposable
         EnqueueAction(async () =>
         {
             List<object> fields = BuildDashboardSnapshotFields();
-            await SendEmbedToUrlAsync(url, "Discord Webhook Test Successful!", "Your VibeSkua Discord Webhooks are perfectly configured.", 0x00FF00, fields);
+            await SendEmbedToUrlAsync(url, "Discord Webhook Test Successful!", "Your MVS Discord Webhooks are perfectly configured.", 0x00FF00, fields);
         });
 
         return Task.CompletedTask;
@@ -439,7 +439,7 @@ public class DiscordWebhookService : IDiscordWebhookService, IDisposable
         EnqueueAction(async () =>
         {
             List<object> fields = BuildDashboardSnapshotFields();
-            await SendEmbedToUrlAsync(url, "Skua Nexus Webhook Test Successful!", "Your VibeSkua Nexus Webhooks are perfectly configured.", 0x00FF00, fields);
+            await SendEmbedToUrlAsync(url, "MVS Nexus Webhook Test Successful!", "Your MVS Nexus Webhooks are perfectly configured.", 0x00FF00, fields);
         });
 
         return Task.CompletedTask;

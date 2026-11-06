@@ -1,0 +1,193 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:vm="clr-namespace:MoVibeSkua.Android.ViewModels"
+             x:Class="MoVibeSkua.Android.Views.GuideView"
+             x:DataType="vm:GuideViewModel">
+    <UserControl.Styles>
+        <Style Selector="Border.g-card">
+            <Setter Property="Background" Value="{DynamicResource SkuaSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SkuaBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12" />
+        </Style>
+        <Style Selector="TextBlock.g-title">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.g-text">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource SkuaMutedTextBrush}" />
+        </Style>
+        <Style Selector="TextBlock.g-name">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="materialIcons|MaterialIcon.g-icon">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="Foreground" Value="{DynamicResource SkuaAccentBrush}" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <!-- The little screen map: rails, game and crest. -->
+        <Style Selector="Border.g-rail">
+            <Setter Property="Background" Value="#2A2016" />
+            <Setter Property="BorderBrush" Value="#8A6A2E" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="4,6" />
+        </Style>
+        <Style Selector="TextBlock.g-mini">
+            <Setter Property="FontSize" Value="9" />
+            <Setter Property="Foreground" Value="#E8C15A" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.g-tap">
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Height" Value="12" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="{DynamicResource SkuaAccentBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="8" Spacing="10">
+
+            <!-- Screen map -->
+            <Border Classes="g-card">
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <materialIcons:MaterialIcon Classes="g-icon" Kind="CellphoneScreenshot" />
+                        <TextBlock Classes="g-title" Text="Your screen" />
+                    </StackPanel>
+                    <Grid ColumnDefinitions="60,*,60" Height="240" ColumnSpacing="6">
+                        <Border Grid.Column="0" Classes="g-rail">
+                            <StackPanel Spacing="4" HorizontalAlignment="Center">
+                                <StackPanel><materialIcons:MaterialIcon Kind="AlertDecagram" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Quests" /></StackPanel>
+                                <StackPanel><materialIcons:MaterialIcon Kind="PackageVariant" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Temp Inv" /></StackPanel>
+                                <StackPanel><materialIcons:MaterialIcon Kind="Map" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Map" /></StackPanel>
+                                <StackPanel><materialIcons:MaterialIcon Kind="BookOpenVariant" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Lore" /></StackPanel>
+                                <StackPanel><materialIcons:MaterialIcon Kind="ViewGrid" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Menu" /></StackPanel>
+                                <StackPanel><materialIcons:MaterialIcon Kind="Home" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="House" /></StackPanel>
+                                <StackPanel><materialIcons:MaterialIcon Kind="Cog" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Settings" /></StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="1" Background="#14263A" BorderBrush="#3A5A7A" BorderThickness="1" CornerRadius="6">
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4">
+                                <materialIcons:MaterialIcon Kind="SwordCross" Width="26" Height="26" Foreground="#9FC3E6" />
+                                <TextBlock Text="The game" FontSize="12" FontWeight="SemiBold" Foreground="#CFE2F5" HorizontalAlignment="Center" />
+                                <TextBlock Text="plays and taps as usual" FontSize="10" Foreground="#9FB6CC" HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" Classes="g-rail">
+                            <Grid RowDefinitions="*,Auto,Auto">
+                                <StackPanel Spacing="4" HorizontalAlignment="Center">
+                                    <StackPanel><materialIcons:MaterialIcon Kind="BagPersonal" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Bag" /></StackPanel>
+                                    <StackPanel><materialIcons:MaterialIcon Kind="Safe" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Bank" /></StackPanel>
+                                    <StackPanel><materialIcons:MaterialIcon Kind="HeartPulse" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Rest" /></StackPanel>
+                                    <StackPanel><materialIcons:MaterialIcon Kind="ShieldAccount" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Char" /></StackPanel>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Margin="0,0,0,4"><StackPanel><materialIcons:MaterialIcon Kind="HelpCircle" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Guide" /></StackPanel></StackPanel>
+                                <Image Grid.Row="2" Source="avares://MoVibeSkua/Images/mvs-crest.png" Width="30" Height="30" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <TextBlock Classes="g-text"
+                               Text="The side buttons are the game's own buttons, made big: Quests, Temp Inventory, Map, Lore (Book of Lore), Menu (the game menu), House and Settings on the left; Bag (inventory), Bank, Rest and Char on the right. They do exactly what the game's small buttons do. Guide opens this page." />
+                </StackPanel>
+            </Border>
+
+            <!-- Crest -->
+            <Border Classes="g-card">
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Image Source="avares://MoVibeSkua/Images/mvs-crest.png" Width="22" Height="22" />
+                        <TextBlock Classes="g-title" Text="The MVS crest (bottom right)" />
+                    </StackPanel>
+                    <Grid ColumnDefinitions="60,*" RowDefinitions="Auto,Auto" RowSpacing="8">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <Border Classes="g-tap" />
+                        </StackPanel>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Classes="g-name" TextWrapping="Wrap" Text="1 tap: Support MVS (help on Discord, a note from Arglax, credits)" />
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <Border Classes="g-tap" /><Border Classes="g-tap" />
+                        </StackPanel>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Classes="g-name" TextWrapping="Wrap" Text="2 quick taps: swap the side buttons to the bot tools (2 taps again: back to the game's buttons)" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- In the game -->
+            <Border Classes="g-card">
+                <StackPanel Spacing="12">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <materialIcons:MaterialIcon Classes="g-icon" Kind="GestureTap" />
+                        <TextBlock Classes="g-title" Text="Inside the game" />
+                    </StackPanel>
+                    <Grid ColumnDefinitions="26,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
+                        <materialIcons:MaterialIcon Grid.Row="0" Classes="g-icon" Kind="AccountCircle" />
+                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="g-name" Text="Big menus" />
+                            <TextBlock Classes="g-text" Text="Tap your portrait, another player, or Char / Quests: their small menus open as large buttons. Tap beside the panel to close it." />
+                        </StackPanel>
+                        <materialIcons:MaterialIcon Grid.Row="1" Classes="g-icon" Kind="Star" />
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="g-name" Text="Class stars in your inventory" />
+                            <TextBlock Classes="g-text" Text="Each class shows 0-5 stars. Tap the &quot;MVS:&quot; chip beside the Inventory title to pick a use case (Farming, Solo, Bossing, Ultra, PvP): the list puts the best classes first. A-Z goes back to the game's order. The Preview shows every use case's stars." />
+                        </StackPanel>
+                        <materialIcons:MaterialIcon Grid.Row="2" Classes="g-icon" Kind="TimerOutline" />
+                        <StackPanel Grid.Row="2" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="g-name" Text="Script window" />
+                            <TextBlock Classes="g-text" Text="While a script runs, a small window shows its name, run time and what it is doing. Drag it by its top, tap the top to fold it, × hides it until the next script." />
+                        </StackPanel>
+                        <materialIcons:MaterialIcon Grid.Row="3" Classes="g-icon" Kind="ShieldLockOutline" />
+                        <StackPanel Grid.Row="3" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="g-name" Text="Only on your screen" />
+                            <TextBlock Classes="g-text" Text="Stars, big menus and windows are drawn on your phone only. Nothing about them is changed on the game's servers." />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Bot tools -->
+            <Border Classes="g-card">
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <materialIcons:MaterialIcon Classes="g-icon" Kind="Robot" />
+                        <TextBlock Classes="g-title" Text="Let MVS play for you" />
+                    </StackPanel>
+                    <TextBlock Classes="g-text" Text="MVS can run ready-made bots (called scripts) that farm, do quests and fight for you. The bot tools guide explains every tool in plain words." />
+                    <Button Classes="skua-button skua-primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Command="{Binding OpenBotGuideCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <materialIcons:MaterialIcon Kind="Robot" Width="16" Height="16" />
+                            <TextBlock Text="Open the bot tools guide" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <UniformGrid Columns="2">
+                <Button Classes="skua-button" Margin="0,0,4,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        Command="{Binding SwitchRailsCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <materialIcons:MaterialIcon Kind="SwapHorizontal" Width="16" Height="16" />
+                        <TextBlock Text="Bot tools" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="skua-button" Margin="4,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        Command="{Binding OpenSupportCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <materialIcons:MaterialIcon Kind="Coffee" Width="16" Height="16" />
+                        <TextBlock Text="Support MVS" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </UniformGrid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -10,6 +10,8 @@ import skua.api.Server;
 import skua.api.Shop;
 import skua.api.Skills;
 import skua.api.World;
+import skua.module.ClassRatingsUI;
+import skua.module.GameMenusUI;
 import skua.module.Modules;
 import skua.remote.RemoteRegistry;
 
@@ -139,6 +141,11 @@ public class Externalizer {
         // Modules
         this.addCallback("modEnable", Modules.enable);
         this.addCallback("modDisable", Modules.disable);
+        this.addCallback("mvsClassRatings", ClassRatingsUI.setRatings);
+        this.addCallback("mvsRatingFocus", ClassRatingsUI.setFocus);
+        this.addCallback("mvsMenuClick", GameMenusUI.menuClick);
+        this.addCallback("mvsMenuClose", GameMenusUI.menuClose);
+        this.addCallback("mvsGameButton", GameMenusUI.gameButton);
 
 		this.debug("Externalizer::init done.");
         this.call("requestLoadGame");

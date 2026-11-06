@@ -48,6 +48,24 @@
     <DataTemplate DataType="mobileVm:LoginViewModel">
       <mobileViews:LoginView />
     </DataTemplate>
+    <DataTemplate DataType="mobileVm:MobileJumpViewModel">
+      <mobileViews:MobileJumpView />
+    </DataTemplate>
+    <DataTemplate DataType="mobileVm:GraphicsViewModel">
+      <mobileViews:GraphicsView />
+    </DataTemplate>
+    <DataTemplate DataType="mobileVm:GuideViewModel">
+      <mobileViews:GuideView />
+    </DataTemplate>
+    <DataTemplate DataType="mobileVm:BotGuideViewModel">
+      <mobileViews:BotGuideView />
+    </DataTemplate>
+    <DataTemplate DataType="mobileVm:SupportViewModel">
+      <mobileViews:SupportView />
+    </DataTemplate>
+    <DataTemplate DataType="mobileVm:ArmyViewModel">
+      <mobileViews:ArmyView />
+    </DataTemplate>
     <DataTemplate DataType="vms:BotWindowViewModel">
       <views:BotWindowView />
     </DataTemplate>

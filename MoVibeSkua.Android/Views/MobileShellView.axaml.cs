@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -22,17 +23,24 @@ namespace MoVibeSkua.Android.Views;
 public partial class MobileShellView : UserControl
 {
     private const double GameAspect = 958d / 550d;
-    private static int _openPopups;
+    private static readonly HashSet<Popup> _openPopups = new();
 
     public static MobileShellView? Instance { get; private set; }
 
     static MobileShellView()
     {
-        // Avalonia popups draw beneath native views; hide the game while any are open.
-        Popup.IsOpenProperty.Changed.AddClassHandler<Popup>((_, e) =>
+        // Avalonia popups draw beneath native views; hide the game while one lies over it. A list that
+        // opens on a tool page (the Auto page's class list) stays beside the game, so the game keeps
+        // drawing instead of going black. The popup's place is known only after layout, so check again then.
+        Popup.IsOpenProperty.Changed.AddClassHandler<Popup>((popup, e) =>
         {
-            _openPopups = Math.Max(0, _openPopups + (e.GetNewValue<bool>() ? 1 : -1));
+            if (e.GetNewValue<bool>())
+                _openPopups.Add(popup);
+            else
+                _openPopups.Remove(popup);
             Instance?.UpdateCovered();
+            Dispatcher.UIThread.Post(() => Instance?.UpdateCovered(), DispatcherPriority.Background);
+            DispatcherTimer.RunOnce(() => Instance?.UpdateCovered(), TimeSpan.FromMilliseconds(150));
         });
     }
 
@@ -48,8 +56,20 @@ public partial class MobileShellView : UserControl
         Instance = this;
         Root.SizeChanged += (_, _) => UpdateLayoutMode();
         Body.SizeChanged += (_, _) => UpdateBodyLayout();
+        Body.LayoutUpdated += (_, _) => UpdateGameClip();
         GameFrame.SizeChanged += (_, _) => FitGame();
+        // The menu lies over the game (Overlay) instead of pushing it narrower; the game hides the part
+        // under the menu instead of being resized.
+        Split.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == SplitView.IsPaneOpenProperty || e.Property == SplitView.OpenPaneLengthProperty)
+                Dispatcher.UIThread.Post(UpdateGameClip, DispatcherPriority.Background);
+        };
         GameViewRecovery.RebuildRequested += () => Dispatcher.UIThread.Post(RebuildGameView);
+        PageGrip.PointerPressed += OnGripPressed;
+        PageGrip.PointerMoved += OnGripMoved;
+        PageGrip.PointerReleased += (_, e) => EndGripDrag(e.Pointer);
+        PageGrip.PointerCaptureLost += (_, e) => EndGripDrag(null);
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -60,6 +80,8 @@ public partial class MobileShellView : UserControl
         _vm = DataContext as ShellViewModel;
         if (_vm is not null)
             _vm.PropertyChanged += OnVmPropertyChanged;
+        ApplyRailSource();
+        ShowCurrentPageView();
         UpdateBodyLayout();
     }
 
@@ -115,9 +137,44 @@ public partial class MobileShellView : UserControl
         ApplyInsets();
     }
 
+    // Rail sizes from MobileStyles; set here instead because the cutout strip widens them.
+    private const double RailWidth = 68;
+    private const double BottomBarHeight = 60;
+
+    /// <summary>
+    /// The bar along a cutout's edge grows into the strip and keeps its buttons clear of the camera,
+    /// so the strip shows the bar's backdrop instead of an empty black band.
+    /// </summary>
     private void ApplyInsets()
     {
-        Root.Margin = new Thickness(_safeArea.Left, _safeArea.Top, _safeArea.Right, Math.Max(_safeArea.Bottom, _keyboardHeight));
+        Thickness s = _safeArea;
+        if (_landscape != false)
+        {
+            // The keyboard no longer shrinks the shell (that resized and redrew the game). A page's text
+            // box lifts only the page; a game text field slides the game up, same size, when it's low.
+            Root.Margin = new Thickness(0, s.Top, 0, s.Bottom);
+            ApplyKeyboardLandscape();
+            LeftRailFrame.Width = RailWidth + s.Left;
+            LeftRailFrame.Padding = new Thickness(2 + s.Left, 4, 2, 4);
+            RightRailFrame.Width = RailWidth + s.Right;
+            RightRailFrame.Height = double.NaN;
+            RightRailFrame.Padding = new Thickness(2, 4, 2 + s.Right, 4);
+            TopBar.Padding = new Thickness(2, 2, 6, 2);
+            TopBar.MinHeight = 48;
+        }
+        else
+        {
+            GameFrame.Margin = default;
+            PageFrame.Margin = default;
+            // The keyboard covers the bottom bar, so then the whole shell moves up instead.
+            double bottom = _keyboardHeight > 0 ? 0 : s.Bottom;
+            Root.Margin = new Thickness(s.Left, 0, s.Right, _keyboardHeight);
+            TopBar.Padding = new Thickness(2, 2 + s.Top, 6, 2);
+            TopBar.MinHeight = 48 + s.Top;
+            RightRailFrame.Width = double.NaN;
+            RightRailFrame.Height = BottomBarHeight + bottom;
+            RightRailFrame.Padding = new Thickness(4, 2, 4, 2 + bottom);
+        }
     }
 
     private void OnBackRequested(object? sender, RoutedEventArgs e)
@@ -135,9 +192,76 @@ public partial class MobileShellView : UserControl
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(ShellViewModel.CurrentPage))
+            ShowCurrentPageView();
         if (e.PropertyName is nameof(ShellViewModel.HasPage) or nameof(ShellViewModel.IsGameMaximized) or nameof(ShellViewModel.CurrentPage)
             or nameof(ShellViewModel.IsPageWide))
             UpdateBodyLayout();
+    }
+
+    // Page views stay in PageHost after their first open and are only hidden. A bound ContentControl
+    // built the whole view again on every open, and even a kept view put back into the tree had its
+    // styles and templates applied again: about a second for Options on the phone. The least recently
+    // shown views beyond MaxKeptPages are dropped, so pages opened once don't pile up.
+    private const int MaxKeptPages = 12;
+    private readonly Dictionary<object, Control> _pageViews = new(ReferenceEqualityComparer.Instance);
+    private readonly List<object> _pageOrder = new();
+    private object? _shownContent;
+
+    private void ShowCurrentPageView()
+    {
+        ShellPage? page = _vm?.CurrentPage;
+        object? content = page?.Content;
+        if (ReferenceEquals(content, _shownContent))
+            return;
+        _shownContent = content;
+
+        Stopwatch sw = Stopwatch.StartNew();
+        Control? view = null;
+        bool built = false;
+        if (content is not null && !_pageViews.TryGetValue(content, out view))
+        {
+            built = true;
+            view = content as Control ?? this.FindDataTemplate(content)?.Build(content) ?? new TextBlock { Text = content.GetType().Name };
+            if (view != content)
+                view.DataContext = content;
+            view.IsVisible = false;
+            _pageViews[content] = view;
+            PageHost.Children.Add(view);
+        }
+        if (content is not null)
+        {
+            _pageOrder.Remove(content);
+            _pageOrder.Add(content);
+            DropOldPageViews();
+        }
+
+        foreach (Control child in PageHost.Children)
+            child.IsVisible = child == view;
+
+        if (page is null)
+            return;
+        string key = page.Key;
+        // Background priority runs after the layout and render passes that show the page.
+        Dispatcher.UIThread.Post(() => Trace.WriteLine($"[Page] {key} shown in {sw.ElapsedMilliseconds} ms ({(built ? "built" : "kept view")})"),
+            DispatcherPriority.Background);
+    }
+
+    private void DropOldPageViews()
+    {
+        HashSet<object> open = new(_vm?.Pages.Select(p => p.Content) ?? Enumerable.Empty<object>(), ReferenceEqualityComparer.Instance);
+        for (int i = 0; i < _pageOrder.Count && _pageOrder.Count > MaxKeptPages; )
+        {
+            object old = _pageOrder[i];
+            if (open.Contains(old))
+            {
+                i++;
+                continue;
+            }
+            _pageOrder.RemoveAt(i);
+            if (_pageViews.Remove(old, out Control? oldView))
+                PageHost.Children.Remove(oldView);
+        }
     }
 
     /// <summary>
@@ -156,6 +280,8 @@ public partial class MobileShellView : UserControl
         TopBar.IsVisible = !landscape;
         LeftRailFrame.IsVisible = landscape;
         MaximizeButton.IsVisible = landscape;
+        GuideSlot.IsVisible = landscape;
+        ApplyRailSource();
         RightRailFrame.Classes.Set("bottom", !landscape);
 
         if (landscape)
@@ -188,7 +314,16 @@ public partial class MobileShellView : UserControl
         Place(DialogLayer, 0, 0);
         Grid.SetRowSpan(DialogLayer, Math.Max(1, Root.RowDefinitions.Count));
         Grid.SetColumnSpan(DialogLayer, Math.Max(1, Root.ColumnDefinitions.Count));
+        ApplyInsets();
         UpdateBodyLayout();
+    }
+
+    // Landscape: the right rail's own buttons. Portrait: one bottom bar with both rails' buttons (and the
+    // guide), since the left rail is hidden there.
+    private void ApplyRailSource()
+    {
+        if (_vm is not null)
+            RightRailItems.ItemsSource = _landscape == false ? _vm.AllRail : _vm.RightRail;
     }
 
     private static void Place(Control control, int row, int column)
@@ -198,7 +333,7 @@ public partial class MobileShellView : UserControl
     }
 
     /// <summary>
-    /// Game only, or game plus the open tool page beside it (landscape) or below it (portrait).
+    /// Game only, or game plus the open tool page over its right side (landscape) or below it (portrait).
     /// The game control is never re-parented, only moved between grid cells.
     /// </summary>
     private void UpdateBodyLayout()
@@ -206,13 +341,14 @@ public partial class MobileShellView : UserControl
         bool showPage = _vm is { HasPage: true, IsGameMaximized: false };
         double width = Body.Bounds.Width;
         double height = Body.Bounds.Height;
-        ColumnDefinition pageColumn = Body.ColumnDefinitions[1];
         RowDefinition gameRow = Body.RowDefinitions[0];
         RowDefinition pageRow = Body.RowDefinitions[1];
 
         PageFrame.IsVisible = showPage;
         PageHeader.IsVisible = _landscape == true;
-        pageColumn.Width = new GridLength(0);
+        PageGrip.IsVisible = _landscape == true;
+        PageFrame.Width = double.NaN;
+        PageFrame.HorizontalAlignment = HorizontalAlignment.Stretch;
         gameRow.Height = new GridLength(1, GridUnitType.Star);
         pageRow.Height = new GridLength(0);
 
@@ -221,13 +357,12 @@ public partial class MobileShellView : UserControl
 
         if (width >= height)
         {
-            // Pages get a readable width; the game takes what is left and letterboxes itself. Wide pages
-            // leave the game a small tile rather than hiding it, so it keeps rendering.
-            double pageWidth = _vm!.IsPageWide
-                ? width - Math.Max(150, width * 0.22)
-                : Math.Clamp(width * 0.46, Math.Min(320, width - 160), Math.Max(320, width - 200));
-            pageColumn.Width = new GridLength(pageWidth);
-            Place(PageFrame, 0, 1);
+            // Pages lie over the game, which keeps its size; UpdateGameClip hides the part they cover.
+            // Each page keeps the width it was dragged to; wide pages still leave a strip of the game.
+            double share = _vm!.CurrentPage is { } page ? _vm.GetPageWidth(page.Key) ?? 0.5 : 0.5;
+            PageFrame.Width = _vm.IsPageWide ? MaxPageWidth(width) : ClampPageWidth(width * share, width);
+            PageFrame.HorizontalAlignment = HorizontalAlignment.Right;
+            Place(PageFrame, 0, 0);
         }
         else
         {
@@ -235,6 +370,42 @@ public partial class MobileShellView : UserControl
             pageRow.Height = new GridLength(1, GridUnitType.Star);
             Place(PageFrame, 1, 0);
         }
+    }
+
+    private static double MaxPageWidth(double width) => width - Math.Max(80, width * 0.1);
+
+    private static double ClampPageWidth(double pageWidth, double width)
+        => Math.Clamp(pageWidth, Math.Min(280, width * 0.5), MaxPageWidth(width));
+
+    private double _gripStartX;
+    private double _gripStartWidth;
+    private bool _gripDragging;
+
+    private void OnGripPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        _gripDragging = true;
+        _gripStartX = e.GetPosition(Body).X;
+        _gripStartWidth = PageFrame.Bounds.Width;
+        e.Pointer.Capture(PageGrip);
+        e.Handled = true;
+    }
+
+    private void OnGripMoved(object? sender, Avalonia.Input.PointerEventArgs e)
+    {
+        if (!_gripDragging)
+            return;
+        PageFrame.Width = ClampPageWidth(_gripStartWidth + _gripStartX - e.GetPosition(Body).X, Body.Bounds.Width);
+        e.Handled = true;
+    }
+
+    private void EndGripDrag(Avalonia.Input.IPointer? pointer)
+    {
+        if (!_gripDragging)
+            return;
+        _gripDragging = false;
+        pointer?.Capture(null);
+        if (_vm?.CurrentPage is { } page && Body.Bounds.Width > 0)
+            _vm.SetPageWidth(page.Key, PageFrame.Width / Body.Bounds.Width);
     }
 
     /// <summary>
@@ -258,6 +429,43 @@ public partial class MobileShellView : UserControl
         game.Height = Math.Floor(height);
     }
 
+    /// <summary>
+    /// Stops the game drawing from where a page lying over it starts, so the page shows through.
+    /// </summary>
+    private void UpdateGameClip()
+    {
+        double fraction = 1;
+        double left = 0;
+        if (PageFrame.IsVisible && GameFrame.Child is Control game && game.Bounds.Width > 0
+            && PageFrame.TranslatePoint(default, game) is { } pageOrigin
+            && new Rect(pageOrigin, PageFrame.Bounds.Size).Intersects(new Rect(game.Bounds.Size)))
+            fraction = pageOrigin.X / game.Bounds.Width;
+        if (Split.IsPaneOpen && GameFrame.Child is Control g && g.Bounds.Width > 0
+            && Split.TranslatePoint(new Point(Split.OpenPaneLength, 0), g) is { } paneEdge)
+            left = paneEdge.X / g.Bounds.Width;
+        _visibleFraction = fraction;
+        _visibleLeft = Math.Clamp(left, 0, 1);
+        GameView.SetVisibleRange(_visibleLeft, fraction);
+    }
+
+    private double _visibleFraction = 1;
+    private double _visibleLeft;
+
+    /// <summary>
+    /// Landscape with the keyboard up: a page's text box (search, script options) lifts only the page,
+    /// so the game keeps its size and place. A game text field (chat) slides the game up by the
+    /// keyboard's height, still the same size, so the field stays above the keyboard; the login screen's
+    /// fields sit high enough that it doesn't move there.
+    /// </summary>
+    private void ApplyKeyboardLandscape()
+    {
+        double kb = _keyboardHeight;
+        bool pageTyping = kb > 0 && _topLevel?.FocusManager?.GetFocusedElement() is TextBox;
+        PageFrame.Margin = pageTyping ? new Thickness(0, 0, 0, kb) : default;
+        double shift = kb > 0 && !pageTyping && _vm?.IsLoggedIn == true ? kb : 0;
+        GameFrame.Margin = shift > 0 ? new Thickness(0, -shift, 0, shift) : default;
+    }
+
     private void RebuildGameView()
     {
         GameFrame.Child = new GameView { HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
@@ -266,7 +474,21 @@ public partial class MobileShellView : UserControl
 
     public void UpdateCovered()
     {
-        GameView.SetCovered(_openPopups > 0 || DialogLayer.Children.Count > 0);
+        GameView.SetCovered(DialogLayer.Children.Count > 0 || _openPopups.Any(PopupCoversGame));
+    }
+
+    /// <summary>Whether an open popup lies over the part of the game that is showing.</summary>
+    private bool PopupCoversGame(Popup popup)
+    {
+        if (popup.Child is not Control child || GameFrame.Child is not Control game || game.Bounds.Width <= 0)
+            return true;
+        // Not laid out yet: keep the game hidden until the popup's place is known.
+        if (child.Bounds.Width <= 0 || child.Bounds.Height <= 0)
+            return true;
+        if (child.TranslatePoint(default, game) is not { } origin)
+            return true;
+        Rect shown = new(game.Bounds.Width * _visibleLeft, 0, game.Bounds.Width * (_visibleFraction - _visibleLeft), game.Bounds.Height);
+        return shown.Intersects(new Rect(origin, child.Bounds.Size));
     }
 
     public void PushDialog(Control dialog)

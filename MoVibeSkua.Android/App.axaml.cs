@@ -43,6 +43,9 @@ public partial class App : Application
             _servicesConfigured = true;
             Trace.WriteLine("[Startup] configuring services");
             ConfigureServices();
+            Usage.UsageTracker.Start(global::Android.App.Application.Context);
+            // Class grades in the game's own inventory (drawn locally by skua.swf).
+            Skua.App.Avalonia.Services.ClassRatings.AttachToGame(Ioc.Default.GetRequiredService<Skua.Core.Interfaces.IFlashUtil>());
         }
 
         if (ApplicationLifetime is ISingleViewApplicationLifetime single)
@@ -87,18 +90,28 @@ public partial class App : Application
         services.AddSingleton<IProcessService, AndroidProcessService>();
         services.AddSingleton(_ => new RuffleHost(new RuffleHostOptions
         {
-            Quality = "low",
-            MaxPixelRatio = 1.5,
+            // Native resolution with MSAA: at 1.5 the game drew at about half the screen's pixels and
+            // looked blurry, while the phone's GPU held full frame rate at its native 2.75.
+            Quality = "high",
+            // The Graphics page's resolution when one is chosen; 3 keeps the screen's own ratio.
+            MaxPixelRatio = ViewModels.GraphicsViewModel.StartupPixelRatio(),
             PreferredRenderer = "webgl"
         }));
         services.AddSingleton<RuffleFlashUtil>();
         services.AddSingleton<IFlashUtil>(s => s.GetRequiredService<RuffleFlashUtil>());
         services.AddSingleton<SkuaStartupHandler>();
+        services.AddSingleton<ViewModels.GraphicsViewModel>();
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<LoginViewModel>();
         Skua.App.Avalonia.AppStartup.Services.AddSkuaMainAppViewModels(services);
 
+        // Skua's own Streamer Mode (Options) shows the same stand-in as the shell's eye button.
+        Skua.Core.Scripts.ScriptOption.StreamerName = ShellViewModel.StreamerName;
+        Skua.Core.Scripts.ScriptOption.StreamerGuild = $"< {ShellViewModel.StreamerGuild} >";
+
         Ioc.Default.ConfigureServices(services.BuildServiceProvider());
+        // Plugins open their windows through PluginWindow, which can't create a window here.
+        PluginWindow.PageHost = (MobileWindowService)Ioc.Default.GetRequiredService<IWindowService>();
 
         Task.Run(() =>
         {
@@ -123,6 +136,8 @@ public partial class App : Application
         ApplyTheme(themeService);
     }
 
+    private static void ApplyGraphics() => Ioc.Default.GetService<ViewModels.GraphicsViewModel>()?.Apply();
+
     private static void StartGame()
     {
         RuffleFlashUtil flash = Ioc.Default.GetRequiredService<RuffleFlashUtil>();
@@ -130,6 +145,9 @@ public partial class App : Application
         flash.PageRequested += GameView.Navigate;
         flash.Host.Control.KeyboardRequested -= GameView.ShowKeyboard;
         flash.Host.Control.KeyboardRequested += GameView.ShowKeyboard;
+        // A (re)loaded game page starts with the defaults; send it the Graphics page's settings.
+        flash.Host.Control.Connected -= ApplyGraphics;
+        flash.Host.Control.Connected += ApplyGraphics;
 
         Ioc.Default.GetRequiredService<SkuaStartupHandler>().Execute();
         Trace.WriteLine("[Startup] initializing flash");
@@ -137,6 +155,8 @@ public partial class App : Application
 
         // Script interface hooks the flash events in its constructor.
         _ = Ioc.Default.GetRequiredService<IScriptInterface>();
+        // The small "script running" window over the game.
+        ScriptStatusOverlay.Start();
 
         // Started once the UI has settled: the service's start callback runs on the main thread and
         // Android kills apps whose foreground service does not come up within a few seconds.
@@ -144,7 +164,10 @@ public partial class App : Application
         {
             try
             {
-                KeepAliveService.Start(global::Android.App.Application.Context);
+                if (Army.IsFirst)
+                    KeepAliveService.Start(global::Android.App.Application.Context);
+                else
+                    KeepAliveService.Hold(global::Android.App.Application.Context, Army.Slot);
             }
             catch (Exception ex)
             {
@@ -175,6 +198,11 @@ public partial class App : Application
         {
             Trace.WriteLine($"Startup hotkey init failed: {ex.Message}");
         }
+
+        // The first client keeps the shared scripts folder up to date; army clients would download
+        // over each other (and ask the same question once per client).
+        if (!Army.IsFirst)
+            return;
 
         try
         {

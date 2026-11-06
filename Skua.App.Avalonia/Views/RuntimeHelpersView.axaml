@@ -1,9 +1,12 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:sharedControls="clr-namespace:Skua.Shared.Avalonia.Controls;assembly=Skua.Shared.Avalonia"
              x:Class="Skua.App.Avalonia.Views.RuntimeHelpersView">
     
-    <Grid Margin="12" ColumnDefinitions="*,*" ColumnSpacing="12">
+    <!-- Scrolls only while ResponsiveGrid has stacked the columns (narrow phone pages). -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled">
+    <Grid Margin="12" ColumnDefinitions="*,*" ColumnSpacing="12" RowSpacing="12" sharedControls:ResponsiveGrid.StackBelow="640">
         
         <!-- Left Side: Drops Helper Card -->
         <Border Grid.Column="0"
@@ -45,7 +48,7 @@
                             Command="{Binding AddDropCommand}" />
                 </Grid>
                 
-                <Grid Grid.Row="3" ColumnDefinitions="110,*,*" ColumnSpacing="8" VerticalAlignment="Center">
+                <Grid Grid.Row="3" ColumnDefinitions="110,*,*" ColumnSpacing="8" VerticalAlignment="Center" RowSpacing="6" sharedControls:ResponsiveGrid.StackBelow="380">
                     <TextBox Grid.Column="0"
                              Watermark="Interval (ms)"
                              Text="{Binding Drops.Interval, UpdateSourceTrigger=PropertyChanged}"/>
@@ -107,7 +110,7 @@
                                  Classes="embedded" />
                     </Border>
                     
-                    <Grid Grid.Row="2" ColumnDefinitions="*,130,Auto" ColumnSpacing="8">
+                    <Grid Grid.Row="2" ColumnDefinitions="*,130,Auto" ColumnSpacing="8" RowSpacing="6" sharedControls:ResponsiveGrid.StackBelow="380">
                         <TextBox Grid.Column="0"
                                  Watermark="Quest ID"
                                  Text="{Binding AddQuestInput}" />
@@ -195,4 +198,5 @@
             </Border>
         </Grid>
     </Grid>
+    </ScrollViewer>
 </UserControl>

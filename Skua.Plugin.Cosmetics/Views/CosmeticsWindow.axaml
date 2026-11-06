@@ -1,20 +1,12 @@
-<Window xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
         xmlns:shell="clr-namespace:Skua.Shared.Avalonia.Controls.Shell;assembly=Skua.Shared.Avalonia"
         xmlns:models="clr-namespace:Skua.Plugin.Cosmetics.Models"
         x:Class="Skua.Plugin.Cosmetics.Views.CosmeticsWindow"
-        Classes="skua"
-        Title="Cosmetics &amp; Outfits"
-        Width="1020" Height="730"
-        MinWidth="880" MinHeight="580"
-        SystemDecorations="BorderOnly"
-        ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="NoChrome"
-        ExtendClientAreaTitleBarHeightHint="32"
-        WindowStartupLocation="CenterScreen">
+        Classes="skua">
 
-    <Window.Styles>
+    <UserControl.Styles>
         <!-- Modern Main TabControl & TabItem Styling -->
         <Style Selector="TabControl.cosmetics-tabs">
             <Setter Property="Background" Value="Transparent" />
@@ -162,7 +154,7 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         </Style>
-    </Window.Styles>
+    </UserControl.Styles>
 
     <Border BorderBrush="{DynamicResource SkuaBorderBrush}"
             BorderThickness="1"
@@ -267,7 +259,16 @@
 
                     <Grid RowDefinitions="Auto,Auto,*" Margin="0,8,0,0">
                         <!-- Top Search, Sort, and Sync Row -->
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,0,0,8">
+                        <!-- Search and status share what the buttons leave, so a long status can't squeeze
+                             the search box to nothing on a narrow page; the status trims instead. -->
+                        <Grid Grid.Row="0" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="3*" MinWidth="120" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="2*" />
+                            </Grid.ColumnDefinitions>
                             <TextBox Grid.Column="0"
                                      x:Name="SearchBox"
                                      Watermark="Search cosmetics by name or ID..."
@@ -319,6 +320,8 @@
                                        Foreground="{DynamicResource SkuaMutedTextBrush}"
                                        VerticalAlignment="Center"
                                        FontSize="11"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding Text, RelativeSource={RelativeSource Self}}"
                                        Margin="12,0,4,0" />
                         </Grid>
 
@@ -1095,4 +1098,4 @@
             </TabControl>
         </Grid>
     </Border>
-</Window>
+</UserControl>

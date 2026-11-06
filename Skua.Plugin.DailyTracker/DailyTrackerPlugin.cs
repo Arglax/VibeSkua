@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Skua.Core.Interfaces;
+using Skua.Shared.Avalonia.Services;
 
 namespace Skua.Plugin.DailyTracker;
 
@@ -15,7 +16,7 @@ public class DailyTrackerPlugin : ISkuaPlugin
 
     private IServiceProvider? _provider;
     private IPluginHelper? _helper;
-    private DailyTrackerWindow? _window;
+    private PluginWindow? _window;
 
     public void Load(IServiceProvider provider, IPluginHelper helper)
     {
@@ -39,14 +40,19 @@ public class DailyTrackerPlugin : ISkuaPlugin
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (_window == null || !_window.IsVisible)
+            if (_window != null)
             {
-                IScriptInterface bot = _provider!.GetRequiredService<IScriptInterface>();
-                _window = new DailyTrackerWindow(bot);
-                _window.Closed += (s, e) => _window = null;
+                _window.Activate();
+                return;
             }
-            _window.Show();
-            _window.Activate();
+            IScriptInterface bot = _provider!.GetRequiredService<IScriptInterface>();
+            DailyTrackerWindow view = new(bot);
+            _window = PluginWindow.Show(view, "Daily & Weekly Tracker", 520, 720, 440, 500, ownTitleBar: true);
+            _window.Closed += (s, e) =>
+            {
+                view.OnClosed();
+                _window = null;
+            };
         });
     }
 }

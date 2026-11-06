@@ -1,0 +1,28 @@
+diff --git a/web/src/lib.rs b/web/src/lib.rs
+index df64fd83..4fa3115b 100644
+--- a/web/src/lib.rs
++++ b/web/src/lib.rs
+@@ -1123,7 +1123,10 @@ impl RuffleHandle {
+         let mut dt = 0.0;
+         let mut new_dimensions = None;
+         let mut gamepad_button_events = Vec::new();
++        let mut in_background = false;
+         let _ = self.with_instance_mut(|instance| {
++            in_background = instance.background_tick_mode;
++
+             // Check for canvas resize.
+             let canvas_width = instance.canvas.client_width();
+             let canvas_height = instance.canvas.client_height();
+@@ -1245,8 +1248,10 @@ impl RuffleHandle {
+ 
+             core.tick(FloatDuration::from_millis(dt));
+ 
+-            // Render if the core signals a new frame, or if we resized.
+-            if core.needs_render() || new_dimensions.is_some() {
++            // Render if the core signals a new frame, or if we resized. A hidden page keeps
++            // running the movie but draws nothing: the pending frame stays flagged and is
++            // drawn by the first tick after the page is shown again.
++            if !in_background && (core.needs_render() || new_dimensions.is_some()) {
+                 core.render();
+             }
+         });

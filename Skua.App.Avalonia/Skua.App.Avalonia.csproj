@@ -16,6 +16,8 @@
 
     <ItemGroup>
         <AssemblyMetadata Include="Skua.ClientId" Value="VibeSkuaAvalonia" />
+        <!-- Community PvE/PvP class ratings for the Auto page's class list (ClassRatings.cs). -->
+        <EmbeddedResource Include="Assets\class-ratings.json" LogicalName="class-ratings.json" Condition="Exists('Assets\class-ratings.json')" />
     </ItemGroup>
 
     <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">

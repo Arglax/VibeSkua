@@ -12,7 +12,7 @@ using Skua.Core.Interfaces;
 namespace ButlerV5;
 
 /// <summary>Native Avalonia settings and live-log window.</summary>
-public sealed class SettingsWindow : Window
+public sealed class SettingsWindow : UserControl
 {
     private readonly ButlerV5Plugin _plugin;
     private readonly TextBlock _descTitle;
@@ -28,13 +28,7 @@ public sealed class SettingsWindow : Window
     public SettingsWindow(ButlerV5Plugin plugin)
     {
         _plugin = plugin;
-        Title = "ButlerV5 Avalonia - Settings";
-        Width = 900;
-        Height = 630;
-        MinWidth = 720;
-        MinHeight = 440;
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        AvaloniaUi.PrepareWindow(this);
+        AvaloniaUi.PrepareView(this);
 
         Grid root = new()
         {
@@ -167,8 +161,10 @@ public sealed class SettingsWindow : Window
         _logTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _logTimer.Tick += (_, _) => RefreshLog();
         _logTimer.Start();
-        Closed += (_, _) => _logTimer.Stop();
     }
+
+    /// <summary>Called by the plugin once the window or page showing this view has closed.</summary>
+    public void OnClosed() => _logTimer.Stop();
 
     private static Border Panel(Control child) => new()
     {
@@ -384,7 +380,7 @@ public sealed class SettingsWindow : Window
             string text = string.Join(Environment.NewLine, _renderedLogs.Select(entry => entry.Text));
             if (text.Length == 0)
                 return;
-            IClipboard? clipboard = GetTopLevel(this)?.Clipboard;
+            IClipboard? clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
             if (clipboard == null)
                 throw new InvalidOperationException("The clipboard is not available.");
             await clipboard.SetTextAsync(text);

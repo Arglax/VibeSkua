@@ -97,10 +97,10 @@
               </Button>
             </Grid>
 
-            <StackPanel Spacing="3">
+            <StackPanel Spacing="3" IsVisible="{Binding HasTitleBar}">
               <CheckBox Content="Use theme accent on the main title bar"
                         IsChecked="{Binding UseAccentOnMainTitleBar, Mode=TwoWay}" />
-              <TextBlock Text="When enabled, the main VibeSkua window follows the active built-in or custom theme. Turn it off to keep the title bar's normal surface color."
+              <TextBlock Text="When enabled, the main MVS window follows the active built-in or custom theme. Turn it off to keep the title bar's normal surface color."
                          FontSize="11"
                          Foreground="{DynamicResource SkuaMutedTextBrush}"
                          TextWrapping="Wrap" />
@@ -151,7 +151,7 @@
                          FontWeight="Bold"
                          FontSize="13"
                          Foreground="{DynamicResource SkuaTextBrush}" />
-              <TextBlock Text="Select, manage, or import custom wallpaper backgrounds for Skua"
+              <TextBlock Text="Select, manage, or import custom wallpaper backgrounds for MVS"
                          FontSize="11"
                          Foreground="{DynamicResource SkuaMutedTextBrush}" />
             </StackPanel>

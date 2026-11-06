@@ -10,7 +10,7 @@ namespace Skua.App.Avalonia.ViewModels.MainMenu;
 public sealed partial class MainViewModel : ObservableObject
 {
     [ObservableProperty]
-    private string _title = "VibeSkua V2.1.1";
+    private string _title = "MVS V2.1.1";
 
     public MainMenuViewModel MainMenu { get; }
 
@@ -21,7 +21,7 @@ public sealed partial class MainViewModel : ObservableObject
     public MainViewModel(MainMenuViewModel mainMenu, IDiscordWebhookService discordWebhookService)
     {
         MainMenu = mainMenu;
-        _title = $"VibeSkua V{ClientFileSources.DisplayVersion}";
+        _title = $"MVS V{ClientFileSources.DisplayVersion}";
         discordWebhookService.Initialize();
     }
 

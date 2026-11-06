@@ -1,0 +1,350 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:vm="clr-namespace:MoVibeSkua.Android.ViewModels"
+             x:Class="MoVibeSkua.Android.Views.BotGuideView"
+             x:DataType="vm:BotGuideViewModel">
+    <UserControl.Styles>
+        <Style Selector="Border.b-card">
+            <Setter Property="Background" Value="{DynamicResource SkuaSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SkuaBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12" />
+        </Style>
+        <Style Selector="TextBlock.b-title">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.b-sub">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource SkuaMutedTextBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.b-name">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="TextBlock.b-text">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource SkuaMutedTextBrush}" />
+        </Style>
+        <!-- Category badge: a coloured round tile with an icon. -->
+        <Style Selector="Border.b-badge">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="CornerRadius" Value="17" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.b-badge materialIcons|MaterialIcon">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="Foreground" Value="#1A1410" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!-- A tool: its rail icon in a small gold chip, then its name and what it does. -->
+        <Style Selector="Border.b-tool">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="#2A2016" />
+            <Setter Property="BorderBrush" Value="#8A6A2E" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style Selector="Border.b-tool materialIcons|MaterialIcon">
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="Foreground" Value="#E8C15A" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!-- Quick-start steps -->
+        <Style Selector="Border.b-step">
+            <Setter Property="Background" Value="#2A2016" />
+            <Setter Property="BorderBrush" Value="#8A6A2E" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="6,8" />
+        </Style>
+        <Style Selector="Border.b-num">
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="CornerRadius" Value="11" />
+            <Setter Property="Background" Value="#E8C15A" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.b-num TextBlock">
+            <Setter Property="Foreground" Value="#1A1410" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.b-steptext">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="#EDE3CC" />
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="8" Spacing="10">
+
+            <!-- Quick start -->
+            <Border Classes="b-card">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Border Classes="b-badge" Background="#E8C15A"><materialIcons:MaterialIcon Kind="RocketLaunch" /></Border>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Classes="b-title" Text="Your first bot in 4 steps" />
+                            <TextBlock Classes="b-sub" Text="A script is a ready-made bot: a list of things for your character to do." />
+                        </StackPanel>
+                    </Grid>
+                    <UniformGrid Columns="2">
+                        <Border Classes="b-step" Margin="3">
+                            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+                                <Border Classes="b-num" VerticalAlignment="Center"><TextBlock Text="1" /></Border>
+                                <Image Grid.Column="1" Source="avares://MoVibeSkua/Images/mvs-crest.png" Width="22" Height="22" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Classes="b-steptext" TextAlignment="Left" VerticalAlignment="Center" Text="Tap the crest twice" />
+                            </Grid>
+                        </Border>
+                        <Border Classes="b-step" Margin="3">
+                            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+                                <Border Classes="b-num" VerticalAlignment="Center"><TextBlock Text="2" /></Border>
+                                <materialIcons:MaterialIcon Grid.Column="1" Kind="Bookshelf" Width="22" Height="22" Foreground="#E8C15A" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Classes="b-steptext" TextAlignment="Left" VerticalAlignment="Center" Text="Repo: get the scripts" />
+                            </Grid>
+                        </Border>
+                        <Border Classes="b-step" Margin="3">
+                            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+                                <Border Classes="b-num" VerticalAlignment="Center"><TextBlock Text="3" /></Border>
+                                <materialIcons:MaterialIcon Grid.Column="1" Kind="ScriptText" Width="22" Height="22" Foreground="#E8C15A" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Classes="b-steptext" TextAlignment="Left" VerticalAlignment="Center" Text="Scripts: pick one" />
+                            </Grid>
+                        </Border>
+                        <Border Classes="b-step" Margin="3">
+                            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+                                <Border Classes="b-num" VerticalAlignment="Center"><TextBlock Text="4" /></Border>
+                                <materialIcons:MaterialIcon Grid.Column="1" Kind="Play" Width="22" Height="22" Foreground="#7CC47C" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Classes="b-steptext" TextAlignment="Left" VerticalAlignment="Center" Text="Start Script (tap again to stop)" />
+                            </Grid>
+                        </Border>
+                    </UniformGrid>
+                    <TextBlock Classes="b-text" Text="While it runs, a small window over the game shows what the bot is doing and for how long. You can keep using your phone; the bot keeps going." />
+                </StackPanel>
+            </Border>
+
+            <!-- Run bots -->
+            <Border Classes="b-card">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Border Classes="b-badge" Background="#7CC47C"><materialIcons:MaterialIcon Kind="ScriptText" /></Border>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Classes="b-title" Text="Run bots" />
+                            <TextBlock Classes="b-sub" Text="Get scripts, pick one, watch it work" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid ColumnDefinitions="34,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
+                        <Border Grid.Row="0" Classes="b-tool"><materialIcons:MaterialIcon Kind="Bookshelf" /></Border>
+                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="b-name" Text="Repo" />
+                            <TextBlock Classes="b-text" Text="The script library. Download the community's scripts here first (the app offers this on its first run). Do it again now and then to get updates." />
+                        </StackPanel>
+                        <Border Grid.Row="1" Classes="b-tool"><materialIcons:MaterialIcon Kind="ScriptText" /></Border>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="b-name" Text="Scripts" />
+                            <TextBlock Classes="b-text" Text="Choose the script to run. Some scripts have settings (for example how many of an item to farm); you can change them here before starting." />
+                        </StackPanel>
+                        <Border Grid.Row="2" Classes="b-tool"><materialIcons:MaterialIcon Kind="Play" /></Border>
+                        <StackPanel Grid.Row="2" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="b-name" Text="Start Script / Stop" />
+                            <TextBlock Classes="b-text" Text="The big green button at the bottom left. It turns into Stop while the bot is running." />
+                        </StackPanel>
+                        <Border Grid.Row="3" Classes="b-tool"><materialIcons:MaterialIcon Kind="BookOpenPageVariant" /></Border>
+                        <StackPanel Grid.Row="3" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="b-name" Text="Logs" />
+                            <TextBlock Classes="b-text" Text="The bot's diary: every step it took. If a script stops early, the reason is usually the last lines here." />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Fight -->
+            <Border Classes="b-card">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Border Classes="b-badge" Background="#E07A5F"><materialIcons:MaterialIcon Kind="SwordCross" /></Border>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Classes="b-title" Text="Fight without a script" />
+                            <TextBlock Classes="b-sub" Text="Just auto-attack where you are" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid ColumnDefinitions="34,*" RowDefinitions="Auto" RowSpacing="10">
+                        <Border Grid.Row="0" Classes="b-tool"><materialIcons:MaterialIcon Kind="SwordCross" /></Border>
+                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="b-name" Text="Auto" />
+                            <TextBlock Classes="b-text" Text="Attack: fights whatever is in your area. Hunt: walks around the map looking for the monsters you choose. It also shows your classes with stars, so you can pick the best one for farming, solo, bosses or ultras." />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Move -->
+            <Border Classes="b-card">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Border Classes="b-badge" Background="#6FA8DC"><materialIcons:MaterialIcon Kind="MapMarkerRadius" /></Border>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Classes="b-title" Text="Get around" />
+                            <TextBlock Classes="b-sub" Text="Travel without walking" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid ColumnDefinitions="34,*" RowDefinitions="Auto" RowSpacing="10">
+                        <Border Grid.Row="0" Classes="b-tool"><materialIcons:MaterialIcon Kind="MapMarkerRadius" /></Border>
+                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="b-name" Text="Jump" />
+                            <TextBlock Classes="b-text" Text="Go straight to any map, and to any screen (cell) inside it. Save the places you visit often as Saved Spots for one-tap travel." />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Shops and quests -->
+            <Border Classes="b-card">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Border Classes="b-badge" Background="#E8C15A"><materialIcons:MaterialIcon Kind="TreasureChest" /></Border>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Classes="b-title" Text="Shops, quests and items" />
+                            <TextBlock Classes="b-sub" Text="Open and look things up" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid ColumnDefinitions="34,*" RowDefinitions="Auto,Auto" RowSpacing="10">
+                        <Border Grid.Row="0" Classes="b-tool"><materialIcons:MaterialIcon Kind="TreasureChest" /></Border>
+                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="b-name" Text="Loader" />
+                            <TextBlock Classes="b-text" Text="Opens a shop or a quest from anywhere, using its number (its ID)." />
+                        </StackPanel>
+                        <Border Grid.Row="1" Classes="b-tool"><materialIcons:MaterialIcon Kind="ClipboardList" /></Border>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="b-name" Text="Grabber" />
+                            <TextBlock Classes="b-text" Text="Shows lists of what the game has open: the items in a shop, quests and their rewards, your inventory and bank, the monsters on the map." />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Accounts -->
+            <Border Classes="b-card">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Border Classes="b-badge" Background="#B392F0"><materialIcons:MaterialIcon Kind="AccountGroup" /></Border>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Classes="b-title" Text="Your accounts" />
+                            <TextBlock Classes="b-sub" Text="Log in fast, play several at once" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid ColumnDefinitions="34,*" RowDefinitions="Auto,Auto" RowSpacing="10">
+                        <Border Grid.Row="0" Classes="b-tool"><materialIcons:MaterialIcon Kind="ShieldAccount" /></Border>
+                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="b-name" Text="Login" />
+                            <TextBlock Classes="b-text" Text="Save your account on this phone for quick login, and pick the server. If you get disconnected, it logs you back in. Your saved login stays on your phone." />
+                        </StackPanel>
+                        <Border Grid.Row="1" Classes="b-tool"><materialIcons:MaterialIcon Kind="AccountGroup" /></Border>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="b-name" Text="Army" />
+                            <TextBlock Classes="b-text" Text="Run more than one account inside the app, each with its own game, and switch between them. Needs a phone with plenty of memory." />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Settings and privacy -->
+            <Border Classes="b-card">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Border Classes="b-badge" Background="#9AA5B1"><materialIcons:MaterialIcon Kind="Cog" /></Border>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Classes="b-title" Text="Settings and privacy" />
+                            <TextBlock Classes="b-sub" Text="Tune the game and the app" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid ColumnDefinitions="34,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+                        <Border Grid.Row="0" Classes="b-tool"><materialIcons:MaterialIcon Kind="Cog" /></Border>
+                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="b-name" Text="Options" />
+                            <TextBlock Classes="b-text" Text="Game tweaks the bot can apply, like making the game lighter so it runs smoother, or hiding other players." />
+                        </StackPanel>
+                        <Border Grid.Row="1" Classes="b-tool"><materialIcons:MaterialIcon Kind="Eye" /></Border>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="b-name" Text="Streamer" />
+                            <TextBlock Classes="b-text" Text="For streams and screenshots: shows &quot;MVS User&quot; instead of your name, and hides other players, your gold and the chat." />
+                        </StackPanel>
+                        <Border Grid.Row="2" Classes="b-tool"><materialIcons:MaterialIcon Kind="Menu" /></Border>
+                        <StackPanel Grid.Row="2" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="b-name" Text="Menu (top left)" />
+                            <TextBlock Classes="b-text" Text="Everything else: open your bank, graphics and battery settings, and extras (plugins)." />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Glossary -->
+            <Border Classes="b-card">
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border Classes="b-badge" Background="#C8B89A"><materialIcons:MaterialIcon Kind="Translate" /></Border>
+                        <TextBlock Classes="b-title" Text="Words you'll see" />
+                    </StackPanel>
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="6">
+                        <TextBlock Grid.Row="0" Classes="b-name" Text="Script" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Classes="b-text" Text="A ready-made bot. You don't need to read or write it, just run it." />
+                        <TextBlock Grid.Row="1" Classes="b-name" Text="Cell" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Classes="b-text" Text="One screen of a map. Maps are made of several cells." />
+                        <TextBlock Grid.Row="2" Classes="b-name" Text="Room" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Classes="b-text" Text="A copy of a map. A big room number (like 99999) usually means a private room, nice for botting." />
+                        <TextBlock Grid.Row="3" Classes="b-name" Text="ID" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" Classes="b-text" Text="The number the game uses for a quest, shop or item." />
+                        <TextBlock Grid.Row="4" Classes="b-name" Text="Drop" />
+                        <TextBlock Grid.Row="4" Grid.Column="1" Classes="b-text" Text="An item a monster gives you. Scripts pick up the drops they need." />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Safety and help -->
+            <Border Classes="b-card">
+                <StackPanel Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border Classes="b-badge" Background="#FFB347"><materialIcons:MaterialIcon Kind="AlertOutline" /></Border>
+                        <TextBlock Classes="b-title" Text="Good to know" />
+                    </StackPanel>
+                    <TextBlock Classes="b-text" Text="• Botting can go against AQW's rules and accounts can get banned. You use it at your own risk." />
+                    <TextBlock Classes="b-text" Text="• Scripts are made by the AUQW community, not by MVS. Questions about a script go to the AUQW Discord." />
+                    <TextBlock Classes="b-text" Text="• Leave the app open in the background while a bot runs; a notification shows it is still going." />
+                    <UniformGrid Columns="2" Margin="0,6,0,0">
+                        <Button Classes="skua-button skua-primary" Margin="0,0,4,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Command="{Binding ShowBotToolsCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <materialIcons:MaterialIcon Kind="Robot" Width="16" Height="16" />
+                                <TextBlock Text="Show the bot tools" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="skua-button" Margin="4,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Command="{Binding OpenAuqwDiscordCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <materialIcons:MaterialIcon Kind="OpenInNew" Width="16" Height="16" />
+                                <TextBlock Text="AUQW Discord" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

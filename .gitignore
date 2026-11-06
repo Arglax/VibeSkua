@@ -415,3 +415,11 @@ skua_global_*.txt
 
 
 *.sln
+
+# Usage stats: Firebase config, service account keys and live dashboard data, never committed
+MoVibeSkua.Android/firebase.json
+serviceAccount*.json
+service-account*.json
+tools/dashboard/usage_data.*
+tools/dashboard/usage_history.*
+tools/icon/*_2048.png

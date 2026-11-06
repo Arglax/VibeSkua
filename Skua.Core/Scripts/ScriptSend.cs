@@ -54,37 +54,37 @@ public class ScriptSend : IScriptSend
         Flash.CallGameFunction("sfc.sendString", $"%xt%zm%whisper%1%{message}%{name}%");
     }
 
-    public void ClientServer(string message, string sentBy = "Skua")
+    public void ClientServer(string message, string sentBy = "MVS")
     {
         SendMSGPacket(message, sentBy, "server");
     }
 
-    public void ClientModerator(string message, string sentBy = "Skua")
+    public void ClientModerator(string message, string sentBy = "MVS")
     {
         SendMSGPacket(message, sentBy, "moderator");
     }
 
-    public void ClientWarning(string message, string sentBy = "Skua")
+    public void ClientWarning(string message, string sentBy = "MVS")
     {
         SendMSGPacket(message, sentBy, "warning");
     }
 
-    public void ClientEvent(string message, string sentBy = "Skua")
+    public void ClientEvent(string message, string sentBy = "MVS")
     {
         SendMSGPacket(message, sentBy, "event");
     }
 
-    public void ClientGuild(string message, string sentBy = "Skua")
+    public void ClientGuild(string message, string sentBy = "MVS")
     {
         SendMSGPacket(message, sentBy, "guild");
     }
 
-    public void ClientWhisper(string message, string sentBy = "Skua")
+    public void ClientWhisper(string message, string sentBy = "MVS")
     {
         SendMSGPacket(message, sentBy, "whisper");
     }
 
-    public void ClientZone(string message, string sentBy = "Skua")
+    public void ClientZone(string message, string sentBy = "MVS")
     {
         SendMSGPacket(message, sentBy, "zone");
     }

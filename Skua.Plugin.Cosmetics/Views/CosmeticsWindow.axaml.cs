@@ -19,7 +19,7 @@ using Skua.Plugin.Cosmetics.Services;
 
 namespace Skua.Plugin.Cosmetics.Views;
 
-public partial class CosmeticsWindow : Window
+public partial class CosmeticsWindow : UserControl
 {
     private readonly IScriptInterface _bot;
     private readonly CosmeticsService _service;
@@ -54,7 +54,6 @@ public partial class CosmeticsWindow : Window
         _service.SetsUpdated += OnServiceSetsUpdated;
 
         Loaded += CosmeticsWindow_Loaded;
-        Closing += CosmeticsWindow_Closing;
     }
 
     private async void CosmeticsWindow_Loaded(object? sender, RoutedEventArgs e)
@@ -89,7 +88,8 @@ public partial class CosmeticsWindow : Window
         }
     }
 
-    private void CosmeticsWindow_Closing(object? sender, WindowClosingEventArgs e)
+    /// <summary>Called by the plugin once the window or page showing this view has closed.</summary>
+    public void OnClosed()
     {
         if (_service != null)
         {

@@ -26,6 +26,9 @@ public class GameView : NativeControlHost
 {
     private static AWebView? _webView;
     private static string? _pendingUrl;
+    private static string? _lastUrl;
+    private static double _visibleFraction = 1;
+    private static double _visibleLeft;
 
     public static AWebView? WebView => _webView;
 
@@ -36,6 +39,7 @@ public class GameView : NativeControlHost
 
     public static void Navigate(string url)
     {
+        _lastUrl = url;
         if (_webView is null)
         {
             _pendingUrl = url;
@@ -55,7 +59,42 @@ public class GameView : NativeControlHost
     }
 
     /// <summary>
-    /// Whether a screen point lands on the game while it is showing.
+    /// Draws only the left part of the game, so a tool page can lie over the rest without the game
+    /// being resized. Avalonia draws beneath the native view, so the game has to leave that part empty.
+    /// </summary>
+    public static void SetVisibleFraction(double fraction) => SetVisibleRange(_visibleLeft, fraction);
+
+    /// <summary>
+    /// Draws only the game between two fractions of its width: the menu lies over the left part and a
+    /// tool page over the right, without the game being resized or moved.
+    /// </summary>
+    public static void SetVisibleRange(double left, double right)
+    {
+        right = Math.Clamp(right, 0, 1);
+        left = Math.Clamp(left, 0, right);
+        if (right == _visibleFraction && left == _visibleLeft)
+            return;
+        _visibleFraction = right;
+        _visibleLeft = left;
+        AWebView? view = _webView;
+        view?.Post(() => ApplyClip(view));
+    }
+
+    private static int VisibleWidth(AView view) =>
+        _visibleFraction >= 1 ? view.Width : (int)Math.Round(view.Width * _visibleFraction);
+
+    private static int VisibleLeft(AView view) =>
+        _visibleLeft <= 0 ? 0 : (int)Math.Round(view.Width * _visibleLeft);
+
+    private static void ApplyClip(AView view)
+    {
+        view.ClipBounds = _visibleFraction >= 1 && _visibleLeft <= 0
+            ? null
+            : new Rect(VisibleLeft(view), 0, VisibleWidth(view), view.Height);
+    }
+
+    /// <summary>
+    /// Whether a screen point lands on the shown part of the game.
     /// </summary>
     public static bool Contains(float screenX, float screenY)
     {
@@ -64,7 +103,7 @@ public class GameView : NativeControlHost
             return false;
         int[] location = new int[2];
         view.GetLocationOnScreen(location);
-        return screenX >= location[0] && screenX < location[0] + view.Width
+        return screenX >= location[0] + VisibleLeft(view) && screenX < location[0] + VisibleWidth(view)
             && screenY >= location[1] && screenY < location[1] + view.Height;
     }
 
@@ -73,6 +112,7 @@ public class GameView : NativeControlHost
     /// </summary>
     public static void ShowKeyboard()
     {
+        Usage.UsageTracker.Track(Usage.Signal.GAME_KEYBOARD);
         AWebView? view = _webView;
         view?.Post(() =>
         {
@@ -96,6 +136,13 @@ public class GameView : NativeControlHost
     protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)
     {
         Context context = (parent as AndroidViewControlHandle)?.View.Context ?? global::Android.App.Application.Context;
+        // Released with the activity that showed it (the activity was destroyed and created again):
+        // start over and load the game again.
+        if (_webView is { Handle: 0 })
+        {
+            _webView = null;
+            _pendingUrl ??= _lastUrl;
+        }
         if (_webView is null)
         {
             _webView = CreateWebView(context);
@@ -115,15 +162,16 @@ public class GameView : NativeControlHost
 
     protected override void DestroyNativeControlCore(IPlatformHandle control)
     {
-        // Keep the WebView (and the running game) alive; just detach it.
-        if (_webView?.Parent is global::Android.Views.ViewGroup parent)
+        // Keep the WebView (and the running game) alive; just detach it. When the activity is going
+        // away Avalonia may have released the view already, and touching it would crash the app.
+        if (_webView is { Handle: not 0, Parent: global::Android.Views.ViewGroup parent })
             parent.RemoveView(_webView);
     }
 
     private static AWebView CreateWebView(Context context)
     {
         AWebView.SetWebContentsDebuggingEnabled(true);
-        AWebView view = new(context);
+        AWebView view = new GameWebView(context);
         view.SetBackgroundColor(Color.Black);
         view.Focusable = true;
         view.FocusableInTouchMode = true;
@@ -142,9 +190,40 @@ public class GameView : NativeControlHost
         s.CacheMode = CacheModes.Default;
         s.OffscreenPreRaster = false;
 
+        // A game in the background (screen off, or an army client not on screen) keeps playing, so
+        // its renderer must not be the first thing Android kills to free memory.
+        view.SetRendererPriorityPolicy(RendererPriority.Important, false);
+
         view.SetWebViewClient(new GameWebViewClient());
         view.SetWebChromeClient(new GameChromeClient());
         return view;
+    }
+
+    private sealed class GameWebView : AWebView
+    {
+        public GameWebView(Context context) : base(context)
+        {
+        }
+
+        public GameWebView(IntPtr handle, global::Android.Runtime.JniHandleOwnership transfer) : base(handle, transfer)
+        {
+        }
+
+        protected override void OnSizeChanged(int w, int h, int oldw, int oldh)
+        {
+            base.OnSizeChanged(w, h, oldw, oldh);
+            ApplyClip(this);
+        }
+
+        // A touch that starts on the hidden part is refused, so the parent hands it to Avalonia's view,
+        // where the page lying over the game is.
+        public override bool DispatchTouchEvent(global::Android.Views.MotionEvent? e)
+        {
+            if (e?.ActionMasked == global::Android.Views.MotionEventActions.Down
+                && (e.GetX() >= VisibleWidth(this) || e.GetX() < VisibleLeft(this)))
+                return false;
+            return base.DispatchTouchEvent(e);
+        }
     }
 
     private sealed class GameWebViewClient : WebViewClient
@@ -173,6 +252,7 @@ public class GameView : NativeControlHost
         {
             // Returning false would kill the app with the renderer. Recreate the page instead.
             Trace.WriteLine("[GameView] renderer process gone; reloading");
+            Usage.UsageTracker.Track(Usage.Signal.SYS_RENDERER_GONE);
             if (view is not null)
             {
                 string? url = view.Url;

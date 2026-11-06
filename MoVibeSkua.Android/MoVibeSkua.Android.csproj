@@ -11,8 +11,8 @@
     <AssemblyName>MoVibeSkua</AssemblyName>
     <ApplicationId>com.arglax.movibeskua</ApplicationId>
     <ApplicationTitle>MoVibeSkua</ApplicationTitle>
-    <ApplicationVersion>2</ApplicationVersion>
-    <ApplicationDisplayVersion>0.1.1</ApplicationDisplayVersion>
+    <ApplicationVersion>3</ApplicationVersion>
+    <ApplicationDisplayVersion>0.2.0</ApplicationDisplayVersion>
     <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
@@ -81,6 +81,34 @@
   <ItemGroup>
     <AndroidAsset Include="$(DesktopAppDir)QuestData.json" Link="Assets\seed\QuestData.json" />
     <AndroidAsset Include="$(DesktopAppDir)AdvancedSkills.json" Link="Assets\seed\AdvancedSkills.json" />
+    <!-- Community PvE/PvP class ratings for the Auto page's class list (ClassRatings.cs). -->
+    <EmbeddedResource Include="$(DesktopAppDir)Assets\class-ratings.json" LogicalName="class-ratings.json" Condition="Exists('$(DesktopAppDir)Assets\class-ratings.json')" />
+    <!-- Usage stats' Firebase project (see docs/telemetry/USAGE.md). Not in the repository; without
+         it the app builds and runs, and sends nothing. -->
+    <AndroidAsset Include="firebase.json" Link="Assets\firebase.json" Condition="Exists('firebase.json')" />
+  </ItemGroup>
+
+  <!--
+    The plugins VibeSkua ships on PC, unpacked into the plugins folder on first run. build-android.sh
+    builds them first; they open their windows through PluginWindow, which makes them pages here.
+  -->
+  <PropertyGroup>
+    <PluginOutput>bin\$(Configuration)\net10.0\</PluginOutput>
+  </PropertyGroup>
+  <Target Name="PackBundledPlugins" AfterTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <_BundledPlugin Include="..\Skua.Plugin.DailyTracker\$(PluginOutput)Skua.Plugin.DailyTracker.dll" />
+      <_BundledPlugin Include="..\Skua.Plugin.ButlerV5\$(PluginOutput)ButlerV5.dll" />
+      <_BundledPlugin Include="..\Skua.Plugin.Cosmetics\$(PluginOutput)Skua.Plugin.Cosmetics.dll" />
+      <AndroidAsset Include="@(_BundledPlugin)" Condition="Exists('%(FullPath)')" Link="Assets\plugins\%(Filename)%(Extension)" />
+    </ItemGroup>
+    <Warning Condition="!Exists('%(_BundledPlugin.FullPath)')" Text="Plugin not built, so not in the APK: %(_BundledPlugin.Identity). build-android.sh builds it." />
+  </Target>
+
+  <ItemGroup>
+    <!-- Images the app's own views show (avares://MoVibeSkua/Images/...). Not under Assets\, which
+         Android packs as raw assets. -->
+    <AvaloniaResource Include="Images\**" />
   </ItemGroup>
 
   <!--

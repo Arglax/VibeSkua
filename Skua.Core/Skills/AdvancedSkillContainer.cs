@@ -73,6 +73,15 @@ public class AdvancedSkillContainer : ObservableRecipient, IAdvancedSkillContain
                 !settings.Get<bool>("AutoUpdateAdvanceSkillSetsUpdates", false))
                 return;
 
+            // The defaults before this update tell which user modes were never customised.
+            JsonObject? previousDefaults = null;
+            try
+            {
+                if (File.Exists(_defaultSkillsSetsPath))
+                    previousDefaults = JsonNode.Parse(await File.ReadAllTextAsync(_defaultSkillsSetsPath)) as JsonObject;
+            }
+            catch { }
+
             IGetScriptsService getScripts = Ioc.Default.GetRequiredService<IGetScriptsService>();
             if (!await getScripts.UpdateSkillSetsFile() || !File.Exists(_defaultSkillsSetsPath))
                 return;
@@ -90,22 +99,40 @@ public class AdvancedSkillContainer : ObservableRecipient, IAdvancedSkillContain
                 JsonObject user = JsonNode.Parse(userJson) as JsonObject
                     ?? throw new JsonException("UserAdvancedSkills.json did not contain a JSON object.");
 
-                // Add newly published classes/modes while preserving existing user customizations.
-                foreach (KeyValuePair<string, JsonNode?> classEntry in defaults)
+                // Add newly published classes/modes, and take updated rotations for modes the user never
+                // changed (they still equal the previous defaults), while keeping user customizations.
+                // Class names match ignoring case: upstream renamed "Lord Of Order" to "Lord of Order".
+                foreach (KeyValuePair<string, JsonNode?> classEntry in defaults.ToList())
                 {
                     if (classEntry.Value is not JsonObject defaultModes)
                         continue;
 
-                    if (user[classEntry.Key] is not JsonObject userModes)
+                    string? userKey = FindKey(user, classEntry.Key);
+                    if (userKey is null || user[userKey] is not JsonObject userModes)
                     {
                         user[classEntry.Key] = defaultModes.DeepClone();
                         continue;
                     }
 
-                    foreach (KeyValuePair<string, JsonNode?> modeEntry in defaultModes)
+                    JsonObject? oldModes = previousDefaults is null ? null
+                        : FindKey(previousDefaults, classEntry.Key) is { } oldKey ? previousDefaults[oldKey] as JsonObject : null;
+                    foreach (KeyValuePair<string, JsonNode?> modeEntry in defaultModes.ToList())
                     {
-                        if (userModes[modeEntry.Key] == null && modeEntry.Value != null)
+                        if (modeEntry.Value == null)
+                            continue;
+                        JsonNode? userMode = userModes[modeEntry.Key];
+                        if (userMode == null)
                             userModes[modeEntry.Key] = modeEntry.Value.DeepClone();
+                        else if (oldModes?[modeEntry.Key] is { } oldMode && JsonNode.DeepEquals(userMode, oldMode)
+                                 && !JsonNode.DeepEquals(userMode, modeEntry.Value))
+                            userModes[modeEntry.Key] = modeEntry.Value.DeepClone();
+                    }
+
+                    // Take the published spelling of the class name.
+                    if (userKey != classEntry.Key)
+                    {
+                        user.Remove(userKey);
+                        user[classEntry.Key] = userModes;
                     }
                 }
 
@@ -119,6 +146,18 @@ public class AdvancedSkillContainer : ObservableRecipient, IAdvancedSkillContain
         {
             // Keep the last known-good local skills if the source cannot be reached or parsed.
         }
+    }
+
+    private static string? FindKey(JsonObject obj, string key)
+    {
+        if (obj.ContainsKey(key))
+            return key;
+        foreach (KeyValuePair<string, JsonNode?> entry in obj)
+        {
+            if (string.Equals(entry.Key, key, StringComparison.OrdinalIgnoreCase))
+                return entry.Key;
+        }
+        return null;
     }
 
     public void Add(AdvancedSkill skill)

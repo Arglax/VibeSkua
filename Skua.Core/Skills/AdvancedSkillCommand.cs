@@ -265,6 +265,28 @@ public class AdvancedSkillCommand
     {
         _index = 0;
     }
+
+    /// <summary>
+    /// The first rotation entry that heals (an "HP below" or "party HP below" rule), whose skill
+    /// <paramref name="canUse"/> says is ready and whose rules all hold now; -1 if none. The rotation
+    /// position does not move. Entries with a wait rule are left to the normal rotation.
+    /// </summary>
+    public int FindUrgentHeal(IScriptPlayer player, IScriptSelfAuras self, IScriptTargetAuras target, Func<int, bool> canUse)
+    {
+        for (int i = 0; i < UseRules.Count && i < Skills.Count; i++)
+        {
+            UseRule[] rules = UseRules[i];
+            if (!rules.Any(r => (r.Rule == SkillRule.Health || r.Rule == SkillRule.PartyHealth) && !r.Greater)
+                || rules.Any(r => r.Rule == SkillRule.Wait))
+                continue;
+            int skill = Skills[i];
+            if (!canUse(skill))
+                continue;
+            if (ShouldUse(player, self, target, i, true) == true)
+                return skill;
+        }
+        return -1;
+    }
 }
 
 public enum SkillRule

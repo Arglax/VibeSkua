@@ -4,6 +4,58 @@
              xmlns:vms="clr-namespace:Skua.App.Avalonia.ViewModels"
              x:Class="Skua.App.Avalonia.UserControls.AutoUserControl"
              x:DataType="vms:AutoViewModel">
+  <UserControl.Styles>
+    <!-- The class list is dark in both themes so its white and gold names stay readable. -->
+    <Style Selector="FlyoutPresenter.class-picker">
+      <Setter Property="Background" Value="#1C1714" />
+      <Setter Property="BorderBrush" Value="#8A6A2E" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="8" />
+      <Setter Property="MaxWidth" Value="340" />
+    </Style>
+    <Style Selector="TextBlock.class-name">
+      <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+    <Style Selector="TextBlock.class-name.member">
+      <Setter Property="Foreground" Value="#FFD34D" />
+    </Style>
+    <Style Selector="TextBlock.class-detail">
+      <Setter Property="Foreground" Value="#A8987A" />
+      <Setter Property="FontSize" Value="10" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Foreground" Value="{DynamicResource SkuaMutedTextBrush}" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.class-rating">
+      <Setter Property="Foreground" Value="#E8C15A" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.pin">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="4" />
+      <Setter Property="Foreground" Value="#7A6A50" />
+    </Style>
+    <Style Selector="Button.pin.pinned">
+      <Setter Property="Foreground" Value="#FFD34D" />
+    </Style>
+    <Style Selector="Button.sort">
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="#C8B89A" />
+      <Setter Property="Background" Value="#2A221C" />
+    </Style>
+    <Style Selector="Button.sort.active">
+      <Setter Property="Foreground" Value="#1C1714" />
+      <Setter Property="Background" Value="#D4A93A" />
+    </Style>
+  </UserControl.Styles>
   <Border Background="{DynamicResource SkuaSurfaceBrush}"
           BorderBrush="{DynamicResource SkuaBorderBrush}"
           BorderThickness="1"
@@ -77,16 +129,81 @@
         </Button>
       </Grid>
 
+      <TextBlock Classes="hint" IsVisible="{Binding !Auto.IsRunning}"
+                 Text="Attack: fights in your current cell. Hunt: moves between cells to find monsters (best for spread-out farming)." />
+
       <!-- Select Class & Mode -->
       <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-        <ComboBox x:Name="ClassComboBox"
-                  Grid.Column="0"
-                  Height="34"
-                  MinWidth="160"
-                  HorizontalAlignment="Stretch"
-                  PlaceholderText="Select Class..."
-                  ItemsSource="{Binding PlayerClasses}"
-                  SelectedItem="{Binding SelectedClass}" />
+        <!-- Class list with a search box: players own too many classes to scroll through. White names,
+             gold for member-only (upgrade) classes. -->
+        <Button x:Name="ClassPickerButton"
+                Grid.Column="0"
+                Height="34"
+                MinWidth="160"
+                Padding="10,0,6,0"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding SelectedClass, FallbackValue='Select Class...', TargetNullValue='Select Class...'}"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <materialIcons:MaterialIcon Grid.Column="1" Kind="ChevronDown" Width="16" Height="16" VerticalAlignment="Center" />
+          </Grid>
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedLeft" FlyoutPresenterClasses="class-picker">
+              <!-- Star pins a class to the top. Ratings are 0-5 stars from class-ratings.json. -->
+              <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Width="300" Height="450" RowSpacing="6">
+                <TextBox x:Name="ClassSearchBox" Grid.Row="0" Watermark="Search classes"
+                         Text="{Binding ClassSearch, Mode=TwoWay}" />
+                <!-- Use cases: ranks the list and picks the class's matching mode. The game's inventory
+                     shows the same grades (its MVS chip switches them too). -->
+                <UniformGrid Grid.Row="1" Columns="3" Rows="2">
+                  <Button Classes="sort" Margin="0,0,3,3" Content="A–Z" Command="{Binding SetClassSortCommand}" CommandParameter="A-Z"
+                          Classes.active="{Binding ClassSort, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=A-Z}" />
+                  <Button Classes="sort" Margin="3,0,3,3" Content="Farming" Command="{Binding SetClassSortCommand}" CommandParameter="Farm"
+                          Classes.active="{Binding ClassSort, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Farm}" />
+                  <Button Classes="sort" Margin="3,0,0,3" Content="Solo" Command="{Binding SetClassSortCommand}" CommandParameter="Solo"
+                          Classes.active="{Binding ClassSort, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Solo}" />
+                  <Button Classes="sort" Margin="0,3,3,0" Content="Bossing" Command="{Binding SetClassSortCommand}" CommandParameter="Boss"
+                          Classes.active="{Binding ClassSort, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Boss}" />
+                  <Button Classes="sort" Margin="3,3,3,0" Content="Ultra" Command="{Binding SetClassSortCommand}" CommandParameter="Ultra"
+                          Classes.active="{Binding ClassSort, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Ultra}" />
+                  <Button Classes="sort" Margin="3,3,0,0" Content="PvP" Command="{Binding SetClassSortCommand}" CommandParameter="PvP"
+                          Classes.active="{Binding ClassSort, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=PvP}" />
+                </UniformGrid>
+                <TextBlock Grid.Row="2" Text="{Binding UseCaseHint}" Classes="class-detail" TextWrapping="Wrap" />
+                <!-- Ultra: rank for one fight of the guide, or all of them (average). -->
+                <ComboBox Grid.Row="3" IsVisible="{Binding IsUltraFocus}" HorizontalAlignment="Stretch" Height="32"
+                          ItemsSource="{Binding UltraFights}" SelectedItem="{Binding UltraFight, Mode=TwoWay}" />
+                <ListBox x:Name="ClassList" Grid.Row="4" Classes="class-picker"
+                         ItemsSource="{Binding FilteredClasses}" Background="Transparent">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vms:ClassEntry">
+                      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4">
+                        <Button Grid.Column="0" Classes="pin" Classes.pinned="{Binding Pinned}"
+                                Command="{Binding $parent[UserControl].((vms:AutoViewModel)DataContext).TogglePinCommand}"
+                                CommandParameter="{Binding}" ToolTip.Tip="Pin to the top">
+                          <Panel>
+                            <materialIcons:MaterialIcon Kind="Star" Width="16" Height="16" IsVisible="{Binding Pinned}" />
+                            <materialIcons:MaterialIcon Kind="StarOutline" Width="16" Height="16" IsVisible="{Binding !Pinned}" />
+                          </Panel>
+                        </Button>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Name}" Classes="class-name" Classes.member="{Binding MemberOnly}"
+                                     TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding DetailText}" Classes="class-detail" IsVisible="{Binding HasDetail}"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" Text="{Binding RatingText}" Classes="class-rating" />
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock Grid.Row="4" Text="{Binding ClassListHint}" IsVisible="{Binding ClassListHint, Converter={x:Static ObjectConverters.IsNotNull}}"
+                           TextWrapping="Wrap" Margin="8" Foreground="#C8B89A" />
+              </Grid>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
         <ComboBox Grid.Column="1"
                   Height="34"
                   MinWidth="160"
@@ -95,6 +212,7 @@
                   ItemsSource="{Binding CurrentClassModeStrings}"
                   SelectedItem="{Binding SelectedClassModeString}" />
       </Grid>
+      <TextBlock Classes="hint" Text="{Binding ModeHelp}" />
 
       <!-- Manual MapIDs -->
       <TextBox Height="34"
@@ -103,6 +221,42 @@
                Text="{Binding ManualMapIDs, UpdateSourceTrigger=PropertyChanged}"
                Watermark="Manual MapIDs (optional, e.g. 1, 2)"
                ToolTip.Tip="Enter MapIDs separated by commas for priority targeting (e.g. 12345, 67890). First available monster in the list will be attacked." />
+
+      <!-- What Auto is fighting, with its IDs (also written to the log and monster-ids.json). -->
+      <Border CornerRadius="6" Padding="8,6" Background="{DynamicResource SkuaSurfaceAltBrush}"
+              IsVisible="{Binding Auto.TargetInfo, Converter={x:Static ObjectConverters.IsNotNull}}">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <materialIcons:MaterialIcon Kind="Target" Width="14" Height="14" Foreground="{DynamicResource SkuaAccentBrush}" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding Auto.TargetInfo}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </StackPanel>
+      </Border>
+
+      <!-- This map's monsters with their MonID and MapIDs; tapping one targets only it. -->
+      <Expander Header="Monsters in this map" HorizontalAlignment="Stretch">
+        <StackPanel Spacing="6">
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+            <Button Grid.Column="0" Classes="skua-button" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Content="Refresh" Command="{Binding RefreshMonstersCommand}" />
+            <Button Grid.Column="1" Classes="skua-button" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Content="Clear target" Command="{Binding ClearManualIDsCommand}" />
+          </Grid>
+          <TextBlock Text="{Binding MapMonstersHint}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource SkuaMutedTextBrush}" />
+          <ItemsControl ItemsSource="{Binding MapMonsterRows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vms:MonsterRow">
+                <Button Margin="0,2" Padding="8,5" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Command="{Binding $parent[UserControl].((vms:AutoViewModel)DataContext).PickMonsterCommand}"
+                        CommandParameter="{Binding}">
+                  <StackPanel>
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Detail}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource SkuaMutedTextBrush}" />
+                  </StackPanel>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Expander>
     </StackPanel>
   </Border>
 </UserControl>

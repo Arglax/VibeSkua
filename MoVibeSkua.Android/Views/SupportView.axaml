@@ -1,0 +1,140 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:vm="clr-namespace:MoVibeSkua.Android.ViewModels"
+             x:Class="MoVibeSkua.Android.Views.SupportView"
+             x:DataType="vm:SupportViewModel">
+    <UserControl.Styles>
+        <Style Selector="Border.s-card">
+            <Setter Property="Background" Value="{DynamicResource SkuaSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SkuaBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="14" />
+        </Style>
+        <Style Selector="TextBlock.s-text">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource SkuaMutedTextBrush}" />
+        </Style>
+        <Style Selector="TextBlock.s-head">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.s-group">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,6,0,0" />
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="8" Spacing="10">
+            <Border Classes="s-card">
+                <StackPanel Spacing="8" HorizontalAlignment="Center">
+                    <Image Source="avares://MoVibeSkua/Images/mvs-crest.png" Width="64" Height="64" HorizontalAlignment="Center" />
+                    <TextBlock Text="Hi, I'm Arglax" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" />
+                    <TextBlock Classes="s-text" TextAlignment="Center"
+                               Text="I wanna make a more mobile-friendly experience for AE games so here we go. Also couldn't find a bot for mobile so I made one. Appreciate my work? Support me through BuyMeACoffee." />
+                    <TextBlock Classes="s-text" TextAlignment="Center"
+                               Text="I don't make the scripts (got no more time and money), they're mainly from AUQW so ask them (and support them!) instead." />
+                </StackPanel>
+            </Border>
+
+            <!-- Help -->
+            <Border Classes="s-card">
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <materialIcons:MaterialIcon Kind="Forum" Width="20" Height="20" Foreground="#5865F2" />
+                        <TextBlock Classes="s-head" Text="Need help?" />
+                    </StackPanel>
+                    <TextBlock Classes="s-text" Text="Problems with the app itself (buttons, screen, crashes) or ideas: the MVS Discord. Questions about a script: the AUQW Discord, where the scripts are made." />
+                    <UniformGrid Columns="2">
+                        <Button Classes="skua-button" Margin="0,0,4,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Command="{Binding OpenDiscordCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <materialIcons:MaterialIcon Kind="OpenInNew" Width="16" Height="16" />
+                                <TextBlock Text="MVS Discord" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="skua-button" Margin="4,0,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Command="{Binding OpenAuqwDiscordCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <materialIcons:MaterialIcon Kind="OpenInNew" Width="16" Height="16" />
+                                <TextBlock Text="AUQW Discord" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+
+            <!-- Donations -->
+            <Border Classes="s-card">
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <materialIcons:MaterialIcon Kind="Coffee" Width="20" Height="20" Foreground="#FFDD00" />
+                        <TextBlock Classes="s-head" Text="Buy Me a Coffee" />
+                    </StackPanel>
+                    <TextBlock Classes="s-text" Text="buymeacoffee.com/arglaxaqwv (opens in your browser)" />
+                    <Button Classes="skua-button skua-primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Command="{Binding OpenBuyMeACoffeeCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <materialIcons:MaterialIcon Kind="OpenInNew" Width="16" Height="16" />
+                            <TextBlock Text="Open Buy Me a Coffee" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="s-card" IsVisible="{Binding HasInstaPay}">
+                <StackPanel Spacing="6">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <materialIcons:MaterialIcon Kind="BankTransfer" Width="20" Height="20" Foreground="{DynamicResource SkuaAccentBrush}" />
+                        <TextBlock Classes="s-head" Text="InstaPay" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding InstaPayNameText}" FontWeight="SemiBold" />
+                    <SelectableTextBlock Text="{Binding InstaPayNumberText}" FontSize="15" />
+                    <TextBlock Classes="s-text" Text="Send from any bank or e-wallet app with InstaPay." />
+                </StackPanel>
+            </Border>
+
+            <!-- Credits -->
+            <Border Classes="s-card">
+                <StackPanel Spacing="6">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <materialIcons:MaterialIcon Kind="StarCircle" Width="20" Height="20" Foreground="{DynamicResource SkuaAccentBrush}" />
+                        <TextBlock Classes="s-head" Text="Credits" />
+                    </StackPanel>
+                    <TextBlock Classes="s-text"
+                               Text="The phone side of MVS (running the game on Android, the touch controls, the class stars and the big menus) was put together for this app. Everything it stands on is other people's work:" />
+
+                    <TextBlock Classes="s-group" Text="Skua" />
+                    <TextBlock Classes="s-text" Text="• Breno_Henrike: creator (0.1 to 1.2.3)" />
+                    <TextBlock Classes="s-text" Text="• Purple: maintainer (1.2.4 to 1.4.3.0)" />
+                    <TextBlock Classes="s-text" Text="• Tato: script team manager" />
+                    <TextBlock Classes="s-text" Text="• Bogali: secondary script manager" />
+                    <TextBlock Classes="s-text" Text="• Vanilla99: Ultras v1" />
+                    <TextBlock Classes="s-text" Text="• Crow: script dev (Ultra v3)" />
+                    <TextBlock Classes="s-text" Text="• Lonewolf_12: script dev" />
+                    <TextBlock Classes="s-text" Text="• The auqw script community: scripts and skill rotations" />
+
+                    <TextBlock Classes="s-group" Text="VibeSkua" />
+                    <TextBlock Classes="s-text" Text="• Renoir Dessendre: creator of the VibeSkua branch MVS builds on" />
+                    <TextBlock Classes="s-text" Text="• ArrowDev (BlackArrow): the early Avalonia port" />
+
+                    <TextBlock Classes="s-group" Text="Also" />
+                    <TextBlock Classes="s-text" Text="• Ruffle: Flash emulation" />
+                    <TextBlock Classes="s-text" Text="• r/AQW Simplified Bosses Guide: the class star ratings" />
+
+                    <Button Classes="skua-button" Margin="0,8,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Command="{Binding OpenSkuaDonationsCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <materialIcons:MaterialIcon Kind="HandHeart" Width="16" Height="16" />
+                            <TextBlock Text="Support the Skua team" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

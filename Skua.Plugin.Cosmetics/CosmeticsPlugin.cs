@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Skua.Core.Interfaces;
 using Skua.Plugin.Cosmetics.Services;
 using Skua.Plugin.Cosmetics.Views;
+using Skua.Shared.Avalonia.Services;
 
 namespace Skua.Plugin.Cosmetics;
 
@@ -18,7 +19,7 @@ public class CosmeticsPlugin : ISkuaPlugin
     private IServiceProvider? _provider;
     private IPluginHelper? _helper;
     private CosmeticsService? _service;
-    private CosmeticsWindow? _window;
+    private PluginWindow? _window;
 
     public void Load(IServiceProvider provider, IPluginHelper helper)
     {
@@ -48,14 +49,19 @@ public class CosmeticsPlugin : ISkuaPlugin
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (_window == null || !_window.IsVisible)
+            if (_window != null)
             {
-                var bot = _provider!.GetRequiredService<IScriptInterface>();
-                _window = new CosmeticsWindow(bot, _service!);
-                _window.Closed += (s, e) => _window = null;
+                _window.Activate();
+                return;
             }
-            _window.Show();
-            _window.Activate();
+            var bot = _provider!.GetRequiredService<IScriptInterface>();
+            var view = new CosmeticsWindow(bot, _service!);
+            _window = PluginWindow.Show(view, "Cosmetics & Outfits", 1020, 730, 880, 580, ownTitleBar: true);
+            _window.Closed += (s, e) =>
+            {
+                view.OnClosed();
+                _window = null;
+            };
         });
     }
 }

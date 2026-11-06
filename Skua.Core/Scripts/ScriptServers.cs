@@ -46,6 +46,30 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
     private ILogService Logger => _lazyLogger.Value;
 
     private bool _loginInfoSetted = false;
+
+    public string? LastLoginError { get; private set; }
+
+    // The game's own reply when it refuses the account (the text under its login box).
+    private string? ReadLoginRejection()
+    {
+        try
+        {
+            if (Flash.IsNull("mcConnDetail.stage"))
+                return null;
+            string? detail = Flash.GetGameObject<string>("mcConnDetail.txtDetail.text");
+            if (string.IsNullOrWhiteSpace(detail))
+                return null;
+            bool refused = detail.Contains("did not match", StringComparison.OrdinalIgnoreCase)
+                || detail.Contains("incorrect", StringComparison.OrdinalIgnoreCase)
+                || detail.Contains("banned", StringComparison.OrdinalIgnoreCase)
+                || detail.Contains("disabled", StringComparison.OrdinalIgnoreCase);
+            return refused ? string.Join(' ', detail.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)).Trim() : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
     private string _username;
     private string _password;
 
@@ -558,6 +582,13 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
                     return false;
                 }
 
+                if (ReadLoginRejection() is { } rejected)
+                {
+                    LastLoginError = rejected;
+                    ReloginLog($"The game refused the login: '{rejected}'. Not retrying.");
+                    return false;
+                }
+
                 bool loginVisible = Flash.GetGameObject<bool>("mcLogin.visible", false);
                 bool serverListExists = !Flash.IsNull("mcLogin.sl.iList");
                 int serverEntries = Flash.GetGameObject<int>("mcLogin.sl.iList.numChildren", 0);
@@ -599,6 +630,7 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
         int tries = 0;
         HashSet<string> attemptedServers = new(StringComparer.OrdinalIgnoreCase);
         string? preferredServerName = server.Name;
+        LastLoginError = null;
         try
         {
             while (!token.IsCancellationRequested && !Manager.ShouldExit && !Player.Playing && tries < Options.ReloginTries)
@@ -639,6 +671,8 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
                 ReloginLog($"Attempt {tries}/{Options.ReloginTries}: waiting for server list screen.");
                 if (!await WaitForServerListReady(token))
                 {
+                    if (LastLoginError is not null)
+                        break;
                     ReloginLog($"Attempt {tries}/{Options.ReloginTries}: server list screen not ready.");
                     preferredServerName = null;
                     if (tries < Options.ReloginTries)

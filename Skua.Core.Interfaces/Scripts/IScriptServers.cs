@@ -95,6 +95,12 @@ public interface IScriptServers : INotifyPropertyChanged
     bool IsConnected { get; }
 
     /// <summary>
+    /// What the game said when it last refused a login (for example a wrong password), or null.
+    /// A refused login is not retried: trying the same details again cannot work.
+    /// </summary>
+    string? LastLoginError { get; }
+
+    /// <summary>
     /// Logs into the game with the specified username and password.
     /// </summary>
     /// <param name="username">Username to log in with.</param>

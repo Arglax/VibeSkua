@@ -1,0 +1,4317 @@
+{
+ "updated": "2026-11-06",
+ "sources": [
+  "https://docs.google.com/spreadsheets/d/1yytxo6x0XlvbTIYLLD6TCEF_v1EKV59e_N-gas9Fi8Y (Simplified Bosses Guide by r/AQW: ultra stars 0-5 per role and fight)",
+  "https://www.aqwhub.com/other-guides/basic-class-guide/",
+  "https://sites.google.com/view/aqwg-net/ultra-bosses",
+  "https://sites.google.com/view/aqwxcommunity-wiki-tutorial/class-setups (F/S/T/D/+ use-case tags)",
+  "https://aqwwiki.wikidot.com/classes (names/spelling only; wiki has no ratings)",
+  "https://www.aq.com/lore/guides/pvpguide",
+  "https://www.aqwworld.com/2017/01/best-farming-class-on-aqw.html",
+  "https://www.youtube.com/watch?v=Q4k9Yjug4Vo",
+  "Maintainer estimates where note says Estimate"
+ ],
+ "classes": {
+  "Legion Revenant": {
+   "pve": 10,
+   "pvp": 6,
+   "roles": [
+    "farm",
+    "solo",
+    "dps"
+   ],
+   "note": "AQWG Ultra Bosses guide: 21 ultra teams (support + group DPS); AQWHub class guide: endgame generalist/farming; PvP: Widely called best all-rounder (AQW World, YouTube guide); AQW World discourages it for PvP, so PvP is averaged down",
+   "farm": 10,
+   "solo": 9,
+   "boss": 9,
+   "ultra": 10,
+   "ultraRole": "Support"
+  },
+  "Lord of Order": {
+   "pve": 10,
+   "pvp": 7,
+   "roles": [
+    "support",
+    "heal"
+   ],
+   "note": "AQWG Ultra Bosses guide: most recommended ultra class (31 teams, support); AQWHub class guide: top-tier support; PvP estimate",
+   "farm": 5,
+   "solo": 8,
+   "boss": 7,
+   "ultra": 10,
+   "ultraRole": "Healer"
+  },
+  "Void Highlord": {
+   "pve": 9,
+   "pvp": 9,
+   "roles": [
+    "solo",
+    "dps",
+    "tank"
+   ],
+   "note": "AQWG Ultra Bosses guide: 11 ultra teams (damage/taunt); AQWHub class guide: endgame DPS/tank; PvP: Strongest solo + big damage reduction; AQW World calls it best PvP (older source)",
+   "farm": 7,
+   "solo": 10,
+   "boss": 9,
+   "ultra": 7,
+   "ultraRole": "Endgame DPS"
+  },
+  "Void Highlord (IoDA)": {
+   "pve": 8,
+   "pvp": 8,
+   "roles": [
+    "solo",
+    "dps",
+    "tank"
+   ],
+   "note": "Same kit as Void Highlord, estimate",
+   "farm": 6,
+   "solo": 9,
+   "boss": 8,
+   "ultra": 8
+  },
+  "Void Highlord Tester": {
+   "pve": 8,
+   "pvp": 8,
+   "roles": [
+    "solo",
+    "dps",
+    "tank"
+   ],
+   "note": "Test copy of VHL; estimate",
+   "farm": 6,
+   "solo": 9,
+   "boss": 8,
+   "ultra": 8
+  },
+  "Verus DoomKnight": {
+   "pve": 10,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps",
+    "tank"
+   ],
+   "note": "AQWHub class guide: endgame/meta DPS and DPS support; PvP estimate",
+   "farm": 8,
+   "solo": 10,
+   "boss": 10,
+   "ultra": 8,
+   "ultraRole": "Support"
+  },
+  "Chaos Avenger": {
+   "pve": 9,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps",
+    "tank"
+   ],
+   "note": "AQWG Ultra Bosses guide: 11 ultra teams (taunt + damage); AQWHub class guide: endgame DPS/tank/solo; PvP estimate",
+   "farm": 8,
+   "solo": 10,
+   "boss": 10,
+   "ultra": 5,
+   "ultraRole": "Endgame DPS"
+  },
+  "Chaos Avenger Member Preview": {
+   "pve": 9,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps",
+    "tank"
+   ],
+   "note": "Member preview copy of Chaos Avenger",
+   "farm": 8,
+   "solo": 10,
+   "boss": 10,
+   "ultra": 9
+  },
+  "Dragon of Time": {
+   "pve": 9,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "AQWG Ultra Bosses guide: 6 ultra teams; AQWHub class guide: endgame DPS/farming/tank; PvP estimate",
+   "farm": 9,
+   "solo": 9,
+   "boss": 9,
+   "ultra": 7,
+   "ultraRole": "Endgame DPS"
+  },
+  "Chrono ShadowHunter": {
+   "pve": 9,
+   "pvp": 8,
+   "roles": [
+    "solo",
+    "dps",
+    "pvp"
+   ],
+   "note": "Strong dodge/crit class, common in PvP; estimate",
+   "farm": 7,
+   "solo": 9,
+   "boss": 9,
+   "ultra": 10,
+   "ultraRole": "Chrono DPS"
+  },
+  "Chrono ShadowSlayer": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "Chrono line damage class; estimate",
+   "farm": 8,
+   "solo": 8,
+   "boss": 8,
+   "ultra": 7
+  },
+  "Chrono DragonKnight": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "Chrono line; estimate",
+   "farm": 6,
+   "solo": 8,
+   "boss": 8,
+   "ultra": 6
+  },
+  "Chrono DataKnight": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "Chrono line; estimate",
+   "farm": 6,
+   "solo": 8,
+   "boss": 8,
+   "ultra": 6
+  },
+  "Chrono Assassin": {
+   "pve": 8,
+   "pvp": 8,
+   "roles": [
+    "dps",
+    "pvp"
+   ],
+   "note": "High burst, dodge heavy; estimate",
+   "farm": 6,
+   "solo": 8,
+   "boss": 7,
+   "ultra": 6
+  },
+  "Chrono Chaorruptor": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "dps"
+   ],
+   "note": "Chrono line; estimate",
+   "farm": 6,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 6
+  },
+  "Chrono Commandant": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "support"
+   ],
+   "note": "AQWG Ultra Bosses guide: 2 ultra teams (damage chain); PvP estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 7
+  },
+  "Chronocommander": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "support"
+   ],
+   "note": "Chrono line; estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 6
+  },
+  "Chronomancer Prime": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "dps"
+   ],
+   "note": "Chrono line; estimate",
+   "farm": 6,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 6
+  },
+  "Arcana Invoker": {
+   "pve": 9,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "AQWHub class guide: endgame farming/DPS/debuff generalist; PvP estimate",
+   "farm": 8,
+   "solo": 8,
+   "boss": 9,
+   "ultra": 9,
+   "ultraRole": "Endgame DPS"
+  },
+  "Sentinel": {
+   "pve": 9,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps",
+    "tank"
+   ],
+   "note": "Founder/Upholder class, strong tank/solo; estimate",
+   "farm": 6,
+   "solo": 9,
+   "boss": 8,
+   "ultra": 6,
+   "ultraRole": "Endgame DPS"
+  },
+  "Infinity Titan": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps",
+    "tank"
+   ],
+   "note": "AQWHub class guide: support/soloing (StoneCrusher kit); PvP estimate",
+   "farm": 6,
+   "solo": 8,
+   "boss": 7,
+   "ultra": 7
+  },
+  "LightCaster": {
+   "pve": 7,
+   "pvp": 7,
+   "roles": [
+    "support",
+    "dps"
+   ],
+   "note": "AQWG Ultra Bosses guide: 3 ultra teams (support); PvP estimate",
+   "farm": 6,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 8
+  },
+  "LightCaster Test": {
+   "pve": 9,
+   "pvp": 7,
+   "roles": [
+    "support",
+    "dps"
+   ],
+   "note": "Test copy of LightCaster",
+   "farm": 6,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 8
+  },
+  "LightMage": {
+   "pve": 7,
+   "pvp": 5,
+   "roles": [
+    "support"
+   ],
+   "note": "Older version of LightCaster; estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 6
+  },
+  "King's Echo": {
+   "pve": 9,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps",
+    "tank"
+   ],
+   "note": "Solo/tank/ultra boss (YouTube guide); PvP estimate",
+   "farm": 7,
+   "solo": 9,
+   "boss": 9,
+   "ultra": 8,
+   "ultraRole": "Endgame DPS"
+  },
+  "ArchPaladin": {
+   "pve": 9,
+   "pvp": 8,
+   "roles": [
+    "support",
+    "tank"
+   ],
+   "note": "AQWG Ultra Bosses guide: 19 ultra teams (support/taunt); AQWHub class guide: endgame soloing/tank/support; PvP estimate",
+   "farm": 7,
+   "solo": 9,
+   "boss": 8,
+   "ultra": 7,
+   "ultraRole": "Support"
+  },
+  "Blaze Binder": {
+   "pve": 7,
+   "pvp": 8,
+   "roles": [
+    "farm",
+    "pvp"
+   ],
+   "note": "AQWHub class guide: mid-game farming; PvP: Great minion AoE; named PvP pick in official PvP guide (Bludrut Brawl)",
+   "farm": 9,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 6
+  },
+  "Ultra Elemental Warrior": {
+   "pve": 8,
+   "pvp": 8,
+   "roles": [
+    "farm",
+    "dps",
+    "pvp"
+   ],
+   "note": "AQWHub class guide: endgame DPS soloing / single-target farming; PvP: High multi-target damage; named in official PvP guide",
+   "farm": 7,
+   "solo": 8,
+   "boss": 8,
+   "ultra": 7
+  },
+  "Mythic Elemental Warrior": {
+   "pve": 7,
+   "pvp": 7,
+   "roles": [
+    "farm",
+    "dps"
+   ],
+   "note": "Elemental Warrior line; estimate",
+   "farm": 7,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 6
+  },
+  "Legendary Elemental Warrior": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "farm",
+    "dps"
+   ],
+   "note": "AQWHub class guide: endgame DPS soloing / single-target farming; PvP estimate",
+   "farm": 7,
+   "solo": 8,
+   "boss": 8,
+   "ultra": 6
+  },
+  "Alpha Omega": {
+   "pve": 7,
+   "pvp": 8,
+   "roles": [
+    "dps",
+    "pvp"
+   ],
+   "note": "Named 1v1 pick in official PvP guide",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 2,
+   "ultraRole": "Early DPS"
+  },
+  "Alpha DOOMmega": {
+   "pve": 7,
+   "pvp": 8,
+   "roles": [
+    "dps",
+    "pvp"
+   ],
+   "note": "Alpha Omega upgrade; estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Alpha Pirate": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Free/early class; estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Classic Alpha Pirate": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Early class; estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Pyromancer": {
+   "pve": 6,
+   "pvp": 8,
+   "roles": [
+    "dps",
+    "pvp"
+   ],
+   "note": "Named 1v1 pick in official PvP guide; low-HP bosses only for solo (AQW World)",
+   "farm": 4,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 4
+  },
+  "Elemental Dracomancer": {
+   "pve": 7,
+   "pvp": 8,
+   "roles": [
+    "dps",
+    "pvp"
+   ],
+   "note": "Named 1v1 pick (Evolved Dracomancer) in official PvP guide",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Rogue": {
+   "pve": 4,
+   "pvp": 7,
+   "roles": [
+    "dps",
+    "pvp"
+   ],
+   "note": "Dodge-based; named PvP pick in official guide; weak PvE",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 2
+  },
+  "Rogue (Rare)": {
+   "pve": 4,
+   "pvp": 7,
+   "roles": [
+    "dps",
+    "pvp"
+   ],
+   "note": "Same as Rogue",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 2
+  },
+  "BladeMaster": {
+   "pve": 6,
+   "pvp": 7,
+   "roles": [
+    "dps",
+    "pvp"
+   ],
+   "note": "Dodge-based; official PvP guide",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "BladeMaster Assassin": {
+   "pve": 6,
+   "pvp": 7,
+   "roles": [
+    "dps",
+    "pvp"
+   ],
+   "note": "Dodge-based; estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Legion BladeMaster Assassin": {
+   "pve": 7,
+   "pvp": 7,
+   "roles": [
+    "dps",
+    "pvp"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "SwordMaster": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "farm"
+   ],
+   "note": "Minion farming; AQW World",
+   "farm": 6,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 4
+  },
+  "SwordMaster Assassin": {
+   "pve": 6,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 4
+  },
+  "Legion SwordMaster Assassin": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 6,
+   "solo": 8,
+   "boss": 8,
+   "ultra": 6
+  },
+  "Bard": {
+   "pve": 4,
+   "pvp": 8,
+   "roles": [
+    "support",
+    "pvp"
+   ],
+   "note": "Team buffs in Bludrut Brawl (official PvP guide)",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 3
+  },
+  "Battle Bard": {
+   "pve": 4,
+   "pvp": 7,
+   "roles": [
+    "support",
+    "pvp"
+   ],
+   "note": "Bard variant; estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 3
+  },
+  "PvP Test  |  Bard": {
+   "pve": 4,
+   "pvp": 8,
+   "roles": [
+    "support",
+    "pvp"
+   ],
+   "note": "PvP test copy of Bard",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 3
+  },
+  "PvP Test  |  Healer": {
+   "pve": 4,
+   "pvp": 8,
+   "roles": [
+    "heal",
+    "pvp"
+   ],
+   "note": "PvP test copy of Healer",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 3
+  },
+  "Healer": {
+   "pve": 4,
+   "pvp": 7,
+   "roles": [
+    "heal"
+   ],
+   "note": "Free heal class; official PvP guide names it for healing",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 3
+  },
+  "Healer (Rare)": {
+   "pve": 4,
+   "pvp": 7,
+   "roles": [
+    "heal"
+   ],
+   "note": "Same as Healer",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 3
+  },
+  "Oracle": {
+   "pve": 7,
+   "pvp": 7,
+   "roles": [
+    "heal",
+    "solo"
+   ],
+   "note": "High HP boss soloing (AQW World), healing in PvP guide",
+   "farm": 5,
+   "solo": 7,
+   "boss": 6,
+   "ultra": 6
+  },
+  "Chaos Slayer Berserker": {
+   "pve": 6,
+   "pvp": 7,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Chaos Slayer Cleric": {
+   "pve": 6,
+   "pvp": 8,
+   "roles": [
+    "support",
+    "heal"
+   ],
+   "note": "Debuff/heal support; official guide lists Chaos Slayer for debuffs",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 5
+  },
+  "Chaos Slayer Mystic": {
+   "pve": 6,
+   "pvp": 8,
+   "roles": [
+    "support",
+    "dps"
+   ],
+   "note": "Debuff support; official PvP guide",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 5
+  },
+  "Chaos Slayer Thief": {
+   "pve": 6,
+   "pvp": 7,
+   "roles": [
+    "dps",
+    "pvp"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Paladin Highlord": {
+   "pve": 6,
+   "pvp": 8,
+   "roles": [
+    "support",
+    "tank"
+   ],
+   "note": "Party-based, named in official PvP guide",
+   "farm": 4,
+   "solo": 6,
+   "boss": 5,
+   "ultra": 5
+  },
+  "DoomKnight OverLord": {
+   "pve": 6,
+   "pvp": 8,
+   "roles": [
+    "support",
+    "tank"
+   ],
+   "note": "Party-based, named in official PvP guide",
+   "farm": 4,
+   "solo": 6,
+   "boss": 5,
+   "ultra": 5
+  },
+  "Naval Commander": {
+   "pve": 4,
+   "pvp": 7,
+   "roles": [
+    "support"
+   ],
+   "note": "Party-based per official PvP guide",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 3
+  },
+  "Heroic Naval Commander": {
+   "pve": 5,
+   "pvp": 7,
+   "roles": [
+    "support"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 4
+  },
+  "Legendary Naval Commander": {
+   "pve": 5,
+   "pvp": 7,
+   "roles": [
+    "support"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 4
+  },
+  "ShadowScythe General": {
+   "pve": 8,
+   "pvp": 9,
+   "roles": [
+    "dps",
+    "pvp",
+    "tank"
+   ],
+   "note": "AQW World: best PvP (natural damage reduction); also strong PvE",
+   "farm": 6,
+   "solo": 8,
+   "boss": 7,
+   "ultra": 7
+  },
+  "WarriorScythe General": {
+   "pve": 8,
+   "pvp": 9,
+   "roles": [
+    "dps",
+    "pvp",
+    "tank"
+   ],
+   "note": "Same kit as ShadowScythe General",
+   "farm": 6,
+   "solo": 8,
+   "boss": 7,
+   "ultra": 7
+  },
+  "Legion DoomKnight": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps",
+    "tank"
+   ],
+   "note": "AQWG Ultra Bosses guide: 3 ultra teams (group DPS + decay); PvP estimate",
+   "farm": 6,
+   "solo": 8,
+   "boss": 8,
+   "ultra": 5,
+   "ultraRole": "Early DPS"
+  },
+  "Legion DoomKnight Tester": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps",
+    "tank"
+   ],
+   "note": "Test copy",
+   "farm": 6,
+   "solo": 8,
+   "boss": 8,
+   "ultra": 7
+  },
+  "Classic Legion DoomKnight": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 5
+  },
+  "Classic DoomKnight": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "DoomKnight": {
+   "pve": 6,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Dark Lord": {
+   "pve": 6,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 7,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 4
+  },
+  "Thief of Hours": {
+   "pve": 8,
+   "pvp": 6,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "Boss specialist (AQW World)",
+   "farm": 6,
+   "solo": 8,
+   "boss": 8,
+   "ultra": 6
+  },
+  "StoneCrusher": {
+   "pve": 8,
+   "pvp": 6,
+   "roles": [
+    "solo",
+    "tank"
+   ],
+   "note": "AQWG Ultra Bosses guide: 4 ultra teams; AQWHub class guide: support/soloing; PvP estimate",
+   "farm": 5,
+   "solo": 8,
+   "boss": 7,
+   "ultra": 3,
+   "ultraRole": "Healer"
+  },
+  "Necromancer": {
+   "pve": 7,
+   "pvp": 5,
+   "roles": [
+    "solo"
+   ],
+   "note": "Mighty solo class (AQW World)",
+   "farm": 6,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 6
+  },
+  "Daimon": {
+   "pve": 6,
+   "pvp": 4,
+   "roles": [
+    "farm"
+   ],
+   "note": "Minion farming but luck-based (AQW World)",
+   "farm": 6,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Eternal Inversionist": {
+   "pve": 7,
+   "pvp": 5,
+   "roles": [
+    "farm"
+   ],
+   "note": "Minion farming; AQW World",
+   "farm": 9,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 6
+  },
+  "Mage": {
+   "pve": 5,
+   "pvp": 4,
+   "roles": [
+    "farm"
+   ],
+   "note": "Free class, minion AoE",
+   "farm": 6,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Mage (Rare)": {
+   "pve": 5,
+   "pvp": 4,
+   "roles": [
+    "farm"
+   ],
+   "note": "Same as Mage",
+   "farm": 6,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Royal BattleMage": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "farm"
+   ],
+   "note": "AoE farming; AQW World",
+   "farm": 6,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "BattleMage": {
+   "pve": 5,
+   "pvp": 4,
+   "roles": [
+    "farm"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Dark BattleMage": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "farm"
+   ],
+   "note": "Estimate",
+   "farm": 6,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "BattleMage of Love": {
+   "pve": 5,
+   "pvp": 4,
+   "roles": [
+    "farm"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Scarlet Sorceress": {
+   "pve": 7,
+   "pvp": 5,
+   "roles": [
+    "farm",
+    "dps"
+   ],
+   "note": "AQWHub class guide: mid-game farming/soloing; PvP estimate",
+   "farm": 8,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 7
+  },
+  "Shaman": {
+   "pve": 7,
+   "pvp": 5,
+   "roles": [
+    "farm",
+    "dps"
+   ],
+   "note": "AQWHub class guide: farming/soloing (debatable endgame pick); PvP estimate",
+   "farm": 9,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 6,
+   "ultraRole": "Early DPS"
+  },
+  "Evolved Shaman": {
+   "pve": 7,
+   "pvp": 5,
+   "roles": [
+    "farm",
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 9,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 6
+  },
+  "Vampire Lord": {
+   "pve": 6,
+   "pvp": 6,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "Lifesteal; AQW World multi-purpose",
+   "farm": 7,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 4
+  },
+  "Royal Vampire Lord": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 7,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 5
+  },
+  "Enchanted Vampire Lord": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 7,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 5
+  },
+  "Infinite Legion Dark Caster": {
+   "pve": 8,
+   "pvp": 6,
+   "roles": [
+    "farm",
+    "dps"
+   ],
+   "note": "Strong AoE/boss; AQW World multi-purpose",
+   "farm": 9,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 6
+  },
+  "Infinite Dark Caster": {
+   "pve": 7,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Immortal Dark Caster": {
+   "pve": 7,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 5
+  },
+  "Evolved Dark Caster": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Legion Evolved Dark Caster": {
+   "pve": 7,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Dark Caster": {
+   "pve": 5,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Timeless Dark Caster": {
+   "pve": 7,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 5
+  },
+  "Arcane Dark Caster": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Mystical Dark Caster": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Yami no Ronin": {
+   "pve": 8,
+   "pvp": 6,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "AQWHub class guide: endgame single-target farming, dodge soloing; PvP estimate",
+   "farm": 6,
+   "solo": 9,
+   "boss": 9,
+   "ultra": 6,
+   "ultraRole": "Early DPS"
+  },
+  "Ninja": {
+   "pve": 3,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Early free class; estimate",
+   "farm": 1,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 1
+  },
+  "Ninja (rare)": {
+   "pve": 3,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Same as Ninja",
+   "farm": 1,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 1
+  },
+  "Classic Ninja": {
+   "pve": 3,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Early class; estimate",
+   "farm": 1,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 1
+  },
+  "Ninja Warrior": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Chunin": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 2
+  },
+  "Imperial Chunin": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 7,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Dragon Shinobi": {
+   "pve": 6,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "DragonSoul Shinobi": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "farm",
+    "dps"
+   ],
+   "note": "Popular early-mid class; estimate",
+   "farm": 7,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 5
+  },
+  "Shadow Dragon Shinobi": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 5
+  },
+  "Master Ranger": {
+   "pve": 3,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Early free class; estimate",
+   "farm": 7,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Ultra OmniKnight": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "solo",
+    "tank"
+   ],
+   "note": "Strong early/mid solo and tank; estimate",
+   "farm": 5,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 7,
+   "ultraRole": "Endgame DPS"
+  },
+  "Dark Ultra OmniNight": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "solo",
+    "tank"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 6
+  },
+  "Glacial Berserker": {
+   "pve": 6,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Mid class; estimate",
+   "farm": 5,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 5
+  },
+  "Glacial Warlord": {
+   "pve": 6,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Glaceran Warlord": {
+   "pve": 6,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 7,
+   "ultraRole": "Support"
+  },
+  "Savage Glaceran Warlord": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Dark Glaceran Warlord": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Berserker": {
+   "pve": 3,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Early class; estimate",
+   "farm": 1,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 1
+  },
+  "Beta Berserker": {
+   "pve": 3,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Early class; estimate",
+   "farm": 1,
+   "solo": 2,
+   "boss": 2,
+   "ultra": 1
+  },
+  "Dark Chaos Berserker": {
+   "pve": 6,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Warrior": {
+   "pve": 3,
+   "pvp": 4,
+   "roles": [
+    "dps",
+    "tank"
+   ],
+   "note": "Starter class; estimate",
+   "farm": 1,
+   "solo": 3,
+   "boss": 2,
+   "ultra": 2
+  },
+  "Warrior (Rare)": {
+   "pve": 3,
+   "pvp": 4,
+   "roles": [
+    "dps",
+    "tank"
+   ],
+   "note": "Starter class; estimate",
+   "farm": 1,
+   "solo": 3,
+   "boss": 2,
+   "ultra": 2
+  },
+  "Warlord": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 2
+  },
+  "Paladin": {
+   "pve": 3,
+   "pvp": 4,
+   "roles": [
+    "support",
+    "tank"
+   ],
+   "note": "Starter class; estimate",
+   "farm": 1,
+   "solo": 3,
+   "boss": 2,
+   "ultra": 2
+  },
+  "Classic Paladin": {
+   "pve": 3,
+   "pvp": 4,
+   "roles": [
+    "support",
+    "tank"
+   ],
+   "note": "Starter class; estimate",
+   "farm": 1,
+   "solo": 3,
+   "boss": 2,
+   "ultra": 2
+  },
+  "Legion Paladin": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "support",
+    "tank"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 7,
+   "boss": 6,
+   "ultra": 7,
+   "ultraRole": "Endgame DPS"
+  },
+  "Silver Paladin": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "support",
+    "tank"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 4,
+   "boss": 3,
+   "ultra": 3
+  },
+  "Guardian": {
+   "pve": 4,
+   "pvp": 5,
+   "roles": [
+    "tank"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 4,
+   "boss": 3,
+   "ultra": 9,
+   "ultraRole": "Chrono DPS"
+  },
+  "Classic Guardian": {
+   "pve": 4,
+   "pvp": 5,
+   "roles": [
+    "tank"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 4,
+   "boss": 3,
+   "ultra": 3
+  },
+  "Defender": {
+   "pve": 4,
+   "pvp": 5,
+   "roles": [
+    "tank"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 4,
+   "boss": 3,
+   "ultra": 3
+  },
+  "Classic Defender": {
+   "pve": 4,
+   "pvp": 5,
+   "roles": [
+    "tank"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 4,
+   "boss": 3,
+   "ultra": 3
+  },
+  "Dragonlord": {
+   "pve": 6,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Classic Dragonlord": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "ShadowFlame DragonLord": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Dragonslayer": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 3
+  },
+  "Dragonslayer General": {
+   "pve": 8,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "AQWG Ultra Bosses guide: 3 ultra teams (damage chain); PvP estimate",
+   "farm": 5,
+   "solo": 8,
+   "boss": 8,
+   "ultra": 6
+  },
+  "Dragon Knight": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Legendary ArchFiend": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "farm"
+   ],
+   "note": "Low-HP bosses only (AQW World)",
+   "farm": 8,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "ArchFiend": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "farm"
+   ],
+   "note": "Estimate",
+   "farm": 8,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 9,
+   "ultraRole": "Support"
+  },
+  "ArchMage": {
+   "pve": 9,
+   "pvp": 5,
+   "roles": [
+    "farm",
+    "dps"
+   ],
+   "note": "AQWHub class guide: endgame farming; PvP estimate",
+   "farm": 10,
+   "solo": 8,
+   "boss": 9,
+   "ultra": 9
+  },
+  "Blood Titan": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 5
+  },
+  "Frostblood Titan": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 5
+  },
+  "Blood Ancient": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 7,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Blood Sorceress": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 8,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Cryomancer": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "farm",
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 6,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 4
+  },
+  "Dark Cryomancer": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "farm",
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 6,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Sakura Cryomancer": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "farm",
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 6,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Necrotic Chronomancer": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Nechronomancer": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Phantom Chronomancer": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 8,
+   "ultraRole": "Chrono DPS"
+  },
+  "Phantasm Chronomancer": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Empyrean Chronomancer": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Eternal Chronomancer": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Immortal Chronomancer": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Timeless Chronomancer": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Quantum Chronomancer": {
+   "pve": 7,
+   "pvp": 7,
+   "roles": [
+    "dps"
+   ],
+   "note": "AQWG Ultra Bosses guide: 1 ultra team; PvP estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5,
+   "ultraRole": "Chrono DPS"
+  },
+  "Continuum Chronomancer": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "dps"
+   ],
+   "note": "AQWG Ultra Bosses guide: 4 ultra teams (support + damage); PvP estimate",
+   "farm": 6,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 7
+  },
+  "Paladin Chronomancer": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "support",
+    "dps"
+   ],
+   "note": "AQWG Ultra Bosses guide: 2 ultra teams (support + time heals); PvP estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 6,
+   "ultraRole": "Healer"
+  },
+  "Overworld Chronomancer": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Underworld Chronomancer": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Corrupted Chronomancer": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Archivist of Time": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 8,
+   "ultraRole": "Chrono DPS"
+  },
+  "ShadowStalker of Time": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 6,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 6
+  },
+  "ShadowWalker of Time": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 6,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 6
+  },
+  "ShadowWeaver of Time": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "dps"
+   ],
+   "note": "AQWG Ultra Bosses guide: 2 ultra teams (taunt + damage); PvP estimate",
+   "farm": 6,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 7
+  },
+  "TimeKeeper": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "TimeKiller": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Hollowborn Vindicator": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 7,
+   "solo": 8,
+   "boss": 8,
+   "ultra": 7,
+   "ultraRole": "Endgame DPS"
+  },
+  "Vindicator Of They": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Psionic MindBreaker": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 8,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 6
+  },
+  "MindBreaker": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Lich": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 8,
+   "ultraRole": "Endgame DPS"
+  },
+  "Grim Necromancer": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Troll Spellsmith": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Pumpkin Lord": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Seasonal; estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Evolved Pumpkin Lord": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Seasonal; estimate",
+   "farm": 4,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 4
+  },
+  "Leprechaun": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 2
+  },
+  "Evolved Leprechaun": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Barber": {
+   "pve": 3,
+   "pvp": 3,
+   "roles": [
+    "support"
+   ],
+   "note": "Support (AQW World)",
+   "farm": 1,
+   "solo": 2,
+   "boss": 2,
+   "ultra": 2
+  },
+  "Legendary Hero": {
+   "pve": 7,
+   "pvp": 4,
+   "roles": [
+    "support"
+   ],
+   "note": "AQWHub class guide: endgame support; PvP estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 7,
+   "ultraRole": "Healer"
+  },
+  "Dark Legendary Hero": {
+   "pve": 7,
+   "pvp": 5,
+   "roles": [
+    "support"
+   ],
+   "note": "AQWHub class guide: endgame support; PvP estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 6
+  },
+  "Master of Moglins": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 7,
+   "ultraRole": "Healer"
+  },
+  "Dark Master of Moglins": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 2
+  },
+  "Beast Warrior": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 2
+  },
+  "BeastMaster": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 4,
+   "boss": 3,
+   "ultra": 2
+  },
+  "Lycan": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 3
+  },
+  "Martial Artist": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 8,
+   "ultraRole": "Endgame DPS"
+  },
+  "Master Martial Artist": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Northlands Monk": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 5,
+   "boss": 4,
+   "ultra": 4
+  },
+  "Acolyte": {
+   "pve": 3,
+   "pvp": 3,
+   "roles": [
+    "heal"
+   ],
+   "note": "Estimate",
+   "farm": 1,
+   "solo": 2,
+   "boss": 2,
+   "ultra": 2
+  },
+  "Abyssal Angel": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Abyssal Angel's Shadow": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 8,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 5
+  },
+  "Assassin": {
+   "pve": 4,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 2
+  },
+  "Arachnomancer": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 7,
+   "ultraRole": "Support"
+  },
+  "Artifact Hunter": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 2
+  },
+  "The Collector": {
+   "pve": 5,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "SkyGuard Grenadier": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "SkyCharged Grenadier": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Star Captain": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "StarLord": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Scion of Flames": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 8,
+   "ultraRole": "Support"
+  },
+  "FireLord Summoner": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 8,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Flame Dragon Warrior": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Frost SpiritReaver": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Sovereign of Storms": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Darkblood StormKing": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Interstellar Knight": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Infinity Knight": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 7,
+   "ultraRole": "Chrono DPS"
+  },
+  "Drakel Warlord": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Drakkar Knight": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Frostval Barbarian": {
+   "pve": 7,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "AQWG Ultra Bosses guide: 3 ultra teams (support); PvP estimate",
+   "farm": 7,
+   "solo": 7,
+   "boss": 6,
+   "ultra": 4,
+   "ultraRole": "Healer"
+  },
+  "Pirate": {
+   "pve": 3,
+   "pvp": 3,
+   "roles": [
+    "dps"
+   ],
+   "note": "Early class; estimate",
+   "farm": 1,
+   "solo": 2,
+   "boss": 2,
+   "ultra": 1
+  },
+  "Classic Pirate": {
+   "pve": 3,
+   "pvp": 3,
+   "roles": [
+    "dps"
+   ],
+   "note": "Early class; estimate",
+   "farm": 1,
+   "solo": 2,
+   "boss": 2,
+   "ultra": 1
+  },
+  "Sorcerer": {
+   "pve": 3,
+   "pvp": 3,
+   "roles": [
+    "dps"
+   ],
+   "note": "Early class; estimate",
+   "farm": 1,
+   "solo": 2,
+   "boss": 2,
+   "ultra": 1
+  },
+  "Witch": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 2
+  },
+  "Hobo Highlord": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Debris Highlord": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Great Thief": {
+   "pve": 7,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "AQWG Ultra Bosses guide: 1 ultra team (damage); PvP estimate",
+   "farm": 6,
+   "solo": 7,
+   "boss": 7,
+   "ultra": 9,
+   "ultraRole": "Chrono DPS"
+  },
+  "Horc Evader": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 2
+  },
+  "Kathool Adept": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "ClawSuit": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Evolved ClawSuit": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Prismatic ClawSuit": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "MechaJouster": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Rustbucket": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 2
+  },
+  "Renegade": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 2
+  },
+  "Enforcer": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 3
+  },
+  "ProtoSartorium": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "HighSeas Commander": {
+   "pve": 5,
+   "pvp": 6,
+   "roles": [
+    "support"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 4
+  },
+  "Undead Goat": {
+   "pve": 3,
+   "pvp": 3,
+   "roles": [
+    "dps"
+   ],
+   "note": "Joke class; estimate",
+   "farm": 1,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 2
+  },
+  "UndeadSlayer": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 2
+  },
+  "Heavy Metal Necro": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Heavy Metal Rockstar": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Dark Metal Necro": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Nu Metal Necro": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Neo Metal Necro": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Doom Metal Necro": {
+   "pve": 9,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "AQWHub class guide: endgame DPS/soloing; PvP estimate",
+   "farm": 8,
+   "solo": 8,
+   "boss": 9,
+   "ultra": 8
+  },
+  "Grunge Rocker": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Shadow Rocker": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Unchained Rocker": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Unchained Rockstar": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Shadow Ripper": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Love Caster": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "support"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 3
+  },
+  "Pink Romancer": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "support"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 3
+  },
+  "Pinkomancer": {
+   "pve": 4,
+   "pvp": 4,
+   "roles": [
+    "support"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 3
+  },
+  "Troubador of Love": {
+   "pve": 4,
+   "pvp": 5,
+   "roles": [
+    "support"
+   ],
+   "note": "Estimate",
+   "farm": 2,
+   "solo": 3,
+   "boss": 3,
+   "ultra": 3
+  },
+  "Exalted Soul Cleaver": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 6,
+   "solo": 8,
+   "boss": 8,
+   "ultra": 7
+  },
+  "Soul Cleaver": {
+   "pve": 6,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "Classic Soul Cleaver": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Chaos Shaper": {
+   "pve": 7,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "AQWG Ultra Bosses guide: 1 ultra team (damage); PvP estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 8,
+   "ultraRole": "Endgame DPS"
+  },
+  "Chaos Champion Prime": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 5
+  },
+  "Hollowborn Vindicator Member Preview": {
+   "pve": 8,
+   "pvp": 7,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "Member preview copy",
+   "farm": 7,
+   "solo": 8,
+   "boss": 8,
+   "ultra": 7
+  },
+  "Legion Revenant Member Test": {
+   "pve": 10,
+   "pvp": 6,
+   "roles": [
+    "farm",
+    "solo",
+    "dps"
+   ],
+   "note": "Test copy of Legion Revenant",
+   "farm": 10,
+   "solo": 9,
+   "boss": 9,
+   "ultra": 10
+  },
+  "Exalted Harbinger": {
+   "pve": 6,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 6,
+   "solo": 8,
+   "boss": 8,
+   "ultra": 7
+  },
+  "Dark Harbinger": {
+   "pve": 6,
+   "pvp": 6,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 4,
+   "solo": 5,
+   "boss": 5,
+   "ultra": 4
+  },
+  "DeathKnight": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "DeathKnight Lord": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "solo",
+    "dps"
+   ],
+   "note": "AQWG Ultra Bosses guide: 2 ultra teams (taunt); AQWHub class guide: early farming; PvP estimate",
+   "farm": 7,
+   "solo": 7,
+   "boss": 6,
+   "ultra": 6
+  },
+  "Obsidian Paladin Chronomancer": {
+   "pve": 7,
+   "pvp": 6,
+   "roles": [
+    "support",
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 5,
+   "solo": 6,
+   "boss": 6,
+   "ultra": 6
+  },
+  "Darkside": {
+   "pve": 5,
+   "pvp": 5,
+   "roles": [
+    "dps"
+   ],
+   "note": "Estimate",
+   "farm": 3,
+   "solo": 4,
+   "boss": 4,
+   "ultra": 3
+  },
+  "Giftbox": {
+   "pve": 2,
+   "pvp": 2,
+   "roles": [
+    "dps"
+   ],
+   "note": "Joke class",
+   "farm": 1,
+   "solo": 1,
+   "boss": 1,
+   "ultra": 1
+  },
+  "Immortal DarkCaster": {
+   "pve": 8,
+   "pvp": 4,
+   "roles": [],
+   "note": "Estimate from the Simplified Bosses Guide ultra ratings",
+   "farm": 7,
+   "solo": 7,
+   "boss": 8,
+   "ultra": 8,
+   "ultraRole": "Endgame DPS"
+  },
+  "Timeless DarkCaster": {
+   "pve": 7,
+   "pvp": 4,
+   "roles": [],
+   "note": "Estimate from the Simplified Bosses Guide ultra ratings",
+   "farm": 6,
+   "solo": 6,
+   "boss": 7,
+   "ultra": 7,
+   "ultraRole": "Endgame DPS"
+  },
+  "Light Caster": {
+   "pve": 5,
+   "pvp": 4,
+   "roles": [],
+   "note": "Estimate from the Simplified Bosses Guide ultra ratings",
+   "farm": 4,
+   "solo": 4,
+   "boss": 5,
+   "ultra": 5,
+   "ultraRole": "Early DPS"
+  },
+  "Elemental Warrior": {
+   "pve": 7,
+   "pvp": 4,
+   "roles": [],
+   "note": "Estimate from the Simplified Bosses Guide ultra ratings",
+   "farm": 6,
+   "solo": 6,
+   "boss": 7,
+   "ultra": 7,
+   "ultraRole": "Early DPS"
+  },
+  "Chaos Slayer": {
+   "pve": 5,
+   "pvp": 4,
+   "roles": [],
+   "note": "Estimate from the Simplified Bosses Guide ultra ratings",
+   "farm": 4,
+   "solo": 4,
+   "boss": 5,
+   "ultra": 5,
+   "ultraRole": "Early DPS"
+  },
+  "Unundead Goat": {
+   "pve": 7,
+   "pvp": 4,
+   "roles": [],
+   "note": "Estimate from the Simplified Bosses Guide ultra ratings",
+   "farm": 6,
+   "solo": 6,
+   "boss": 7,
+   "ultra": 7,
+   "ultraRole": "Endgame DPS"
+  }
+ },
+ "useCases": {
+  "farm": "Farming: clearing many monsters fast (AoE, mana, low downtime).",
+  "solo": "Solo: surviving and winning alone (self-heal, damage reduction, taunts).",
+  "boss": "Bossing: one strong, non-ultra target (single-target damage and survival).",
+  "ultra": "Ultra: ultra bosses with a team (AQWG ultra team counts, support value)."
+ },
+ "ultraFights": [
+  {
+   "name": "Void Flibbi",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 5,
+    "Legendary Hero": 5,
+    "King's Echo": 4,
+    "ArchPaladin": 4,
+    "StoneCrusher": 2,
+    "Hollowborn Vindicator": 4,
+    "ArchFiend": 5,
+    "Paladin Chronomancer": 3,
+    "Dragon of Time": 5,
+    "Arachnomancer": 5,
+    "Frostval Barbarian": 3,
+    "Martial Artist": 5,
+    "Glaceran Warlord": 5,
+    "Master of Moglins": 4,
+    "Lich": 4,
+    "Scion of Flames": 5,
+    "Legion Paladin": 4,
+    "Immortal DarkCaster": 5,
+    "Timeless DarkCaster": 5,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 4,
+    "Ultra OmniKnight": 5,
+    "Great Thief": 5,
+    "Elemental Warrior": 4,
+    "Chaos Shaper": 5,
+    "Phantom Chronomancer": 4,
+    "Chaos Slayer": 3,
+    "Unundead Goat": 4,
+    "Quantum Chronomancer": 2,
+    "Yami no Ronin": 3,
+    "Chaos Avenger": 2,
+    "Infinity Knight": 4,
+    "Legion DoomKnight": 3,
+    "Guardian": 5,
+    "Shaman": 3,
+    "Sentinel": 3,
+    "Archivist of Time": 4,
+    "Alpha Omega": 1,
+    "Void Highlord": 4
+   }
+  },
+  {
+   "name": "Void Nightbane",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 5,
+    "Legendary Hero": 5,
+    "King's Echo": 3,
+    "ArchPaladin": 3,
+    "StoneCrusher": 1,
+    "Hollowborn Vindicator": 3,
+    "ArchFiend": 5,
+    "Paladin Chronomancer": 2,
+    "Dragon of Time": 5,
+    "Arachnomancer": 5,
+    "Frostval Barbarian": 3,
+    "Martial Artist": 4,
+    "Glaceran Warlord": 4,
+    "Master of Moglins": 4,
+    "Lich": 4,
+    "Scion of Flames": 4,
+    "Legion Paladin": 4,
+    "Immortal DarkCaster": 5,
+    "Timeless DarkCaster": 5,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 3,
+    "Ultra OmniKnight": 4,
+    "Great Thief": 5,
+    "Elemental Warrior": 4,
+    "Chaos Shaper": 4,
+    "Phantom Chronomancer": 4,
+    "Chaos Slayer": 2,
+    "Unundead Goat": 4,
+    "Quantum Chronomancer": 2,
+    "Yami no Ronin": 2,
+    "Chaos Avenger": 1,
+    "Infinity Knight": 4,
+    "Legion DoomKnight": 2,
+    "Guardian": 5,
+    "Shaman": 2,
+    "Sentinel": 2,
+    "Archivist of Time": 4,
+    "Alpha Omega": 1,
+    "Void Highlord": 4
+   }
+  },
+  {
+   "name": "Void Xyfrag",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 5,
+    "Legendary Hero": 5,
+    "King's Echo": 3,
+    "ArchPaladin": 3,
+    "StoneCrusher": 1,
+    "Hollowborn Vindicator": 3,
+    "ArchFiend": 5,
+    "Paladin Chronomancer": 2,
+    "Dragon of Time": 5,
+    "Arachnomancer": 5,
+    "Frostval Barbarian": 3,
+    "Martial Artist": 4,
+    "Glaceran Warlord": 4,
+    "Master of Moglins": 4,
+    "Lich": 4,
+    "Scion of Flames": 4,
+    "Legion Paladin": 4,
+    "Immortal DarkCaster": 5,
+    "Timeless DarkCaster": 5,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 3,
+    "Ultra OmniKnight": 4,
+    "Great Thief": 5,
+    "Elemental Warrior": 4,
+    "Chaos Shaper": 4,
+    "Phantom Chronomancer": 4,
+    "Chaos Slayer": 2,
+    "Unundead Goat": 4,
+    "Quantum Chronomancer": 2,
+    "Yami no Ronin": 2,
+    "Chaos Avenger": 1,
+    "Infinity Knight": 4,
+    "Legion DoomKnight": 2,
+    "Guardian": 5,
+    "Shaman": 2,
+    "Sentinel": 2,
+    "Archivist of Time": 4,
+    "Alpha Omega": 1,
+    "Void Highlord": 4
+   }
+  },
+  {
+   "name": "NerfKitten",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 5,
+    "Legendary Hero": 5,
+    "King's Echo": 4,
+    "ArchPaladin": 4,
+    "StoneCrusher": 1,
+    "Hollowborn Vindicator": 4,
+    "ArchFiend": 5,
+    "Paladin Chronomancer": 2,
+    "Dragon of Time": 5,
+    "Arachnomancer": 5,
+    "Frostval Barbarian": 3,
+    "Martial Artist": 5,
+    "Glaceran Warlord": 4,
+    "Master of Moglins": 4,
+    "Lich": 4,
+    "Scion of Flames": 4,
+    "Legion Paladin": 4,
+    "Immortal DarkCaster": 5,
+    "Timeless DarkCaster": 5,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 3,
+    "Ultra OmniKnight": 5,
+    "Great Thief": 5,
+    "Elemental Warrior": 4,
+    "Chaos Shaper": 5,
+    "Phantom Chronomancer": 4,
+    "Chaos Slayer": 3,
+    "Unundead Goat": 4,
+    "Quantum Chronomancer": 2,
+    "Yami no Ronin": 3,
+    "Chaos Avenger": 3,
+    "Infinity Knight": 4,
+    "Legion DoomKnight": 3,
+    "Guardian": 5,
+    "Shaman": 3,
+    "Sentinel": 4,
+    "Archivist of Time": 4,
+    "Alpha Omega": 1,
+    "Void Highlord": 4
+   }
+  },
+  {
+   "name": "Lavarock Shore",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 4,
+    "Legendary Hero": 4,
+    "King's Echo": 4,
+    "ArchPaladin": 3,
+    "StoneCrusher": 4,
+    "Hollowborn Vindicator": 4,
+    "ArchFiend": 5,
+    "Paladin Chronomancer": 3,
+    "Dragon of Time": 4,
+    "Arachnomancer": 4,
+    "Frostval Barbarian": 3,
+    "Martial Artist": 5,
+    "Glaceran Warlord": 4,
+    "Master of Moglins": 5,
+    "Lich": 4,
+    "Scion of Flames": 5,
+    "Legion Paladin": 4,
+    "Immortal DarkCaster": 4,
+    "Timeless DarkCaster": 4,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 3,
+    "Ultra OmniKnight": 4,
+    "Great Thief": 5,
+    "Elemental Warrior": 3,
+    "Chaos Shaper": 4,
+    "Phantom Chronomancer": 4,
+    "Chaos Slayer": 2,
+    "Unundead Goat": 4,
+    "Quantum Chronomancer": 2,
+    "Yami no Ronin": 2,
+    "Chaos Avenger": 2,
+    "Infinity Knight": 4,
+    "Legion DoomKnight": 3,
+    "Guardian": 5,
+    "Shaman": 5,
+    "Sentinel": 2,
+    "Archivist of Time": 4,
+    "Alpha Omega": 1,
+    "Void Highlord": 4
+   }
+  },
+  {
+   "name": "Temple Shrine - Left",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 4,
+    "Verus DoomKnight": 5,
+    "Legendary Hero": 3,
+    "King's Echo": 3,
+    "ArchPaladin": 2,
+    "StoneCrusher": 1,
+    "Hollowborn Vindicator": 2,
+    "ArchFiend": 4,
+    "Paladin Chronomancer": 3,
+    "Dragon of Time": 2,
+    "Arachnomancer": 2,
+    "Frostval Barbarian": 1,
+    "Martial Artist": 4,
+    "Glaceran Warlord": 3,
+    "Master of Moglins": 2,
+    "Lich": 2,
+    "Scion of Flames": 4,
+    "Legion Paladin": 4,
+    "Immortal DarkCaster": 2,
+    "Timeless DarkCaster": 2,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 1,
+    "Ultra OmniKnight": 2,
+    "Great Thief": 5,
+    "Elemental Warrior": 3,
+    "Chaos Shaper": 4,
+    "Phantom Chronomancer": 3,
+    "Chaos Slayer": 3,
+    "Unundead Goat": 4,
+    "Quantum Chronomancer": 4,
+    "Yami no Ronin": 3,
+    "Chaos Avenger": 3,
+    "Infinity Knight": 2,
+    "Legion DoomKnight": 3,
+    "Guardian": 5,
+    "Shaman": 2,
+    "Sentinel": 3,
+    "Archivist of Time": 2,
+    "Alpha Omega": 1,
+    "Void Highlord": 3
+   }
+  },
+  {
+   "name": "Temple Shrine - Right",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 4,
+    "Legendary Hero": 3,
+    "King's Echo": 4,
+    "ArchPaladin": 2,
+    "StoneCrusher": 1,
+    "Hollowborn Vindicator": 3,
+    "ArchFiend": 4,
+    "Paladin Chronomancer": 2,
+    "Dragon of Time": 5,
+    "Arachnomancer": 3,
+    "Frostval Barbarian": 1,
+    "Martial Artist": 4,
+    "Glaceran Warlord": 3,
+    "Master of Moglins": 3,
+    "Lich": 4,
+    "Scion of Flames": 5,
+    "Legion Paladin": 3,
+    "Immortal DarkCaster": 4,
+    "Timeless DarkCaster": 4,
+    "Chrono ShadowHunter": 4,
+    "Light Caster": 3,
+    "Ultra OmniKnight": 3,
+    "Great Thief": 3,
+    "Elemental Warrior": 2,
+    "Chaos Shaper": 3,
+    "Phantom Chronomancer": 5,
+    "Chaos Slayer": 2,
+    "Unundead Goat": 3,
+    "Quantum Chronomancer": 3,
+    "Yami no Ronin": 2,
+    "Chaos Avenger": 2,
+    "Infinity Knight": 5,
+    "Legion DoomKnight": 2,
+    "Guardian": 4,
+    "Shaman": 4,
+    "Sentinel": 3,
+    "Archivist of Time": 4,
+    "Alpha Omega": 1,
+    "Void Highlord": 3
+   }
+  },
+  {
+   "name": "Temple Shrine - Middle",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 3,
+    "Legendary Hero": 2,
+    "King's Echo": 3,
+    "ArchPaladin": 5,
+    "StoneCrusher": 1,
+    "Hollowborn Vindicator": 3,
+    "ArchFiend": 4,
+    "Paladin Chronomancer": 2,
+    "Dragon of Time": 4,
+    "Arachnomancer": 3,
+    "Frostval Barbarian": 1,
+    "Martial Artist": 3,
+    "Glaceran Warlord": 3,
+    "Master of Moglins": 3,
+    "Lich": 3,
+    "Scion of Flames": 5,
+    "Legion Paladin": 3,
+    "Immortal DarkCaster": 2,
+    "Timeless DarkCaster": 2,
+    "Chrono ShadowHunter": 3,
+    "Light Caster": 1,
+    "Ultra OmniKnight": 2,
+    "Great Thief": 3,
+    "Elemental Warrior": 2,
+    "Chaos Shaper": 2,
+    "Phantom Chronomancer": 3,
+    "Chaos Slayer": 2,
+    "Unundead Goat": 2,
+    "Quantum Chronomancer": 3,
+    "Yami no Ronin": 2,
+    "Chaos Avenger": 2,
+    "Infinity Knight": 4,
+    "Legion DoomKnight": 2,
+    "Guardian": 4,
+    "Shaman": 5,
+    "Sentinel": 2,
+    "Archivist of Time": 3,
+    "Alpha Omega": 1,
+    "Void Highlord": 2
+   }
+  },
+  {
+   "name": "Astral Shrine",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 5,
+    "Legendary Hero": 5,
+    "King's Echo": 5,
+    "ArchPaladin": 4,
+    "StoneCrusher": 2,
+    "Hollowborn Vindicator": 3,
+    "ArchFiend": 5,
+    "Paladin Chronomancer": 4,
+    "Dragon of Time": 3,
+    "Arachnomancer": 5,
+    "Frostval Barbarian": 3,
+    "Martial Artist": 4,
+    "Glaceran Warlord": 5,
+    "Master of Moglins": 4,
+    "Lich": 4,
+    "Scion of Flames": 4,
+    "Legion Paladin": 4,
+    "Immortal DarkCaster": 4,
+    "Timeless DarkCaster": 4,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 3,
+    "Ultra OmniKnight": 4,
+    "Great Thief": 5,
+    "Elemental Warrior": 4,
+    "Chaos Shaper": 4,
+    "Phantom Chronomancer": 4,
+    "Chaos Slayer": 3,
+    "Unundead Goat": 4,
+    "Quantum Chronomancer": 3,
+    "Yami no Ronin": 3,
+    "Chaos Avenger": 2,
+    "Infinity Knight": 3,
+    "Legion DoomKnight": 3,
+    "Guardian": 5,
+    "Shaman": 4,
+    "Sentinel": 3,
+    "Archivist of Time": 4,
+    "Alpha Omega": 1,
+    "Void Highlord": 4
+   }
+  },
+  {
+   "name": "Kathool",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 5,
+    "Legendary Hero": 5,
+    "King's Echo": 3,
+    "ArchPaladin": 3,
+    "StoneCrusher": 3,
+    "Hollowborn Vindicator": 3,
+    "ArchFiend": 5,
+    "Paladin Chronomancer": 2,
+    "Dragon of Time": 4,
+    "Arachnomancer": 5,
+    "Frostval Barbarian": 3,
+    "Martial Artist": 3,
+    "Glaceran Warlord": 4,
+    "Master of Moglins": 4,
+    "Lich": 3,
+    "Scion of Flames": 4,
+    "Legion Paladin": 3,
+    "Immortal DarkCaster": 4,
+    "Timeless DarkCaster": 3,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 2,
+    "Ultra OmniKnight": 4,
+    "Great Thief": 5,
+    "Elemental Warrior": 3,
+    "Chaos Shaper": 4,
+    "Phantom Chronomancer": 3,
+    "Chaos Slayer": 2,
+    "Unundead Goat": 3,
+    "Quantum Chronomancer": 3,
+    "Yami no Ronin": 3,
+    "Chaos Avenger": 3,
+    "Infinity Knight": 5,
+    "Legion DoomKnight": 2,
+    "Guardian": 5,
+    "Shaman": 5,
+    "Sentinel": 3,
+    "Archivist of Time": 4,
+    "Alpha Omega": 0,
+    "Void Highlord": 3
+   }
+  },
+  {
+   "name": "Grimchallenge",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 5,
+    "Legendary Hero": 5,
+    "King's Echo": 5,
+    "ArchPaladin": 4,
+    "StoneCrusher": 2,
+    "Hollowborn Vindicator": 3,
+    "ArchFiend": 5,
+    "Paladin Chronomancer": 3,
+    "Dragon of Time": 3,
+    "Arachnomancer": 4,
+    "Frostval Barbarian": 2,
+    "Martial Artist": 5,
+    "Glaceran Warlord": 5,
+    "Master of Moglins": 3,
+    "Lich": 3,
+    "Scion of Flames": 3,
+    "Legion Paladin": 3,
+    "Immortal DarkCaster": 4,
+    "Timeless DarkCaster": 4,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 4,
+    "Ultra OmniKnight": 4,
+    "Great Thief": 5,
+    "Elemental Warrior": 3,
+    "Chaos Shaper": 4,
+    "Phantom Chronomancer": 4,
+    "Chaos Slayer": 2,
+    "Unundead Goat": 4,
+    "Quantum Chronomancer": 3,
+    "Yami no Ronin": 3,
+    "Chaos Avenger": 2,
+    "Infinity Knight": 4,
+    "Legion DoomKnight": 3,
+    "Guardian": 5,
+    "Shaman": 4,
+    "Sentinel": 2,
+    "Archivist of Time": 4,
+    "Alpha Omega": 0,
+    "Void Highlord": 3
+   }
+  },
+  {
+   "name": "Ultra Ezrajal",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 5,
+    "Legendary Hero": 5,
+    "King's Echo": 5,
+    "ArchPaladin": 5,
+    "StoneCrusher": 2,
+    "Hollowborn Vindicator": 5,
+    "ArchFiend": 4,
+    "Paladin Chronomancer": 4,
+    "Dragon of Time": 5,
+    "Arachnomancer": 4,
+    "Frostval Barbarian": 3,
+    "Martial Artist": 5,
+    "Glaceran Warlord": 4,
+    "Master of Moglins": 5,
+    "Lich": 5,
+    "Scion of Flames": 5,
+    "Legion Paladin": 4,
+    "Immortal DarkCaster": 5,
+    "Timeless DarkCaster": 4,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 4,
+    "Ultra OmniKnight": 5,
+    "Great Thief": 5,
+    "Elemental Warrior": 4,
+    "Chaos Shaper": 5,
+    "Phantom Chronomancer": 5,
+    "Chaos Slayer": 4,
+    "Unundead Goat": 5,
+    "Quantum Chronomancer": 4,
+    "Yami no Ronin": 4,
+    "Chaos Avenger": 3,
+    "Infinity Knight": 5,
+    "Legion DoomKnight": 4,
+    "Guardian": 5,
+    "Shaman": 4,
+    "Sentinel": 3,
+    "Archivist of Time": 5,
+    "Alpha Omega": 3,
+    "Void Highlord": 4
+   }
+  },
+  {
+   "name": "Ultra Warden",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 3,
+    "Legendary Hero": 5,
+    "King's Echo": 5,
+    "ArchPaladin": 3,
+    "StoneCrusher": 2,
+    "Hollowborn Vindicator": 5,
+    "ArchFiend": 4,
+    "Paladin Chronomancer": 5,
+    "Dragon of Time": 5,
+    "Arachnomancer": 3,
+    "Frostval Barbarian": 3,
+    "Martial Artist": 5,
+    "Glaceran Warlord": 4,
+    "Master of Moglins": 4,
+    "Lich": 5,
+    "Scion of Flames": 5,
+    "Legion Paladin": 4,
+    "Immortal DarkCaster": 5,
+    "Timeless DarkCaster": 4,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 4,
+    "Ultra OmniKnight": 5,
+    "Great Thief": 5,
+    "Elemental Warrior": 4,
+    "Chaos Shaper": 5,
+    "Phantom Chronomancer": 5,
+    "Chaos Slayer": 4,
+    "Unundead Goat": 5,
+    "Quantum Chronomancer": 4,
+    "Yami no Ronin": 4,
+    "Chaos Avenger": 2,
+    "Infinity Knight": 5,
+    "Legion DoomKnight": 4,
+    "Guardian": 5,
+    "Shaman": 4,
+    "Sentinel": 3,
+    "Archivist of Time": 5,
+    "Alpha Omega": 3,
+    "Void Highlord": 4
+   }
+  },
+  {
+   "name": "Ultra Engineer",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 3,
+    "Legendary Hero": 3,
+    "King's Echo": 5,
+    "ArchPaladin": 5,
+    "StoneCrusher": 2,
+    "Hollowborn Vindicator": 5,
+    "ArchFiend": 4,
+    "Paladin Chronomancer": 2,
+    "Dragon of Time": 5,
+    "Arachnomancer": 2,
+    "Frostval Barbarian": 2,
+    "Martial Artist": 5,
+    "Glaceran Warlord": 4,
+    "Master of Moglins": 4,
+    "Lich": 5,
+    "Scion of Flames": 5,
+    "Legion Paladin": 4,
+    "Immortal DarkCaster": 5,
+    "Timeless DarkCaster": 3,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 3,
+    "Ultra OmniKnight": 5,
+    "Great Thief": 5,
+    "Elemental Warrior": 4,
+    "Chaos Shaper": 5,
+    "Phantom Chronomancer": 5,
+    "Chaos Slayer": 4,
+    "Unundead Goat": 5,
+    "Quantum Chronomancer": 4,
+    "Yami no Ronin": 4,
+    "Chaos Avenger": 3,
+    "Infinity Knight": 4,
+    "Legion DoomKnight": 4,
+    "Guardian": 5,
+    "Shaman": 3,
+    "Sentinel": 4,
+    "Archivist of Time": 5,
+    "Alpha Omega": 2,
+    "Void Highlord": 4
+   }
+  },
+  {
+   "name": "Tyndarius",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 4,
+    "Legendary Hero": 3,
+    "King's Echo": 5,
+    "ArchPaladin": 5,
+    "StoneCrusher": 2,
+    "Hollowborn Vindicator": 5,
+    "ArchFiend": 4,
+    "Paladin Chronomancer": 3,
+    "Dragon of Time": 5,
+    "Arachnomancer": 3,
+    "Frostval Barbarian": 1,
+    "Martial Artist": 5,
+    "Glaceran Warlord": 4,
+    "Master of Moglins": 4,
+    "Lich": 5,
+    "Scion of Flames": 4,
+    "Legion Paladin": 4,
+    "Immortal DarkCaster": 5,
+    "Timeless DarkCaster": 3,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 2,
+    "Ultra OmniKnight": 5,
+    "Great Thief": 5,
+    "Elemental Warrior": 4,
+    "Chaos Shaper": 5,
+    "Phantom Chronomancer": 5,
+    "Chaos Slayer": 3,
+    "Unundead Goat": 5,
+    "Quantum Chronomancer": 3,
+    "Yami no Ronin": 3,
+    "Chaos Avenger": 3,
+    "Infinity Knight": 5,
+    "Legion DoomKnight": 3,
+    "Guardian": 5,
+    "Shaman": 3,
+    "Sentinel": 4,
+    "Archivist of Time": 5,
+    "Alpha Omega": 1,
+    "Void Highlord": 4
+   }
+  },
+  {
+   "name": "Drakath",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 3,
+    "Legendary Hero": 2,
+    "King's Echo": 5,
+    "ArchPaladin": 3,
+    "StoneCrusher": 3,
+    "Hollowborn Vindicator": 3,
+    "ArchFiend": 3,
+    "Paladin Chronomancer": 5,
+    "Dragon of Time": 4,
+    "Arachnomancer": 2,
+    "Frostval Barbarian": 2,
+    "Martial Artist": 4,
+    "Glaceran Warlord": 4,
+    "Master of Moglins": 3,
+    "Lich": 4,
+    "Scion of Flames": 5,
+    "Legion Paladin": 3,
+    "Immortal DarkCaster": 4,
+    "Timeless DarkCaster": 4,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 1,
+    "Ultra OmniKnight": 4,
+    "Great Thief": 5,
+    "Elemental Warrior": 2,
+    "Chaos Shaper": 4,
+    "Phantom Chronomancer": 5,
+    "Chaos Slayer": 5,
+    "Unundead Goat": 4,
+    "Quantum Chronomancer": 3,
+    "Yami no Ronin": 4,
+    "Chaos Avenger": 3,
+    "Infinity Knight": 5,
+    "Legion DoomKnight": 2,
+    "Guardian": 5,
+    "Shaman": 3,
+    "Sentinel": 4,
+    "Archivist of Time": 5,
+    "Alpha Omega": 0,
+    "Void Highlord": 3
+   }
+  },
+  {
+   "name": "Dage",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 2,
+    "Arcana Invoker": 1,
+    "Verus DoomKnight": 4,
+    "Legendary Hero": 1,
+    "King's Echo": 1,
+    "ArchPaladin": 4,
+    "StoneCrusher": 0,
+    "Hollowborn Vindicator": 5,
+    "ArchFiend": 5,
+    "Paladin Chronomancer": 0,
+    "Dragon of Time": 1,
+    "Arachnomancer": 3,
+    "Frostval Barbarian": 0,
+    "Martial Artist": 5,
+    "Glaceran Warlord": 4,
+    "Master of Moglins": 1,
+    "Lich": 4,
+    "Scion of Flames": 0,
+    "Legion Paladin": 4,
+    "Immortal DarkCaster": 2,
+    "Timeless DarkCaster": 1,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 1,
+    "Ultra OmniKnight": 4,
+    "Great Thief": 5,
+    "Elemental Warrior": 4,
+    "Chaos Shaper": 4,
+    "Phantom Chronomancer": 3,
+    "Chaos Slayer": 3,
+    "Unundead Goat": 4,
+    "Quantum Chronomancer": 3,
+    "Yami no Ronin": 3,
+    "Chaos Avenger": 4,
+    "Infinity Knight": 4,
+    "Legion DoomKnight": 3,
+    "Guardian": 1,
+    "Shaman": 1,
+    "Sentinel": 3,
+    "Archivist of Time": 3,
+    "Alpha Omega": 1,
+    "Void Highlord": 3
+   }
+  },
+  {
+   "name": "Nulgath",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 5,
+    "Legendary Hero": 3,
+    "King's Echo": 5,
+    "ArchPaladin": 3,
+    "StoneCrusher": 1,
+    "Hollowborn Vindicator": 4,
+    "ArchFiend": 4,
+    "Paladin Chronomancer": 2,
+    "Dragon of Time": 5,
+    "Arachnomancer": 4,
+    "Frostval Barbarian": 1,
+    "Martial Artist": 5,
+    "Glaceran Warlord": 4,
+    "Master of Moglins": 3,
+    "Lich": 5,
+    "Scion of Flames": 4,
+    "Legion Paladin": 4,
+    "Immortal DarkCaster": 5,
+    "Timeless DarkCaster": 5,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 2,
+    "Ultra OmniKnight": 4,
+    "Great Thief": 5,
+    "Elemental Warrior": 3,
+    "Chaos Shaper": 4,
+    "Phantom Chronomancer": 5,
+    "Chaos Slayer": 3,
+    "Unundead Goat": 4,
+    "Quantum Chronomancer": 3,
+    "Yami no Ronin": 3,
+    "Chaos Avenger": 3,
+    "Infinity Knight": 5,
+    "Legion DoomKnight": 3,
+    "Guardian": 5,
+    "Shaman": 2,
+    "Sentinel": 4,
+    "Archivist of Time": 4,
+    "Alpha Omega": 1,
+    "Void Highlord": 4
+   }
+  },
+  {
+   "name": "Drago",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 0,
+    "Legendary Hero": 0,
+    "King's Echo": 5,
+    "ArchPaladin": 5,
+    "StoneCrusher": 0,
+    "Hollowborn Vindicator": 0,
+    "ArchFiend": 4,
+    "Paladin Chronomancer": 2,
+    "Dragon of Time": 3,
+    "Arachnomancer": 0,
+    "Frostval Barbarian": 0,
+    "Martial Artist": 0,
+    "Glaceran Warlord": 0,
+    "Master of Moglins": 3,
+    "Lich": 5,
+    "Scion of Flames": 4,
+    "Legion Paladin": 0,
+    "Immortal DarkCaster": 5,
+    "Timeless DarkCaster": 3,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 1,
+    "Ultra OmniKnight": 0,
+    "Great Thief": 0,
+    "Elemental Warrior": 4,
+    "Chaos Shaper": 5,
+    "Phantom Chronomancer": 5,
+    "Chaos Slayer": 0,
+    "Unundead Goat": 0,
+    "Quantum Chronomancer": 0,
+    "Yami no Ronin": 0,
+    "Chaos Avenger": 3,
+    "Infinity Knight": 0,
+    "Legion DoomKnight": 0,
+    "Guardian": 5,
+    "Shaman": 0,
+    "Sentinel": 4,
+    "Archivist of Time": 4,
+    "Alpha Omega": 0,
+    "Void Highlord": 0
+   }
+  },
+  {
+   "name": "Darkon",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 4,
+    "Verus DoomKnight": 2,
+    "Legendary Hero": 4,
+    "King's Echo": 4,
+    "ArchPaladin": 3,
+    "StoneCrusher": 3,
+    "Hollowborn Vindicator": 5,
+    "ArchFiend": 2,
+    "Paladin Chronomancer": 5,
+    "Dragon of Time": 1,
+    "Arachnomancer": 1,
+    "Frostval Barbarian": 3,
+    "Martial Artist": 3,
+    "Glaceran Warlord": 4,
+    "Master of Moglins": 4,
+    "Lich": 4,
+    "Scion of Flames": 2,
+    "Legion Paladin": 4,
+    "Immortal DarkCaster": 3,
+    "Timeless DarkCaster": 3,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 3,
+    "Ultra OmniKnight": 3,
+    "Great Thief": 4,
+    "Elemental Warrior": 3,
+    "Chaos Shaper": 3,
+    "Phantom Chronomancer": 4,
+    "Chaos Slayer": 2,
+    "Unundead Goat": 3,
+    "Quantum Chronomancer": 2,
+    "Yami no Ronin": 3,
+    "Chaos Avenger": 2,
+    "Infinity Knight": 1,
+    "Legion DoomKnight": 3,
+    "Guardian": 5,
+    "Shaman": 3,
+    "Sentinel": 3,
+    "Archivist of Time": 4,
+    "Alpha Omega": 3,
+    "Void Highlord": 3
+   }
+  },
+  {
+   "name": "Gramiel",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 5,
+    "Verus DoomKnight": 2,
+    "Legendary Hero": 3,
+    "King's Echo": 2,
+    "ArchPaladin": 3,
+    "StoneCrusher": 4,
+    "Hollowborn Vindicator": 2,
+    "ArchFiend": 4,
+    "Paladin Chronomancer": 3,
+    "Dragon of Time": 2,
+    "Arachnomancer": 2,
+    "Frostval Barbarian": 2,
+    "Martial Artist": 3,
+    "Glaceran Warlord": 2,
+    "Master of Moglins": 3,
+    "Lich": 1,
+    "Scion of Flames": 5,
+    "Legion Paladin": 2,
+    "Immortal DarkCaster": 3,
+    "Timeless DarkCaster": 3,
+    "Chrono ShadowHunter": 4,
+    "Light Caster": 2,
+    "Ultra OmniKnight": 3,
+    "Great Thief": 3,
+    "Elemental Warrior": 1,
+    "Chaos Shaper": 3,
+    "Phantom Chronomancer": 3,
+    "Chaos Slayer": 1,
+    "Unundead Goat": 2,
+    "Quantum Chronomancer": 2,
+    "Yami no Ronin": 2,
+    "Chaos Avenger": 1,
+    "Infinity Knight": 3,
+    "Legion DoomKnight": 1,
+    "Guardian": 4,
+    "Shaman": 5,
+    "Sentinel": 1,
+    "Archivist of Time": 4,
+    "Alpha Omega": 1,
+    "Void Highlord": 2
+   }
+  },
+  {
+   "name": "Speaker",
+   "ratings": {
+    "Legion Revenant": 5,
+    "Lord of Order": 5,
+    "Arcana Invoker": 3,
+    "Verus DoomKnight": 4,
+    "Legendary Hero": 2,
+    "King's Echo": 3,
+    "ArchPaladin": 5,
+    "StoneCrusher": 0,
+    "Hollowborn Vindicator": 2,
+    "ArchFiend": 4,
+    "Paladin Chronomancer": 3,
+    "Dragon of Time": 0,
+    "Arachnomancer": 2,
+    "Frostval Barbarian": 0,
+    "Martial Artist": 5,
+    "Glaceran Warlord": 4,
+    "Master of Moglins": 1,
+    "Lich": 3,
+    "Scion of Flames": 2,
+    "Legion Paladin": 3,
+    "Immortal DarkCaster": 1,
+    "Timeless DarkCaster": 2,
+    "Chrono ShadowHunter": 5,
+    "Light Caster": 1,
+    "Ultra OmniKnight": 1,
+    "Great Thief": 5,
+    "Elemental Warrior": 3,
+    "Chaos Shaper": 3,
+    "Phantom Chronomancer": 2,
+    "Chaos Slayer": 3,
+    "Unundead Goat": 4,
+    "Quantum Chronomancer": 3,
+    "Yami no Ronin": 4,
+    "Chaos Avenger": 3,
+    "Infinity Knight": 1,
+    "Legion DoomKnight": 4,
+    "Guardian": 5,
+    "Shaman": 1,
+    "Sentinel": 4,
+    "Archivist of Time": 3,
+    "Alpha Omega": 1,
+    "Void Highlord": 3
+   }
+  }
+ ]
+}

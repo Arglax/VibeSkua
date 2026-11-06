@@ -6,11 +6,15 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Android.Content;
+using MoVibeSkua.Android.Platform;
+using MoVibeSkua.Android.Usage;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using CommunityToolkit.Mvvm.Input;
 using Skua.App.Avalonia.ViewModels;
+using Skua.App.Avalonia.ViewModels.FastTravel;
 using Skua.App.Avalonia.ViewModels.MainMenu;
 using Skua.Core.Interfaces;
 using Skua.Core.Interfaces.ViewModels;
@@ -31,6 +35,9 @@ public sealed partial class ShellPage : ObservableObject
     public string Key { get; }
     public string Title { get; }
     public object Content { get; }
+
+    /// <summary>Runs once the page leaves the stack.</summary>
+    public Action? Closed { get; init; }
 }
 
 public sealed class ShellMenuGroup
@@ -50,7 +57,7 @@ public sealed class ShellMenuEntry
     public ShellMenuEntry(string header, System.Windows.Input.ICommand command)
     {
         Header = header;
-        Command = command;
+        Command = new CountedCommand(Signal.NAV_MENU, command);
     }
 
     public string Header { get; }
@@ -65,14 +72,16 @@ public sealed partial class RailAction : ObservableObject
     public RailAction(string label, Material.Icons.MaterialIconKind icon, System.Windows.Input.ICommand command, string? pageKey = null)
     {
         Label = label;
-        Icon = icon;
+        _icon = icon;
         Command = command;
         PageKey = pageKey;
     }
 
     public string Label { get; }
-    public Material.Icons.MaterialIconKind Icon { get; }
     public System.Windows.Input.ICommand Command { get; }
+
+    [ObservableProperty]
+    private Material.Icons.MaterialIconKind _icon;
 
     /// <summary>The page this button opens, used to highlight it while that page is showing.</summary>
     public string? PageKey { get; }
@@ -87,13 +96,27 @@ public sealed partial class RailAction : ObservableObject
 /// </summary>
 public sealed partial class ShellViewModel : ObservableObject
 {
+    private const string PrefsName = "movibeskua.shell";
+
+    /// <summary>The name and guild Streamer Mode shows in place of the player's own.</summary>
+    public const string StreamerName = "MVS User";
+    public const string StreamerGuild = "MVS";
+
     private readonly IScriptInterface _bot;
     private readonly DispatcherTimer _statusTimer;
+    private readonly ISharedPreferences? _prefs;
+    private RailAction? _streamerAction;
+    private MobileJumpViewModel? _jumpPage;
+    private ArmyViewModel? _armyPage;
 
     public ShellViewModel(MainMenuViewModel mainMenu, IScriptInterface bot, ScriptLoaderViewModel scriptLoader)
     {
         MainMenu = mainMenu;
         _bot = bot;
+        _prefs = global::Android.App.Application.Context.GetSharedPreferences(PrefsName, FileCreationMode.Private);
+        _isStreamerMode = _prefs?.GetBoolean("streamerMode", false) ?? false;
+        _isBotMode = _prefs?.GetBoolean("botMode", false) ?? false;
+        HookScriptStreamerMode();
         ScriptLoader = scriptLoader;
         ScriptLoader.PropertyChanged += OnScriptLoaderChanged;
         Pages.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasPreviousPage));
@@ -119,6 +142,24 @@ public sealed partial class ShellViewModel : ObservableObject
 
     public ObservableCollection<RailAction> RightRail { get; } = new();
 
+    /// <summary>Portrait has one bar under the game: both rails' buttons, left ones first.</summary>
+    public ObservableCollection<RailAction> AllRail { get; } = new();
+
+    // The rails' two sets: the game's own bottom-bar buttons (the default), and the bot tools, which
+    // a triple tap on the crest switches to and back.
+    private readonly List<RailAction> _gameLeft = new();
+    private readonly List<RailAction> _gameRight = new();
+    private readonly List<RailAction> _botLeft = new();
+    private readonly List<RailAction> _botRight = new();
+
+    /// <summary>The rails show the bot tools (Scripts, Auto, Loader...) instead of the game's buttons.</summary>
+    [ObservableProperty]
+    private bool _isBotMode;
+
+    private DispatcherTimer? _crestTimer;
+    private DateTime _lastCrestTap;
+    private int _crestTaps;
+
     [ObservableProperty]
     private bool _isLoggedIn;
 
@@ -134,7 +175,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private bool _isGameMaximized;
 
     /// <summary>
-    /// Landscape: the page takes most of the width and the game shrinks to a small, still running, tile.
+    /// Landscape: the page covers all of the game but a strip at its left edge.
     /// </summary>
     [ObservableProperty]
     private bool _isPageWide;
@@ -142,12 +183,18 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty]
     private string _statusText = "Not logged in";
 
+    /// <summary>
+    /// Keeps the character name out of the status line (name · map · cell), for streaming or screenshots.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isStreamerMode;
+
     public bool HasPage => CurrentPage is not null;
 
     /// <summary>A page opened before the current one, which back returns to.</summary>
     public bool HasPreviousPage => Pages.Count > 1;
 
-    public string PageTitle => CurrentPage?.Title ?? "MoVibeSkua";
+    public string PageTitle => CurrentPage?.Title ?? "MVS";
 
     public string ToggleScriptText => ScriptLoader.ToggleScriptText;
 
@@ -166,7 +213,7 @@ public sealed partial class ShellViewModel : ObservableObject
         open();
     }
 
-    public void ShowPage(string key, string title, object content)
+    public void ShowPage(string key, string title, object content, Action? closed = null)
     {
         ShellPage? existing = Pages.FirstOrDefault(p => p.Key == key);
         if (existing is not null)
@@ -175,7 +222,7 @@ public sealed partial class ShellViewModel : ObservableObject
         }
         else
         {
-            existing = new ShellPage(key, title, content);
+            existing = new ShellPage(key, title, content) { Closed = closed };
             SetActive(existing, true);
         }
 
@@ -196,9 +243,27 @@ public sealed partial class ShellViewModel : ObservableObject
         if (Pages.Count == 0)
             return;
 
-        SetActive(Pages[^1], false);
+        ShellPage page = Pages[^1];
         Pages.RemoveAt(Pages.Count - 1);
         CurrentPage = Pages.LastOrDefault();
+        Dismiss(page);
+    }
+
+    /// <summary>Closes one page wherever it is in the stack.</summary>
+    public void ClosePage(string key)
+    {
+        if (Pages.FirstOrDefault(p => p.Key == key) is not { } page)
+            return;
+        Pages.Remove(page);
+        if (CurrentPage == page)
+            CurrentPage = Pages.LastOrDefault();
+        Dismiss(page);
+    }
+
+    private static void Dismiss(ShellPage page)
+    {
+        SetActive(page, false);
+        page.Closed?.Invoke();
     }
 
     /// <summary>
@@ -224,20 +289,45 @@ public sealed partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private void CloseAllPages()
     {
-        foreach (ShellPage page in Pages)
-            SetActive(page, false);
+        List<ShellPage> closed = Pages.ToList();
         Pages.Clear();
         CurrentPage = null;
+        foreach (ShellPage page in closed)
+            Dismiss(page);
     }
 
     [RelayCommand]
     private void ToggleMenu() => IsMenuOpen = !IsMenuOpen;
 
     [RelayCommand]
-    private void ToggleGameMaximized() => IsGameMaximized = !IsGameMaximized;
+    private void ToggleGameMaximized()
+    {
+        IsGameMaximized = !IsGameMaximized;
+        if (IsGameMaximized)
+            UsageTracker.Track(Signal.GAME_MAXIMIZED);
+    }
 
     [RelayCommand]
-    private void TogglePageWide() => IsPageWide = !IsPageWide;
+    private void TogglePageWide()
+    {
+        IsPageWide = !IsPageWide;
+        if (IsPageWide)
+            UsageTracker.Track(Signal.PAGE_WIDE);
+    }
+
+    /// <summary>The width a page was dragged to, as a share of the space between the rails; null until it is dragged.</summary>
+    public double? GetPageWidth(string key)
+    {
+        float share = _prefs?.GetFloat("pageWidth." + key, 0) ?? 0;
+        return share > 0 ? share : null;
+    }
+
+    public void SetPageWidth(string key, double share)
+    {
+        _prefs?.Edit()?.PutFloat("pageWidth." + key, (float)share)?.Apply();
+        IsPageWide = false;
+        UsageTracker.Track(Signal.PAGE_RESIZED);
+    }
 
     [RelayCommand]
     private Task ToggleScript() => ScriptLoader.ToggleScriptCommand.ExecuteAsync(null);
@@ -247,61 +337,291 @@ public sealed partial class ShellViewModel : ObservableObject
 
     private void OpenManaged(string key) => Ioc.Default.GetRequiredService<IWindowService>().ShowManagedWindow(key);
 
+    /// <summary>
+    /// Jump with Fast Travel's saved spots under it, sharing the Fast Travel page's list.
+    /// </summary>
+    private void OpenJump()
+    {
+        if (_jumpPage is null)
+        {
+            FastTravelViewModel fastTravel =
+                (Ioc.Default.GetRequiredService<IWindowService>() as Services.MobileWindowService)?.GetManagedWindow("Fast Travel") as FastTravelViewModel
+                ?? Ioc.Default.GetRequiredService<FastTravelViewModel>();
+            _jumpPage = new MobileJumpViewModel(MainMenu.JumpViewModel, fastTravel, _bot);
+        }
+        ShowPage("Jump", "Jump", _jumpPage);
+    }
+
+    private void OpenArmy() => ShowPage("Army", "Army", _armyPage ??= new ArmyViewModel(() => IsStreamerMode, Ioc.Default.GetRequiredService<IDialogService>()));
+
+    [RelayCommand]
+    private void ToggleStreamerMode() => IsStreamerMode = !IsStreamerMode;
+
+    /// <summary>
+    /// One Streamer Mode: the rail button and Skua's own option (Options > Streamer Mode) are kept in
+    /// step, so either switch turns on everything both do. Skua's side hides other players, gold, coins
+    /// and chat and tidies the room name; the page draws the stand-in name, guild and portrait names.
+    /// </summary>
+    private void HookScriptStreamerMode()
+    {
+        Skua.Core.Scripts.ScriptOption.StreamerName = StreamerName;
+        Skua.Core.Scripts.ScriptOption.StreamerGuild = StreamerGuild;
+        Skua.Core.Scripts.ScriptOption.NameTagsDrawnByHost = true;
+        _scriptOption = Ioc.Default.GetService<IScriptOption>();
+        if (_scriptOption is null)
+            return;
+        if (_scriptOption.StreamerMode)
+            _isStreamerMode = true;
+        else if (_isStreamerMode)
+            _scriptOption.StreamerMode = true;
+        if (_scriptOption is INotifyPropertyChanged changes)
+        {
+            changes.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(IScriptOption.StreamerMode))
+                    Dispatcher.UIThread.Post(() => IsStreamerMode = _scriptOption.StreamerMode);
+            };
+        }
+    }
+
+    private IScriptOption? _scriptOption;
+
+    partial void OnIsStreamerModeChanged(bool value)
+    {
+        if (_scriptOption is not null && _scriptOption.StreamerMode != value)
+            _scriptOption.StreamerMode = value;
+        _prefs?.Edit()?.PutBoolean("streamerMode", value)?.Apply();
+        UsageTracker.Track(value ? Signal.STREAMER_ON : Signal.STREAMER_OFF);
+        UpdateStreamerAction();
+        PostStreamerMode();
+        RefreshStatus();
+    }
+
+    // The game page keeps the player's name tag, guild tag and portraits masked while this is on.
+    private void PostStreamerMode()
+    {
+        string json = IsStreamerMode
+            ? $"{{\"t\":\"streamer\",\"on\":true,\"name\":\"{StreamerName}\",\"guild\":\"{StreamerGuild}\"}}"
+            : "{\"t\":\"streamer\",\"on\":false}";
+        Ioc.Default.GetService<Skua.Flash.Ruffle.RuffleFlashUtil>()?.PostCommand(json);
+    }
+
+    private void UpdateStreamerAction()
+    {
+        if (_streamerAction is null)
+            return;
+        _streamerAction.IsActive = IsStreamerMode;
+        _streamerAction.Icon = IsStreamerMode ? Material.Icons.MaterialIconKind.EyeOff : Material.Icons.MaterialIconKind.Eye;
+    }
+
     private void BuildRails()
     {
         RailAction Page(string label, Material.Icons.MaterialIconKind icon, string key, Action open)
-            => new(label, icon, new RelayCommand(() => TogglePage(key, open)), key);
+            => new(label, icon, new CountedCommand(Signal.NAV_RAIL, new RelayCommand(() => TogglePage(key, open))), key);
         RailAction Managed(string label, Material.Icons.MaterialIconKind icon, string key)
             => Page(label, icon, key, () => OpenManaged(key));
+        // One of the game's bottom-bar buttons, tapped inside the game (skua.swf mvsGameButton).
+        RailAction GameButton(string label, Material.Icons.MaterialIconKind icon, string button)
+            => new(label, icon, new CountedCommand(Signal.NAV_RAIL, new RelayCommand(() => TapGameButton(button))));
 
-        LeftRail.Add(Page("Login", Material.Icons.MaterialIconKind.AccountCircle, "Login", () => OpenLogin()));
-        LeftRail.Add(Managed("Scripts", Material.Icons.MaterialIconKind.ScriptText, "Scripts"));
-        LeftRail.Add(Page("Repo", Material.Icons.MaterialIconKind.CloudDownload, "Script Repo", () => ShowPage("Script Repo", "Script Repo", Ioc.Default.GetRequiredService<ScriptRepoViewModel>())));
-        LeftRail.Add(Managed("Logs", Material.Icons.MaterialIconKind.TextLong, "Logs"));
+        _gameLeft.Add(GameButton("Quests", Material.Icons.MaterialIconKind.AlertDecagram, "btnQuest"));
+        _gameLeft.Add(GameButton("Temp Inv", Material.Icons.MaterialIconKind.PackageVariant, "temp"));
+        _gameLeft.Add(GameButton("Map", Material.Icons.MaterialIconKind.Map, "btnMap"));
+        _gameLeft.Add(GameButton("Lore", Material.Icons.MaterialIconKind.BookOpenVariant, "btnBook"));
+        _gameLeft.Add(GameButton("Menu", Material.Icons.MaterialIconKind.ViewGrid, "btnMenu"));
+        _gameLeft.Add(GameButton("House", Material.Icons.MaterialIconKind.Home, "btnHouse"));
+        _gameLeft.Add(GameButton("Settings", Material.Icons.MaterialIconKind.Cog, "btnOption"));
 
-        RightRail.Add(Page("Auto", Material.Icons.MaterialIconKind.Sword, "Auto", () => ShowPage("Auto", "Auto Attack / Hunt", MainMenu.AutoViewModel)));
-        RightRail.Add(Page("Jump", Material.Icons.MaterialIconKind.MapMarker, "Jump", () => ShowPage("Jump", "Jump", MainMenu.JumpViewModel)));
-        RightRail.Add(Managed("Loader", Material.Icons.MaterialIconKind.Download, "Loader"));
-        RightRail.Add(Managed("Grabber", Material.Icons.MaterialIconKind.FormatListBulleted, "Grabber"));
-        RightRail.Add(Managed("Options", Material.Icons.MaterialIconKind.Cog, "Game"));
+        _gameRight.Add(GameButton("Bag", Material.Icons.MaterialIconKind.BagPersonal, "btnBag"));
+        _gameRight.Add(new RailAction("Bank", Material.Icons.MaterialIconKind.Safe, new CountedCommand(Signal.NAV_RAIL, new RelayCommand(OpenBank))));
+        _gameRight.Add(GameButton("Rest", Material.Icons.MaterialIconKind.HeartPulse, "btnRest"));
+        _gameRight.Add(GameButton("Char", Material.Icons.MaterialIconKind.ShieldAccount, "btnChar"));
+
+        _botLeft.Add(Page("Login", Material.Icons.MaterialIconKind.ShieldAccount, "Login", () => OpenLogin()));
+        _botLeft.Add(Managed("Scripts", Material.Icons.MaterialIconKind.ScriptText, "Scripts"));
+        _botLeft.Add(Page("Repo", Material.Icons.MaterialIconKind.Bookshelf, "Script Repo", () => ShowPage("Script Repo", "Script Repo", Ioc.Default.GetRequiredService<ScriptRepoViewModel>())));
+        _botLeft.Add(Managed("Logs", Material.Icons.MaterialIconKind.BookOpenPageVariant, "Logs"));
+        _botLeft.Add(Page("Army", Material.Icons.MaterialIconKind.AccountGroup, "Army", OpenArmy));
+
+        _botRight.Add(Page("Auto", Material.Icons.MaterialIconKind.SwordCross, "Auto", () => ShowPage("Auto", "Auto Attack / Hunt", MainMenu.AutoViewModel)));
+        _botRight.Add(Page("Jump", Material.Icons.MaterialIconKind.MapMarkerRadius, "Jump", OpenJump));
+        _botRight.Add(Managed("Loader", Material.Icons.MaterialIconKind.TreasureChest, "Loader"));
+        _botRight.Add(Managed("Grabber", Material.Icons.MaterialIconKind.ClipboardList, "Grabber"));
+        _botRight.Add(Managed("Options", Material.Icons.MaterialIconKind.Cog, "Game"));
+        _streamerAction = new RailAction("Streamer", Material.Icons.MaterialIconKind.Eye, ToggleStreamerModeCommand);
+        _botRight.Add(_streamerAction);
+        UpdateStreamerAction();
+        ApplyRails();
     }
+
+    private void ApplyRails()
+    {
+        LeftRail.Clear();
+        RightRail.Clear();
+        AllRail.Clear();
+        foreach (RailAction action in IsBotMode ? _botLeft : _gameLeft)
+        {
+            LeftRail.Add(action);
+            AllRail.Add(action);
+        }
+        foreach (RailAction action in IsBotMode ? _botRight : _gameRight)
+        {
+            RightRail.Add(action);
+            AllRail.Add(action);
+        }
+        if (!IsBotMode)
+            AllRail.Add(_guideAction ??= new RailAction("Guide", Material.Icons.MaterialIconKind.HelpCircle, OpenGuideCommand, "Guide"));
+    }
+
+    private RailAction? _guideAction;
+
+    /// <summary>The MVS guide, from its button above the crest (portrait: the end of the bottom bar).</summary>
+    [RelayCommand]
+    private void OpenGuide() => TogglePage("Guide", ShowGuide);
+
+    partial void OnIsBotModeChanged(bool value)
+    {
+        _prefs?.Edit()?.PutBoolean("botMode", value)?.Apply();
+        if (!value)
+        {
+            // Back to the game's buttons: the bot's pages and menu go away with its rails.
+            CloseAllPages();
+            IsMenuOpen = false;
+        }
+        ApplyRails();
+    }
+
+    private static void TapGameButton(string button)
+    {
+        if (Ioc.Default.GetService<Skua.Flash.Ruffle.RuffleFlashUtil>() is not { } flash)
+            return;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                flash.Call("mvsGameButton", button);
+            }
+            catch
+            {
+                // Not logged in yet, or the game is between maps.
+            }
+        });
+    }
+
+    /// <summary>
+    /// The crest: one tap opens Support MVS, two quick taps switch the rails between the game's buttons
+    /// and the bot tools. One tap waits a moment for a second.
+    /// </summary>
+    [RelayCommand]
+    private void CrestTap()
+    {
+        DateTime now = DateTime.UtcNow;
+        _crestTaps = (now - _lastCrestTap).TotalMilliseconds < CrestTapWindowMs ? _crestTaps + 1 : 1;
+        _lastCrestTap = now;
+        if (_crestTimer is null)
+        {
+            _crestTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(CrestTapWindowMs) };
+            _crestTimer.Tick += (_, _) =>
+            {
+                _crestTimer.Stop();
+                int taps = _crestTaps;
+                _crestTaps = 0;
+                if (taps == 1)
+                    TogglePage("Support", OpenSupport);
+            };
+        }
+        _crestTimer.Stop();
+        if (_crestTaps >= 2)
+        {
+            _crestTaps = 0;
+            IsBotMode = !IsBotMode;
+            return;
+        }
+        _crestTimer.Start();
+    }
+
+    private const int CrestTapWindowMs = 400;
+
+    private GuideViewModel? _guidePage;
+    private SupportViewModel? _supportPage;
+
+    private void ShowGuide() => ShowPage("Guide", "How to use MVS", _guidePage ??= new GuideViewModel(() => IsBotMode = !IsBotMode, OpenSupport, OpenBotGuide));
+
+    private BotGuideViewModel? _botGuidePage;
+
+    private void OpenBotGuide() => ShowPage("Bot Guide", "Bot tools guide", _botGuidePage ??= new BotGuideViewModel(() => IsBotMode = true));
+
+    private void OpenSupport() => ShowPage("Support", "Support MVS", _supportPage ??= new SupportViewModel());
 
     partial void OnCurrentPageChanged(ShellPage? value)
     {
-        foreach (RailAction action in LeftRail.Concat(RightRail))
-            action.IsActive = action.PageKey is not null && action.PageKey == value?.Key;
+        foreach (RailAction action in LeftRail.Concat(RightRail).Concat(AllRail).Distinct().Where(a => a.PageKey is not null))
+            action.IsActive = action.PageKey == value?.Key;
+        UsageTracker.EnterScreen(Screens.OfPage(value?.Key));
     }
 
     private void BuildMenu()
     {
         MenuGroups.Clear();
-        MenuGroups.Add(new ShellMenuGroup("Account", new[]
+        // Pages already on the rails are left out of the menu; the in-game bank takes the top spot.
+        MenuGroups.Add(new ShellMenuGroup("Game", new[]
         {
-            new ShellMenuEntry("Login", OpenLoginCommand),
-            new ShellMenuEntry("Script Repo", new RelayCommand(() => ShowPage("Script Repo", "Script Repo", Ioc.Default.GetRequiredService<ScriptRepoViewModel>()))),
-            new ShellMenuEntry("Auto Attack / Hunt", new RelayCommand(() => ShowPage("Auto", "Auto", MainMenu.AutoViewModel))),
-            new ShellMenuEntry("Jump", new RelayCommand(() => ShowPage("Jump", "Jump", MainMenu.JumpViewModel)))
+            new ShellMenuEntry("Bot tools guide", new RelayCommand(OpenBotGuide)),
+            new ShellMenuEntry("Open Bank", new RelayCommand(OpenBank)),
+            new ShellMenuEntry("Graphics & Performance", new RelayCommand(() => ShowPage("Graphics", "Graphics & Performance", Ioc.Default.GetRequiredService<GraphicsViewModel>())))
         }));
 
         foreach (IMainMenuItemViewModel item in MainMenu.MainMenuItems)
         {
+            // Plugins get their own group below; Bank is at the top.
+            if (item.Header is "Plugins" or "Bank")
+                continue;
             List<ShellMenuEntry> entries = new();
             if (item.SubItems is { Count: > 0 })
             {
                 foreach (IMainMenuItemViewModel sub in item.SubItems)
-                    entries.Add(new ShellMenuEntry(sub.Header, sub.Command));
+                {
+                    if (!DesktopOnlyEntries.Contains(sub.Header) && !OnRails.Contains(sub.Header))
+                        entries.Add(new ShellMenuEntry(sub.Header, sub.Command));
+                }
             }
             else
             {
                 entries.Add(new ShellMenuEntry(item.Header, item.Command));
             }
-            MenuGroups.Add(new ShellMenuGroup(item.Header, entries));
+            if (entries.Count > 0)
+                MenuGroups.Add(new ShellMenuGroup(item.Header, entries));
         }
 
         List<ShellMenuEntry> pluginEntries = new() { new ShellMenuEntry("Manage Plugins", new RelayCommand(() => OpenManaged("Plugins"))) };
-        foreach (IMainMenuItemViewModel plugin in MainMenu.Plugins)
+        foreach (IMainMenuItemViewModel plugin in MainMenu.Plugins.Where(p => p.Header != "View Plugins"))
             pluginEntries.Add(new ShellMenuEntry(plugin.Header, plugin.Command));
         MenuGroups.Add(new ShellMenuGroup("Plugins", pluginEntries));
+    }
+
+    // Desktop windows that cannot work on a phone: hotkeys hook the desktop window (and drive other
+    // clients through Win32), and the interceptor's local proxy is not a socket Ruffle may open.
+    private static readonly HashSet<string> DesktopOnlyEntries = new() { "HotKeys", "Interceptor" };
+
+    // Menu entries the rails already open (Fast Travel's spots are on the Jump page).
+    private static readonly HashSet<string> OnRails = new() { "Script Loader", "Game", "Loader", "Grabber", "Logs", "Fast Travel" };
+
+    // The bank opens in the game; opening it waits for the game, so not on the UI thread.
+    private void OpenBank()
+    {
+        IsMenuOpen = false;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                if (_bot.Player.LoggedIn)
+                    Ioc.Default.GetRequiredService<IScriptBank>().Open();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[Bank] open failed: {ex.Message}");
+            }
+        });
     }
 
     private void OnScriptLoaderChanged(object? sender, PropertyChangedEventArgs e)
@@ -313,6 +633,8 @@ public sealed partial class ShellViewModel : ObservableObject
         }
     }
 
+    private bool _wasLoggedIn;
+
     private void RefreshStatus()
     {
         _ = Task.Run(() =>
@@ -322,15 +644,26 @@ public sealed partial class ShellViewModel : ObservableObject
             try
             {
                 loggedIn = _bot.Player.LoggedIn;
-                if (!loggedIn)
-                    text = "Not logged in";
-                else
-                    text = $"{_bot.Player.Username} · {_bot.Map.Name} · {_bot.Player.Cell}";
+                // AQW sets its own quality while logging in; put the Graphics page's choice back after.
+                if (loggedIn && !_wasLoggedIn)
+                    _ = Task.Delay(4000).ContinueWith(_ => Ioc.Default.GetService<GraphicsViewModel>()?.Apply());
+                _wasLoggedIn = loggedIn;
+                string name = loggedIn ? (IsStreamerMode ? StreamerName : _bot.Player.Username) : string.Empty;
+                string map = loggedIn ? _bot.Map.Name : string.Empty;
+                text = loggedIn ? $"{name} · {map} · {_bot.Player.Cell}" : "Not logged in";
+                // Sent again every tick so a reloaded game page picks it up; the page ignores repeats.
+                if (IsStreamerMode)
+                    PostStreamerMode();
+
+                IScriptManager scripts = Ioc.Default.GetRequiredService<IScriptManager>();
+                Army.Publish(new Army.ClientStatus(Army.Slot, loggedIn, name, map, scripts.LoadedScript ?? string.Empty, scripts.ScriptRunning));
             }
             catch
             {
                 text = "Loading...";
             }
+            if (!Army.IsFirst)
+                text = $"{Army.Label(Army.Slot)} · {text}";
             Dispatcher.UIThread.Post(() =>
             {
                 StatusText = text;

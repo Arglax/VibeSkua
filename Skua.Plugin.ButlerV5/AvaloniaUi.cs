@@ -23,10 +23,10 @@ internal static class AvaloniaUi
 
     public static SolidColorBrush Brush(string color) => new(Color.Parse(color));
 
-    public static void PrepareWindow(Window window)
+    public static void PrepareView(UserControl view)
     {
-        window.Background = Background;
-        window.Classes.Add("skua");
+        view.Background = Background;
+        view.Classes.Add("skua");
     }
 
     public static TextBlock TextBlock(double size, IBrush? foreground = null) => new()

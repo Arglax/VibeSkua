@@ -216,7 +216,7 @@
                 HorizontalContentAlignment="Center"
                 Foreground="{DynamicResource SkuaMutedTextBrush}"
                 Command="{Binding OpenBrowserFormCommand}"
-                ToolTip.Tip="Open the MoVibeSkua issue tracker">
+                ToolTip.Tip="Open the MVS issue tracker">
             <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                 <materialIcons:MaterialIcon Kind="HelpCircleOutline" Width="14" Height="14" VerticalAlignment="Center" />
                 <TextBlock Text="Report issues to Arglax" VerticalAlignment="Center" />

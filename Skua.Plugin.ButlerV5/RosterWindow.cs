@@ -8,7 +8,7 @@ using Avalonia.Threading;
 namespace ButlerV5;
 
 /// <summary>Native Avalonia roster window for ButlerV5.</summary>
-public sealed class RosterWindow : Window
+public sealed class RosterWindow : UserControl
 {
     private readonly ButlerV5Plugin _plugin;
     private readonly DispatcherTimer _timer;
@@ -24,13 +24,7 @@ public sealed class RosterWindow : Window
     public RosterWindow(ButlerV5Plugin plugin)
     {
         _plugin = plugin;
-        Title = "ButlerV5 Avalonia";
-        Width = 560;
-        Height = 490;
-        MinWidth = 450;
-        MinHeight = 320;
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        AvaloniaUi.PrepareWindow(this);
+        AvaloniaUi.PrepareView(this);
 
         Grid root = new()
         {
@@ -125,12 +119,13 @@ public sealed class RosterWindow : Window
         _timer.Tick += (_, _) => Refresh();
         _timer.Start();
         Refresh(force: true);
+    }
 
-        Closed += (_, _) =>
-        {
-            _timer.Stop();
-            _plugin.SyncFilesChanged -= OnSyncFilesChanged;
-        };
+    /// <summary>Called by the plugin once the window or page showing this view has closed.</summary>
+    public void OnClosed()
+    {
+        _timer.Stop();
+        _plugin.SyncFilesChanged -= OnSyncFilesChanged;
     }
 
     private void OnSyncFilesChanged()

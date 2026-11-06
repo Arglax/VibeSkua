@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MoVibeSkua Telemetry</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#0D0B0C;--surface:#171315;--card:#1D181A;--card-hi:#262023;--line:#352C30;--grid:#2A2326;
+  --text:#F7F4F5;--text-2:#CDC4C7;--muted:#978A8F;
+  --brand:#E8677C;--gold:#E7B34A;
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;
+  --o1:#184f95;--o2:#256abf;--o3:#3987e5;--o4:#6da7ec;--o5:#9ec5f4;
+  --good:#0ca30c;--warning:#fab219;--serious:#ec835a;--critical:#d03b3b;
+  --tip:#120F10;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    color-scheme:light;
+    --bg:#F6F4F5;--surface:#ECE7E9;--card:#FFFFFF;--card-hi:#F9F6F7;--line:#E2DADD;--grid:#EFEAEC;
+    --text:#171113;--text-2:#4A3F43;--muted:#73666B;
+    --brand:#B23A4E;--gold:#A86F00;
+    --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;
+    --o1:#86b6ef;--o2:#5598e7;--o3:#2a78d6;--o4:#1c5cab;--o5:#0d366b;
+    --tip:#FFFFFF;
+  }
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#F6F4F5;--surface:#ECE7E9;--card:#FFFFFF;--card-hi:#F9F6F7;--line:#E2DADD;--grid:#EFEAEC;
+  --text:#171113;--text-2:#4A3F43;--muted:#73666B;
+  --brand:#B23A4E;--gold:#A86F00;
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;
+  --o1:#86b6ef;--o2:#5598e7;--o3:#2a78d6;--o4:#1c5cab;--o5:#0d366b;
+  --tip:#FFFFFF;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,"Segoe UI",Roboto,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:22px;margin:0;color:var(--gold);letter-spacing:.2px}
+h2{font-size:15px;margin:0 0 4px;font-weight:650}
+.sub,.note{color:var(--muted);font-size:12.5px}
+.note{margin:2px 0 12px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+button,.chip{background:transparent;color:var(--text-2);border:1px solid var(--line);border-radius:10px;padding:7px 12px;cursor:pointer;font:inherit;font-size:13px}
+button:hover{border-color:var(--brand);color:var(--text)}
+button.primary{border-color:var(--brand);color:var(--brand);font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+.banner{border:1px solid var(--warning);background:color-mix(in srgb,var(--warning) 10%,transparent);border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:13px;display:flex;gap:10px;align-items:center}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.tile b{display:block;font-size:28px;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.2}
+.tile span{color:var(--muted);font-size:12px}
+.tile small{display:block;color:var(--text-2);font-size:12px;margin-top:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;min-width:0}
+.card.full{margin-bottom:16px}
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:5px 10px;font-size:12px}
+.seg button[aria-pressed="true"]{background:var(--card-hi);color:var(--text);font-weight:600;box-shadow:inset 0 -2px 0 var(--brand)}
+svg text{fill:var(--muted);font-size:11px;font-family:inherit}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-2);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.hb{display:grid;grid-template-columns:minmax(90px,38%) 1fr 64px;align-items:center;gap:10px;margin:7px 0;font-size:13px}
+.hb .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+.hb .t{height:12px;background:var(--surface);border-radius:4px;overflow:hidden}
+.hb .t i{display:block;height:100%;border-radius:0 4px 4px 0;background:var(--s1)}
+.hb .v{text-align:right;font-variant-numeric:tabular-nums;color:var(--text)}
+.hb:hover .n{color:var(--text)}
+.funnel .hb{grid-template-columns:minmax(110px,40%) 1fr 110px}
+.funnel .v small{color:var(--muted);margin-left:4px}
+.stack{display:flex;gap:2px;height:16px;border-radius:4px;overflow:hidden;margin:10px 0 6px;background:var(--surface)}
+.stack i{display:block;height:100%}
+.outcome{margin-bottom:14px}
+.outcome h3{font-size:13px;margin:0;font-weight:600;color:var(--text-2)}
+.status{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text-2)}
+.status svg{width:12px;height:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:500;font-size:12px;cursor:pointer;user-select:none}
+th[data-sort]:hover{color:var(--text)}
+tbody tr:hover{background:var(--card-hi)}
+.flag{display:inline-flex;align-items:center;gap:4px;color:var(--warning);font-size:11.5px;margin-left:6px}
+.dwell{display:inline-flex;gap:2px;height:10px;width:140px;border-radius:3px;overflow:hidden;background:var(--surface);vertical-align:middle}
+.dwell i{display:block;height:100%}
+.wrap{overflow-x:auto}
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input[type=search]{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font:inherit;font-size:13px;min-width:180px}
+.group{display:inline-block;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 6px;margin-left:6px}
+.empty{color:var(--muted);padding:24px;text-align:center}
+#tip{position:fixed;pointer-events:none;z-index:10;background:var(--tip);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;max-width:260px}
+#tip b{display:block;margin-bottom:2px}
+#tip .row{display:flex;justify-content:space-between;gap:14px}
+#tip .row i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+@media (max-width:560px){.hb{grid-template-columns:minmax(80px,40%) 1fr 52px}.funnel .hb{grid-template-columns:minmax(90px,40%) 1fr 84px}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div>
+    <h1>MoVibeSkua telemetry</h1>
+    <div class="sub" id="generated">No data yet</div>
+  </div>
+  <div class="actions">
+    <button id="demo" type="button">Show demo data</button>
+    <button id="theme" type="button" aria-label="Switch light or dark theme">Theme</button>
+    <button id="refresh" class="primary" type="button" hidden>Refresh data</button>
+  </div>
+</header>
+
+<div id="banner"></div>
+<div class="tiles" id="tiles"></div>
+
+<section class="card full">
+  <div class="card-head">
+    <div><h2>Time spent in the app</h2><div class="note">Bars: minutes the app was on screen each day, all installs together. Line: running total in hours. Days are UTC.</div></div>
+  </div>
+  <div id="timeChart"></div>
+</section>
+
+<section class="card full">
+  <div class="card-head">
+    <div><h2>Active installs over time</h2><div class="note">One point per aggregation run (daily). An install is active if it synced within the window.</div></div>
+  </div>
+  <div id="history"></div>
+</section>
+
+<div class="grid">
+  <section class="card">
+    <h2>New installs per day</h2><div class="note">First seen in the last 30 days.</div>
+    <div id="newPerDay"></div>
+  </section>
+  <section class="card">
+    <h2>Getting started</h2><div class="note">Installs that ever reached each step.</div>
+    <div class="funnel" id="startFunnel"></div>
+  </section>
+</div>
+
+<div class="grid">
+  <section class="card">
+    <h2>Largest army per install</h2><div class="note">The most game clients each install has run at once. Past 4 the Army page warns about memory and heat.</div>
+    <div id="armySize"></div>
+  </section>
+  <section class="card">
+    <h2>Scripts and stability</h2><div class="note">Rates over all script runs or app starts (army clients included).</div>
+    <div id="stability"></div>
+  </section>
+</div>
+
+<div class="grid">
+  <section class="card">
+    <h2>Army actions</h2><div class="note">Times used. Full = tried to add a client with all 12 running.</div>
+    <div id="armyActions"></div>
+  </section>
+  <section class="card">
+    <h2>Getting around</h2><div class="note">Pages opened from the side rails or the menu, and the layout controls (times used).</div>
+    <div id="nav"></div>
+  </section>
+</div>
+
+<section class="card full">
+  <div class="card-head">
+    <div><h2>Screens: where time goes and where people get stuck</h2>
+      <div class="note">Game = the game with no page over it. Idle = open 20 s+ with nothing used. Quick exit = left in under 4 s. Long = open 3 min+. A visit counts at most 30 min. Flagged when 25%+ of 10+ visits are idle or long (not for Game, where long visits are the point).</div></div>
+  </div>
+  <div class="wrap" id="screens"></div>
+  <div class="legend" id="dwellLegend"></div>
+</section>
+
+<div class="grid">
+  <section class="card">
+    <div class="card-head"><h2>App versions</h2>
+      <div class="seg" data-target="versions"><button aria-pressed="true" data-v="all">All</button><button aria-pressed="false" data-v="active">Active 30 d</button></div></div>
+    <div id="versions"></div>
+  </section>
+  <section class="card">
+    <div class="card-head"><h2>Countries</h2>
+      <div class="seg" data-target="countries"><button aria-pressed="true" data-v="all">All</button><button aria-pressed="false" data-v="active">Active 30 d</button></div></div>
+    <div id="countries"></div>
+  </section>
+</div>
+
+<section class="card full">
+  <div class="card-head">
+    <div><h2>Every signal</h2><div class="note">Uses = total taps or events. Installs = how many installs used it at least once.</div></div>
+    <div class="tools"><input type="search" id="filter" placeholder="Filter signals"></div>
+  </div>
+  <div class="wrap" id="features"></div>
+</section>
+</main>
+<div id="tip" role="tooltip"></div>
+
+<script src="usage_data.js"></script>
+<script src="usage_history.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => n === null || n === undefined ? '-' : Number(n).toLocaleString();
+const pct = v => v === null || v === undefined || isNaN(v) ? '-' : (v * 100).toFixed(v < 0.1 && v > 0 ? 1 : 0) + '%';
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+const LABELS = {
+  SYS_SESSION_START:['App opened','System'], SYS_CRASH:['Crash','System'], SYS_RENDERER_GONE:['Game renderer lost (reloaded)','System'],
+  SYS_LAYOUT_LANDSCAPE:['Opened in landscape','System'], SYS_LAYOUT_PORTRAIT:['Opened in portrait','System'],
+  LOGIN_DONE:['Logged in','Game'], RELOGIN:['Auto relogin','Game'], RELOGIN_KICKED:['Relogin after a kick','Game'],
+  SCRIPT_STARTED:['Script started','Scripts'], SCRIPT_STOPPED:['Script stopped','Scripts'], SCRIPT_ERROR:['Script error','Scripts'],
+  NAV_RAIL:['Page from a side rail','Getting around'], NAV_MENU:['Page from the menu','Getting around'],
+  GAME_MAXIMIZED:['Game maximized','Getting around'], GAME_KEYBOARD:['Game keyboard shown','Getting around'],
+  PAGE_WIDE:['Page widened','Getting around'], PAGE_RESIZED:['Page resized by drag','Getting around'],
+  STREAMER_ON:['Streamer mode on','Getting around'], STREAMER_OFF:['Streamer mode off','Getting around'],
+  ARMY_ADD:['Added a client','Army'], ARMY_SWITCH:['Switched client','Army'], ARMY_CLOSE:['Closed a client','Army'],
+  ARMY_FULL:['Tried to add past 12','Army'], ARMY_LOW_MEMORY:['Low memory warning','Army'], ARMY_CLIENT_START:['Army client started','Army'],
+  ARMY_SIZE_2:['Reached 2 clients','Army'], ARMY_SIZE_3:['Reached 3 clients','Army'], ARMY_SIZE_4:['Reached 4 clients','Army'],
+  ARMY_SIZE_5_7:['Reached 5-7 clients','Army'], ARMY_SIZE_8_PLUS:['Reached 8+ clients','Army'],
+  LOGIN_REFUSED:['Login refused by AQW','Game'], LOGIN_QUICK:['Quick login (saved account)','Game'], ACCOUNT_SAVED:['Account saved on device','Game'],
+  AUTO_ATTACK_START:['Auto Attack started','Auto'], AUTO_HUNT_START:['Auto Hunt started','Auto'],
+};
+const SCREEN_LABELS = {GAME:'Game',LOGIN:'Login',SCRIPTS:'Scripts',SCHEDULER:'Scheduler',SCRIPT_REPO:'Script Repo',LOADOUTS:'Loadouts',
+  LOGS:'Logs',ARMY:'Army',AUTO:'Auto Attack / Hunt',JUMP:'Jump',LOADER:'Loader',GRABBER:'Grabber',GAME_OPTIONS:'Game options',
+  APP_OPTIONS:'App options',COREBOTS:'CoreBots',THEMES:'Themes',RUNTIME:'Runtime',NOTIFY_DROP:'Notify Drop',FAST_TRAVEL:'Fast Travel',
+  CURRENT_DROPS:'Current Drops',JUNK_ITEMS:'Junk Items',STATS:'Stats',CONSOLE:'Console',DIAGNOSTICS:'Diagnostics',SKILLS:'Skills',
+  PACKET_SPAMMER:'Packet Spammer',PACKET_LOGGER:'Packet Logger',PLUGINS:'Plugins',OTHER:'Plugin and other pages'};
+const ARMY_LABELS = {ARMY_SIZE_1:'Client 1 only',ARMY_SIZE_2:'2 clients',ARMY_SIZE_3:'3 clients',ARMY_SIZE_4:'4 clients',ARMY_SIZE_5_7:'5-7 clients',ARMY_SIZE_8_PLUS:'8+ clients'};
+const label = id => (LABELS[id] || [id])[0];
+const group = id => (LABELS[id] || [null, 'Other'])[1];
+
+/* ---------- tooltip ---------- */
+const tip = $('tip');
+function showTip(e, html){ tip.innerHTML = html; tip.style.display = 'block'; moveTip(e); }
+function moveTip(e){
+  const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = e.clientX + pad, y = e.clientY + pad;
+  if (x + w > innerWidth - 8) x = e.clientX - w - pad;
+  if (y + h > innerHeight - 8) y = e.clientY - h - pad;
+  tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px';
+}
+function hideTip(){ tip.style.display = 'none'; }
+function bindTips(root){
+  root.querySelectorAll('[data-tip]').forEach(el => {
+    el.addEventListener('mouseenter', e => showTip(e, el.dataset.tip));
+    el.addEventListener('mousemove', moveTip);
+    el.addEventListener('mouseleave', hideTip);
+  });
+}
+
+/* ---------- status icons (never color alone) ---------- */
+const ICON = {
+  good:'<svg viewBox="0 0 12 12"><path d="M2 6.5l2.5 2.5L10 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  warning:'<svg viewBox="0 0 12 12"><path d="M6 1.5L11 10.5H1Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M6 5v2.2M6 8.8v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  serious:'<svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 6h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  critical:'<svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3L3 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+};
+
+/* ---------- charts ---------- */
+function niceMax(v){ if (v <= 5) return 5; const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1,2,2.5,5,10]) if (m * p >= v) return m * p; return 10 * p; }
+function shortDay(d){ const t = new Date(d + 'T00:00:00'); return t.toLocaleDateString(undefined, {month:'short', day:'numeric'}); }
+
+function lineChart(el, rows, series){
+  if (rows.length < 2){ el.innerHTML = '<div class="empty">The trend builds up with each daily run. Come back after a couple of days.</div>'; return; }
+  const W = 1000, H = 260, L = 44, R = 70, T = 14, B = 28;
+  const max = niceMax(Math.max(1, ...rows.flatMap(r => series.map(s => r[s.key] || 0))));
+  const x = i => L + i / (rows.length - 1) * (W - L - R);
+  const y = v => T + (1 - v / max) * (H - T - B);
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Active installs over time">';
+  for (let k = 0; k <= 4; k++){ const v = max * k / 4, yy = y(v);
+    svg += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" stroke="var(--grid)" stroke-width="1"/>' +
+      '<text x="' + (L - 8) + '" y="' + (yy + 4) + '" text-anchor="end">' + fmt(v) + '</text>'; }
+  const ticks = Math.min(rows.length, 6);
+  for (let k = 0; k < ticks; k++){ const i = Math.round(k * (rows.length - 1) / Math.max(1, ticks - 1));
+    svg += '<text x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="middle">' + shortDay(rows[i].day) + '</text>'; }
+  const ends = [];
+  series.forEach(s => {
+    const pts = rows.map((r, i) => x(i).toFixed(1) + ',' + y(r[s.key] || 0).toFixed(1)).join(' ');
+    svg += '<polyline fill="none" stroke="' + s.color + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="' + pts + '"/>';
+    const last = rows[rows.length - 1][s.key] || 0;
+    ends.push({y: y(last), text: s.short + ' ' + fmt(last), color: s.color});
+  });
+  ends.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 14) ends[i].y = ends[i - 1].y + 14;
+  ends.forEach(e => svg += '<text x="' + (W - R + 8) + '" y="' + (e.y + 4) + '" style="fill:var(--text-2)">' + esc(e.text) + '</text>');
+  svg += '<line class="xh" x1="0" x2="0" y1="' + T + '" y2="' + (H - B) + '" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity="0"/>';
+  series.forEach((s, j) => svg += '<circle class="dot' + j + '" r="4.5" fill="' + s.color + '" stroke="var(--card)" stroke-width="2" opacity="0"/>');
+  svg += '<rect class="hit" x="' + L + '" y="' + T + '" width="' + (W - L - R) + '" height="' + (H - T - B) + '" fill="transparent"/></svg>';
+  el.innerHTML = svg + '<div class="legend">' + series.map(s => '<span><i style="background:' + s.color + '"></i>' + s.label + '</span>').join('') + '</div>';
+  const root = el.querySelector('svg'), xh = root.querySelector('.xh');
+  root.querySelector('.hit').addEventListener('mousemove', e => {
+    const b = root.getBoundingClientRect(), vx = (e.clientX - b.left) / b.width * W;
+    const i = Math.max(0, Math.min(rows.length - 1, Math.round((vx - L) / (W - L - R) * (rows.length - 1))));
+    xh.setAttribute('x1', x(i)); xh.setAttribute('x2', x(i)); xh.setAttribute('opacity', 1);
+    series.forEach((s, j) => { const d = root.querySelector('.dot' + j); d.setAttribute('cx', x(i)); d.setAttribute('cy', y(rows[i][s.key] || 0)); d.setAttribute('opacity', 1); });
+    showTip(e, '<b>' + shortDay(rows[i].day) + '</b>' + series.map(s => '<div class="row"><span><i style="background:' + s.color + '"></i>' + s.label + '</span><span>' + fmt(rows[i][s.key]) + '</span></div>').join('') +
+      '<div class="row"><span>Total installs</span><span>' + fmt(rows[i].installs) + '</span></div>');
+  });
+  root.querySelector('.hit').addEventListener('mouseleave', () => { hideTip(); xh.setAttribute('opacity', 0); series.forEach((s, j) => root.querySelector('.dot' + j).setAttribute('opacity', 0)); });
+}
+
+function hm(minutes){
+  if (minutes === null || minutes === undefined) return '-';
+  if (minutes < 60) return (Math.round(minutes * 10) / 10) + ' min';
+  const h = Math.floor(minutes / 60), m = Math.round(minutes % 60);
+  return h + ' h' + (m ? ' ' + m + ' min' : '');
+}
+
+function timeChart(el, rows){
+  if (!rows.length){ el.innerHTML = '<div class="empty">No per-day time yet. It starts with the app build that records it; until then the tiles show page time from all versions.</div>'; return; }
+  const W = 1000, H = 240, L = 50, R = 56, T = 14, B = 28;
+  const maxM = niceMax(Math.max(1, ...rows.map(r => r.minutes)));
+  const maxC = niceMax(Math.max(0.1, ...rows.map(r => r.cumulativeHours)));
+  const bw = (W - L - R) / rows.length;
+  const yM = v => T + (1 - v / maxM) * (H - T - B), yC = v => T + (1 - v / maxC) * (H - T - B);
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Minutes in the app per day and the running total">';
+  for (let k = 0; k <= 4; k++){ const yy = yM(maxM * k / 4);
+    svg += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" stroke="var(--grid)"/>' +
+      '<text x="' + (L - 8) + '" y="' + (yy + 4) + '" text-anchor="end">' + (maxM >= 600 ? fmt(Math.round(maxM * k / 4 / 60)) + ' h' : fmt(Math.round(maxM * k / 4)) + 'm') + '</text>' +
+      '<text x="' + (W - R + 8) + '" y="' + (yy + 4) + '" style="fill:var(--s2)">' + fmt(Math.round(maxC * k / 4 * 10) / 10) + ' h</text>'; }
+  rows.forEach((r, i) => {
+    const h = r.minutes / maxM * (H - T - B), x0 = L + i * bw + 1, w = Math.max(1, bw - 2), y0 = H - B - h;
+    if (h > 0) svg += '<rect x="' + x0 + '" y="' + y0 + '" width="' + w + '" height="' + h + '" rx="' + Math.min(3, w / 2) + '" fill="var(--s1)"/>';
+    const step = Math.max(1, Math.ceil(rows.length / 8));
+    if (i % step === 0 || i === rows.length - 1) svg += '<text x="' + (L + i * bw + bw / 2) + '" y="' + (H - 8) + '" text-anchor="middle">' + shortDay(r.day) + '</text>';
+  });
+  const pts = rows.map((r, i) => (L + i * bw + bw / 2).toFixed(1) + ',' + yC(r.cumulativeHours).toFixed(1)).join(' ');
+  svg += '<polyline fill="none" stroke="var(--s2)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="' + pts + '"/>';
+  rows.forEach((r, i) => {
+    svg += '<rect x="' + (L + i * bw) + '" y="' + T + '" width="' + bw + '" height="' + (H - T - B) + '" fill="transparent" data-tip="<b>' + shortDay(r.day) + '</b>' +
+      '<div class=&quot;row&quot;><span>In the app</span><span>' + hm(r.minutes) + '</span></div>' +
+      '<div class=&quot;row&quot;><span>Active users</span><span>' + fmt(r.users) + '</span></div>' +
+      '<div class=&quot;row&quot;><span>Per active user</span><span>' + hm(r.avgMinutes) + '</span></div>' +
+      '<div class=&quot;row&quot;><span>Botting (scripts, Auto)</span><span>' + hm(r.botMinutes) + '</span></div>' +
+      '<div class=&quot;row&quot;><span>Running total</span><span>' + r.cumulativeHours + ' h</span></div>"/>';
+  });
+  el.innerHTML = svg + '</svg><div class="legend"><span><i style="background:var(--s1)"></i>Minutes in the app that day</span><span><i style="background:var(--s2)"></i>Cumulative hours</span></div>';
+  bindTips(el);
+}
+
+function columnChart(el, rows){
+  if (!rows.length){ el.innerHTML = '<div class="empty">No new installs in the last 30 days.</div>'; return; }
+  const days = [];
+  const end = new Date(rows[rows.length - 1].day + 'T00:00:00');
+  const byDay = Object.fromEntries(rows.map(r => [r.day, r.installs]));
+  for (let k = 29; k >= 0; k--){ const d = new Date(end); d.setDate(d.getDate() - k); const key = d.toISOString().slice(0, 10); days.push({day:key, v: byDay[key] || 0}); }
+  const W = 600, H = 200, L = 34, T = 10, B = 24, gap = 2;
+  const max = niceMax(Math.max(1, ...days.map(d => d.v)));
+  const bw = (W - L) / days.length;
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="New installs per day">';
+  for (let k = 0; k <= 2; k++){ const v = max * k / 2, yy = T + (1 - v / max) * (H - T - B);
+    svg += '<line x1="' + L + '" x2="' + W + '" y1="' + yy + '" y2="' + yy + '" stroke="var(--grid)"/><text x="' + (L - 6) + '" y="' + (yy + 4) + '" text-anchor="end">' + fmt(v) + '</text>'; }
+  days.forEach((d, i) => {
+    const h = d.v / max * (H - T - B), x0 = L + i * bw + gap / 2, w = Math.max(1, bw - gap), y0 = H - B - h;
+    if (h > 0) svg += '<path d="M' + x0 + ',' + (H - B) + 'V' + (y0 + Math.min(4, h)) + 'q0,-' + Math.min(4, h) + ' ' + Math.min(4, w / 2) + ',-' + Math.min(4, h) + 'H' + (x0 + w - Math.min(4, w / 2)) + 'q' + Math.min(4, w / 2) + ',0 ' + Math.min(4, w / 2) + ',' + Math.min(4, h) + 'V' + (H - B) + 'Z" fill="var(--s1)"/>';
+    svg += '<rect x="' + (L + i * bw) + '" y="' + T + '" width="' + bw + '" height="' + (H - T - B) + '" fill="transparent" data-tip="<b>' + shortDay(d.day) + '</b>' + fmt(d.v) + ' new install' + (d.v === 1 ? '' : 's') + '"/>';
+    if ((i % 7 === 0 && i <= days.length - 8) || i === days.length - 1) svg += '<text x="' + (L + i * bw + bw / 2) + '" y="' + (H - 6) + '" text-anchor="middle">' + shortDay(d.day) + '</text>';
+  });
+  el.innerHTML = svg + '</svg>';
+  bindTips(el);
+}
+
+function hbars(el, rows, opts = {}){
+  if (!rows || !rows.length){ el.innerHTML = '<div class="empty">No data yet</div>'; return; }
+  const max = Math.max(1, ...rows.map(r => r.value));
+  el.innerHTML = rows.slice(0, opts.limit || 12).map(r =>
+    '<div class="hb" data-tip="<b>' + esc(r.label) + '</b>' + esc(r.tip || fmt(r.value)) + '"><span class="n" title="' + esc(r.label) + '">' + esc(r.label) + '</span>' +
+    '<span class="t"><i style="width:' + (r.value / max * 100) + '%;' + (r.color ? 'background:' + r.color : '') + '"></i></span>' +
+    '<span class="v">' + (r.display || fmt(r.value)) + '</span></div>').join('');
+  bindTips(el);
+}
+
+function funnel(el, steps){
+  if (!steps[0].value){ el.innerHTML = '<div class="empty">Nobody has opened this flow yet.</div>'; return; }
+  const top = steps[0].value;
+  hbars(el, steps.map((s, i) => ({
+    label: s.label, value: s.value,
+    display: fmt(s.value) + '<small>' + pct(s.value / top) + '</small>',
+    tip: fmt(s.value) + ' installs · ' + pct(s.value / top) + ' of those who opened it' + (i ? ' · ' + pct(steps[i - 1].value ? s.value / steps[i - 1].value : 0) + ' of the step before' : ''),
+  })));
+}
+
+function outcomeBar(title, attempts, parts){
+  const known = parts.reduce((a, p) => a + p.value, 0);
+  const all = parts.concat([{name:'No result', value: Math.max(0, attempts - known), color:'var(--line)', icon:'serious', mute:true}]);
+  if (!attempts) return '<div class="outcome"><h3>' + title + '</h3><div class="empty" style="padding:8px">No save attempts yet</div></div>';
+  return '<div class="outcome"><h3>' + title + ' <span class="sub">· ' + fmt(attempts) + ' attempts</span></h3><div class="stack">' +
+    all.filter(p => p.value > 0).map(p => '<i style="width:' + (p.value / attempts * 100) + '%;background:' + p.color + '" data-tip="<b>' + p.name + '</b>' + fmt(p.value) + ' · ' + pct(p.value / attempts) + '"></i>').join('') +
+    '</div><div class="legend">' + all.map(p => '<span class="status" style="color:' + (p.mute ? 'var(--muted)' : p.color) + '">' + ICON[p.icon] +
+      '<span style="color:var(--text-2)">' + p.name + ' ' + pct(p.value / attempts) + '</span></span>').join('') + '</div></div>';
+}
+
+function dwellBar(d){
+  const keys = ['d5','d15','d60','d180','dmax'], names = ['under 5 s','5-15 s','15-60 s','1-3 min','3 min+'];
+  const total = keys.reduce((a, k) => a + (d[k] || 0), 0) || 1;
+  return '<span class="dwell">' + keys.map((k, i) => (d[k] ? '<i style="width:' + (d[k] / total * 100) + '%;background:var(--o' + (i + 1) + ')" data-tip="<b>' + names[i] + '</b>' + fmt(d[k]) + ' visits · ' + pct(d[k] / total) + '"></i>' : '')).join('') + '</span>';
+}
+
+/* ---------- sortable table ---------- */
+function table(el, cols, rows, sortKey, desc = true){
+  let key = sortKey, down = desc;
+  function draw(){
+    const sorted = rows.slice().sort((a, b) => { const va = a[key], vb = b[key]; const c = typeof va === 'string' ? va.localeCompare(vb) : (va || 0) - (vb || 0); return down ? -c : c; });
+    el.innerHTML = '<table><thead><tr>' + cols.map(c => '<th data-sort="' + c.key + '">' + c.title + (c.key === key ? (down ? ' ▾' : ' ▴') : '') + '</th>').join('') + '</tr></thead><tbody>' +
+      (sorted.length ? sorted.map(r => '<tr>' + cols.map(c => '<td>' + (c.html ? c.html(r) : esc(r[c.key])) + '</td>').join('') + '</tr>').join('') : '<tr><td colspan="' + cols.length + '"><div class="empty">Nothing matches</div></td></tr>') +
+      '</tbody></table>';
+    el.querySelectorAll('th[data-sort]').forEach(th => th.onclick = () => { const k = th.dataset.sort; if (k === key) down = !down; else { key = k; down = true; } draw(); });
+    bindTips(el);
+  }
+  draw();
+}
+
+/* ---------- demo data ---------- */
+function demoTime(day, rnd){
+  const days = []; let cum = 0;
+  for (let k = 59; k >= 0; k--){ const users = Math.round(60 + (59 - k) * .9 + rnd() * 15), avg = 70 + rnd() * 40, minutes = Math.round(users * avg);
+    cum += minutes / 60; days.push({day:day(k), minutes, users, avgMinutes:Math.round(avg * 10) / 10, botMinutes:Math.round(minutes * 2.4), runMinutes:Math.round(minutes * 3), cumulativeHours:Math.round(cum * 100) / 100}); }
+  const last = days[days.length - 1];
+  return {days, todayMinutes:last.minutes, todayUsers:last.users, avgPerUserDay7:88.4, avgPerUserDay30:84.9, totalHours:Math.round(cum), botHours:Math.round(cum * 2.4), runHours:Math.round(cum * 3), trackedInstalls:250, medianHoursPerInstall:21.5, totalMinutes:Math.round(cum * 60), botMinutes:Math.round(cum * 144), pageHours:Math.round(cum * .9)};
+}
+
+function demoData(){
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const now = new Date(); const day = k => { const d = new Date(now); d.setDate(d.getDate() - k); return d.toISOString().slice(0, 10); };
+  const f = {SYS_SESSION_START:[4820,311],SYS_CRASH:[41,29],SYS_RENDERER_GONE:[66,38],SYS_LAYOUT_LANDSCAPE:[5900,305],SYS_LAYOUT_PORTRAIT:[310,44],
+    LOGIN_DONE:[6100,288],RELOGIN:[930,121],RELOGIN_KICKED:[210,77],SCRIPT_STARTED:[7400,241],SCRIPT_STOPPED:[6900,238],SCRIPT_ERROR:[380,96],
+    NAV_RAIL:[18200,301],NAV_MENU:[3100,212],GAME_MAXIMIZED:[2600,140],GAME_KEYBOARD:[9800,290],PAGE_WIDE:[710,96],PAGE_RESIZED:[340,71],
+    STREAMER_ON:[120,38],STREAMER_OFF:[95,31],ARMY_ADD:[1450,118],ARMY_SWITCH:[5200,109],ARMY_CLOSE:[690,92],ARMY_FULL:[9,4],ARMY_LOW_MEMORY:[140,37],
+    ARMY_CLIENT_START:[1500,118],ARMY_SIZE_2:[610,118],ARMY_SIZE_3:[400,84],ARMY_SIZE_4:[300,61],ARMY_SIZE_5_7:[150,27],ARMY_SIZE_8_PLUS:[40,9]};
+  const installs = 318;
+  const features = Object.entries(f).map(([id, [count, n]]) => ({id, count, installs:n, adoption:n / installs})).sort((a, b) => b.count - a.count);
+  const sc = (s, visits, avg, q, i, l) => { const d5 = Math.round(visits * q * 1.4), dmax = Math.round(visits * l * .4), d180 = Math.round(visits * l * .6), d60 = Math.round(visits * .3);
+    return {screen:s, visits, minutes:Math.round(visits * avg / 6) / 10, avgSeconds:avg, quickExitRate:q, idleRate:i, longRate:l, attention:Math.max(i, l), dwell:{d5, d15:Math.max(0, visits - d5 - d60 - d180 - dmax), d60, d180, dmax}}; };
+  const screens = [sc('GAME',9100,410,.05,.6,.55),sc('SCRIPT_REPO',2300,52,.12,.31,.12),sc('COREBOTS',640,95,.08,.36,.2),sc('SCRIPTS',4100,24,.2,.14,.03),
+    sc('LOGIN',3300,31,.09,.2,.05),sc('ARMY',1900,14,.3,.06,.01),sc('AUTO',1200,19,.22,.1,.02),sc('JUMP',2500,9,.41,.03,.01),sc('LOADER',800,41,.1,.22,.08),
+    sc('GRABBER',300,48,.11,.25,.09),sc('GAME_OPTIONS',900,27,.18,.15,.03),sc('LOGS',700,21,.33,.09,.02),sc('OTHER',210,36,.15,.2,.05)]
+    .sort((a, b) => b.attention - a.attention);
+  const newPerDay = []; for (let k = 29; k >= 0; k--){ const v = Math.round(4 + rnd() * 7 + (29 - k) / 6); newPerDay.push({day:day(k), installs:v}); }
+  const history = []; for (let k = 59; k >= 0; k--){ const t = 60 - k, base = 90 + t * 3.6; history.push({day:day(k), installs:Math.round(base + t), active1:Math.round(base * .34 + rnd() * 10), active7:Math.round(base * .62 + rnd() * 12), active30:Math.round(base * .86 + rnd() * 8)}); }
+  return {data:{generatedAt:now.toISOString(), installs, active:{active1:104, active7:196, active30:271}, newPerDay,
+    versions:[{name:'0.2.0',installs:201},{name:'0.1.1',installs:90},{name:'0.1.0',installs:27}], activeVersions:[{name:'0.2.0',installs:190},{name:'0.1.1',installs:70},{name:'0.1.0',installs:11}],
+    countries:[{name:'PH',installs:121},{name:'US',installs:52},{name:'BR',installs:31},{name:'ID',installs:28},{name:'MY',installs:19},{name:'VN',installs:14},{name:'MX',installs:11},{name:'GB',installs:9},{name:'Unknown',installs:33}],
+    activeCountries:[{name:'PH',installs:108},{name:'US',installs:44},{name:'BR',installs:26},{name:'ID',installs:23},{name:'MY',installs:15},{name:'Unknown',installs:55}],
+    largestArmy:[{size:'ARMY_SIZE_1',installs:200},{size:'ARMY_SIZE_2',installs:34},{size:'ARMY_SIZE_3',installs:23},{size:'ARMY_SIZE_4',installs:25},{size:'ARMY_SIZE_5_7',installs:27},{size:'ARMY_SIZE_8_PLUS',installs:9}],
+    screens, features, flows:{scriptErrorRate:.051, kickedRelogins:.184, crashRate:.0085, rendererLossRate:.0137}, time:demoTime(day, rnd)}, history};
+}
+
+
+/* ---------- render ---------- */
+const real = window.USAGE_DATA || null, realHistory = window.USAGE_HISTORY || [];
+let demo = !real && /[?&]demo/.test(location.search);
+const regionNames = typeof Intl.DisplayNames === 'function' ? new Intl.DisplayNames(['en'], {type:'region'}) : null;
+const countryName = c => { try { return regionNames && /^[A-Z]{2}$/.test(c) ? regionNames.of(c) : c; } catch (e) { return c; } };
+const view = {versions:'all', countries:'all'};
+const SECTIONS = ['timeChart','history','newPerDay','startFunnel','armySize','stability','armyActions','nav','screens','versions','countries','features'];
+
+function render(){
+  const pack = demo ? demoData() : {data: real, history: realHistory};
+  const data = pack.data, history = pack.history;
+  $('demo').textContent = demo ? 'Hide demo data' : 'Show demo data';
+  $('banner').innerHTML = demo ? '<div class="banner">' + ICON.warning.replace('<svg', '<svg width="14" height="14" style="color:var(--warning)"') + '<span><b>Demo data.</b> These numbers are made up so you can see the layout. Real numbers appear after <code>python tools/aggregate_usage.py</code> runs.</span></div>' : '';
+  if (!data){
+    $('generated').textContent = 'No data yet';
+    $('tiles').innerHTML = '<div class="card empty" style="grid-column:1/-1">No telemetry file found. Run <code>python tools/dashboard/serve_dashboard.py --key &lt;service account key&gt;</code>, or press <b>Show demo data</b> to preview the layout.</div>';
+    SECTIONS.forEach(id => $(id).innerHTML = '');
+    return;
+  }
+  $('generated').textContent = (demo ? 'Demo · ' : 'Updated ') + new Date(data.generatedAt).toLocaleString();
+
+  const F = Object.fromEntries((data.features || []).map(r => [r.id, r]));
+  const uses = id => (F[id] || {}).count || 0, reach = id => (F[id] || {}).installs || 0;
+  const n = data.installs || 0, a = data.active || {}, flows = data.flows || {};
+  const sessions = uses('SYS_SESSION_START'), clients = uses('ARMY_CLIENT_START'), crashes = uses('SYS_CRASH');
+  const tm = data.time || {};
+  const hasDays = (tm.days || []).length > 0;
+  const loginTries = uses('LOGIN_DONE') + uses('LOGIN_REFUSED');
+  const tiles = [
+    [fmt(n), 'Installs', ''],
+    [fmt(a.active1), 'Active in 24 h', n ? pct(a.active1 / n) + ' of installs' : ''],
+    [fmt(a.active7), 'Active in 7 days', n ? pct(a.active7 / n) + ' of installs' : ''],
+    [hasDays ? hm(tm.todayMinutes) : '-', 'In the app today', hasDays ? fmt(tm.todayUsers) + ' active user' + (tm.todayUsers === 1 ? '' : 's') + ' (UTC day)' : 'starts with the next build'],
+    [hasDays ? hm(tm.avgPerUserDay7) : '-', 'Per user per day', hasDays ? '7-day average · 30 d: ' + hm(tm.avgPerUserDay30) : 'starts with the next build'],
+    [hasDays ? (tm.totalHours >= 100 ? fmt(Math.round(tm.totalHours)) + ' h' : hm(tm.totalMinutes)) : fmt(tm.pageHours) + ' h', 'Total time in app', hasDays ? 'median ' + hm(tm.medianHoursPerInstall === null ? null : tm.medianHoursPerInstall * 60) + ' per install' : 'page time, all versions so far'],
+    [hasDays ? (tm.botHours >= 100 ? fmt(Math.round(tm.botHours)) + ' h' : hm(tm.botMinutes)) : '-', 'Botting time', hasDays ? 'scripts or Auto running' : 'starts with the next build'],
+    [fmt(sessions), 'App opens', n ? (sessions / n).toFixed(1) + ' per install' : ''],
+    [fmt(uses('LOGIN_DONE')), 'Logins', loginTries && uses('LOGIN_REFUSED') ? pct(uses('LOGIN_REFUSED') / loginTries) + ' refused by AQW' : (n ? (uses('LOGIN_DONE') / n).toFixed(1) + ' per install' : '')],
+    [fmt(uses('SCRIPT_STARTED')), 'Script runs', reach('SCRIPT_STARTED') ? fmt(reach('SCRIPT_STARTED')) + ' installs' : ''],
+    [fmt(crashes), 'Crashes', sessions + clients ? pct(crashes / (sessions + clients)) + ' of starts' : ''],
+  ];
+  timeChart($('timeChart'), tm.days || []);
+  $('tiles').innerHTML = tiles.map(t => '<div class="tile"><b>' + t[0] + '</b><span>' + t[1] + '</span>' + (t[2] ? '<small>' + t[2] + '</small>' : '') + '</div>').join('');
+
+  lineChart($('history'), history, [
+    {key:'active30', label:'Active in 30 days', short:'30 d', color:css('--s1')},
+    {key:'active7', label:'Active in 7 days', short:'7 d', color:css('--s2')},
+    {key:'active1', label:'Active in 24 h', short:'24 h', color:css('--s3')},
+  ]);
+  columnChart($('newPerDay'), data.newPerDay || []);
+
+  funnel($('startFunnel'), [
+    {label:'Opened the app', value:reach('SYS_SESSION_START')},
+    {label:'Logged in', value:reach('LOGIN_DONE')},
+    {label:'Started a script', value:reach('SCRIPT_STARTED')},
+    {label:'Added an army client', value:reach('ARMY_ADD')},
+  ]);
+
+  const army = data.largestArmy || [];
+  const armyTotal = army.reduce((s, r) => s + r.installs, 0);
+  hbars($('armySize'), army.map((r, i) => ({label:ARMY_LABELS[r.size] || r.size, value:r.installs,
+    color: i >= 4 ? 'var(--warning)' : '',
+    tip: fmt(r.installs) + ' installs · ' + pct(armyTotal ? r.installs / armyTotal : 0)})));
+
+  const rate = (name, v, warnAt, critAt, detail) => {
+    const level = v === null || v === undefined ? 'serious' : v >= critAt ? 'critical' : v >= warnAt ? 'warning' : 'good';
+    const color = {good:'var(--good)', warning:'var(--warning)', critical:'var(--critical)', serious:'var(--muted)'}[level];
+    return '<div class="hb" data-tip="<b>' + esc(name) + '</b>' + esc(detail) + '"><span class="n">' + esc(name) + '</span>' +
+      '<span class="t"><i style="width:' + Math.min(100, (v || 0) * 100 / (critAt * 1.5)) + '%;background:' + color + '"></i></span>' +
+      '<span class="v"><span class="status" style="color:' + color + '">' + ICON[level] + '</span> ' + pct(v) + '</span></div>';
+  };
+  $('stability').innerHTML =
+    rate('Script runs ending in an error', flows.scriptErrorRate, .05, .15, fmt(uses('SCRIPT_ERROR')) + ' errors in ' + fmt(uses('SCRIPT_STARTED')) + ' runs') +
+    rate('Relogins caused by a kick', flows.kickedRelogins, .2, .4, fmt(uses('RELOGIN_KICKED')) + ' of ' + fmt(uses('RELOGIN') + uses('RELOGIN_KICKED')) + ' relogins') +
+    rate('Starts that crashed', flows.crashRate, .01, .03, fmt(crashes) + ' crashes in ' + fmt(sessions + clients) + ' starts') +
+    rate('Starts that lost the game renderer', flows.rendererLossRate, .02, .05, fmt(uses('SYS_RENDERER_GONE')) + ' reloads in ' + fmt(sessions + clients) + ' starts');
+  bindTips($('stability'));
+
+  const useRows = ids => ids.map(([id, name]) => ({label:name, value:uses(id), tip:fmt(uses(id)) + ' uses · ' + fmt(reach(id)) + ' installs'}));
+  hbars($('armyActions'), useRows([['ARMY_ADD','Add client'],['ARMY_SWITCH','Switch client'],['ARMY_CLOSE','Close client'],['ARMY_LOW_MEMORY','Low memory warning'],['ARMY_FULL','Full (12 running)']]));
+  hbars($('nav'), useRows([['NAV_RAIL','Side rails'],['NAV_MENU','Menu'],['GAME_KEYBOARD','Game keyboard'],['GAME_MAXIMIZED','Maximize game'],['PAGE_WIDE','Widen page'],['PAGE_RESIZED','Drag page width'],['STREAMER_ON','Streamer mode on']]));
+
+  const screenRows = (data.screens || []).map(s => Object.assign({name: SCREEN_LABELS[s.screen] || s.screen, flagged: s.screen !== 'GAME' && s.visits >= 10 && s.attention >= .25}, s));
+  if (!screenRows.length) $('screens').innerHTML = '<div class="empty">No screen data yet</div>';
+  else table($('screens'), [
+    {key:'name', title:'Screen', html:r => esc(r.name) + (r.flagged ? '<span class="flag">' + ICON.warning.replace('<svg', '<svg width="12" height="12"') + 'needs a look</span>' : '')},
+    {key:'visits', title:'Visits', html:r => fmt(r.visits)},
+    {key:'minutes', title:'Total time', html:r => r.minutes >= 120 ? fmt(Math.round(r.minutes / 60)) + ' h' : fmt(r.minutes) + ' min'},
+    {key:'avgSeconds', title:'Avg time', html:r => r.avgSeconds + ' s'},
+    {key:'quickExitRate', title:'Quick exit', html:r => pct(r.quickExitRate)},
+    {key:'idleRate', title:'Idle', html:r => pct(r.idleRate)},
+    {key:'longRate', title:'Long', html:r => pct(r.longRate)},
+    {key:'attention', title:'Time spread', html:r => dwellBar(r.dwell || {})},
+  ], screenRows, 'visits');
+  $('dwellLegend').innerHTML = ['under 5 s','5-15 s','15-60 s','1-3 min','3 min+'].map((t, i) => '<span><i style="background:var(--o' + (i + 1) + ')"></i>' + t + '</span>').join('');
+
+  const versionRows = (view.versions === 'all' ? data.versions : data.activeVersions) || [];
+  hbars($('versions'), versionRows.map(r => ({label:'v' + r.name, value:r.installs, tip:fmt(r.installs) + ' installs'})));
+  const countryRows = (view.countries === 'all' ? data.countries : data.activeCountries) || [];
+  hbars($('countries'), countryRows.map(r => ({label:countryName(r.name), value:r.installs, tip:r.name + ' · ' + fmt(r.installs) + ' installs'})));
+
+  const featureRows = (data.features || []).map(r => Object.assign({name:label(r.id), group:group(r.id)}, r));
+  const drawFeatures = () => {
+    const q = $('filter').value.trim().toLowerCase();
+    const rows = featureRows.filter(r => !q || (r.name + ' ' + r.id + ' ' + r.group).toLowerCase().includes(q));
+    table($('features'), [
+      {key:'name', title:'Signal', html:r => esc(r.name) + '<span class="group">' + esc(r.group) + '</span>'},
+      {key:'count', title:'Uses', html:r => fmt(r.count)},
+      {key:'installs', title:'Installs', html:r => fmt(r.installs)},
+      {key:'adoption', title:'Adoption', html:r => pct(r.adoption)},
+    ], rows, 'count');
+  };
+  $('filter').oninput = drawFeatures;
+  drawFeatures();
+}
+
+document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  seg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  view[seg.dataset.target] = b.dataset.v; render();
+}));
+$('demo').onclick = () => { demo = !demo; render(); };
+$('theme').onclick = () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  const next = cur === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('mvs-dash-theme', next); } catch (e) {}
+  render();
+};
+try { const t = localStorage.getItem('mvs-dash-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+
+render();
+
+if (location.protocol.startsWith('http')) {
+  const button = $('refresh');
+  button.hidden = false;
+  button.onclick = async () => {
+    button.disabled = true; button.textContent = 'Refreshing...';
+    try { const r = await fetch('/refresh', {method:'POST'}); if (!r.ok) throw new Error(); location.reload(); }
+    catch (e) { button.textContent = 'Refresh failed'; button.disabled = false; }
+  };
+}
+</script>
+</body>
+</html>

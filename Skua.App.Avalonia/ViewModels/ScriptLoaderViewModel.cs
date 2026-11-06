@@ -183,7 +183,7 @@ public partial class ScriptLoaderViewModel : BotControlViewModelBase
     {
         if (string.IsNullOrWhiteSpace(path))
         {
-            path = _fileDialog.OpenFile(_scriptPath, "Skua Scripts (*.cs)|*.cs");
+            path = _fileDialog.OpenFile(_scriptPath, "MVS Scripts (*.cs)|*.cs");
             if (path is null)
                 return;
         }

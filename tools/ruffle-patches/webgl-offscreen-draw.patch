@@ -1,0 +1,317 @@
+diff --git a/render/webgl/src/lib.rs b/render/webgl/src/lib.rs
+index 925bf8d6..45c5ab8b 100644
+--- a/render/webgl/src/lib.rs
++++ b/render/webgl/src/lib.rs
+@@ -174,6 +174,15 @@ fn as_registry_data(handle: &BitmapHandle) -> &RegistryData {
+     <dyn Any>::downcast_ref(&*handle.0).expect("Bitmap handle must be webgl RegistryData")
+ }
+ 
++/// Pixels that `render_offscreen` drew into a bitmap's texture; read back only when the CPU needs them.
++#[derive(Debug)]
++struct WebGlSyncHandle {
++    bitmap: BitmapHandle,
++    bounds: PixelRegion,
++}
++
++impl SyncHandle for WebGlSyncHandle {}
++
+ const MAX_GRADIENT_COLORS: usize = 15;
+ 
+ impl WebGlRenderBackend {
+@@ -903,6 +912,170 @@ impl WebGlRenderBackend {
+         }
+     }
+ 
++    /// Draws `commands` over the current contents of a bitmap's texture (`BitmapData.draw`).
++    /// With MSAA, the texture is copied into a multisampled buffer first and resolved back after.
++    fn render_to_texture(
++        &mut self,
++        handle: &BitmapHandle,
++        commands: CommandList,
++        quality: StageQuality,
++        framebuffers: &mut Vec<WebGlFramebuffer>,
++        renderbuffers: &mut Vec<WebGlRenderbuffer>,
++    ) -> Result<(), Error> {
++        let entry = as_registry_data(handle);
++        let (width, height) = (entry.width as i32, entry.height as i32);
++        let gl = self.gl.clone();
++
++        let texture_framebuffer = gl
++            .create_framebuffer()
++            .ok_or(Error::UnableToCreateFrameBuffer)?;
++        framebuffers.push(texture_framebuffer.clone());
++        gl.bind_framebuffer(Gl::FRAMEBUFFER, Some(&texture_framebuffer));
++        gl.framebuffer_texture_2d(
++            Gl::FRAMEBUFFER,
++            Gl::COLOR_ATTACHMENT0,
++            Gl::TEXTURE_2D,
++            Some(&entry.texture),
++            0,
++        );
++
++        let sample_count = quality.sample_count().min(self.msaa_sample_count);
++        let msaa = match &self.gl2 {
++            Some(gl2) if sample_count > 1 => {
++                let render_framebuffer = gl
++                    .create_framebuffer()
++                    .ok_or(Error::UnableToCreateFrameBuffer)?;
++                framebuffers.push(render_framebuffer.clone());
++                gl.bind_framebuffer(Gl::FRAMEBUFFER, Some(&render_framebuffer));
++                for (format, attachment) in [
++                    (Gl2::RGBA8, Gl::COLOR_ATTACHMENT0),
++                    (Gl2::STENCIL_INDEX8, Gl::STENCIL_ATTACHMENT),
++                ] {
++                    let renderbuffer = gl
++                        .create_renderbuffer()
++                        .ok_or(Error::UnableToCreateRenderBuffer)?;
++                    renderbuffers.push(renderbuffer.clone());
++                    gl.bind_renderbuffer(Gl::RENDERBUFFER, Some(&renderbuffer));
++                    gl2.renderbuffer_storage_multisample(
++                        Gl::RENDERBUFFER,
++                        sample_count as i32,
++                        format,
++                        width,
++                        height,
++                    );
++                    gl.framebuffer_renderbuffer(
++                        Gl::FRAMEBUFFER,
++                        attachment,
++                        Gl::RENDERBUFFER,
++                        Some(&renderbuffer),
++                    );
++                }
++                Some((gl2.clone(), render_framebuffer))
++            }
++            _ => {
++                let stencil = gl
++                    .create_renderbuffer()
++                    .ok_or(Error::UnableToCreateRenderBuffer)?;
++                renderbuffers.push(stencil.clone());
++                gl.bind_renderbuffer(Gl::RENDERBUFFER, Some(&stencil));
++                gl.renderbuffer_storage(Gl::RENDERBUFFER, Gl::STENCIL_INDEX8, width, height);
++                gl.framebuffer_renderbuffer(
++                    Gl::FRAMEBUFFER,
++                    Gl::STENCIL_ATTACHMENT,
++                    Gl::RENDERBUFFER,
++                    Some(&stencil),
++                );
++                None
++            }
++        };
++        if gl.check_framebuffer_status(Gl::FRAMEBUFFER) != Gl::FRAMEBUFFER_COMPLETE {
++            return Err(Error::UnableToCreateFrameBuffer);
++        }
++
++        // Frame state as in `begin_frame`, against the bitmap. Row 0 of a bitmap texture is its
++        // top row, so y is not flipped the way it is for the stage.
++        self.view_matrix = [
++            [2.0 / width as f32, 0.0, 0.0, 0.0],
++            [0.0, 2.0 / height as f32, 0.0, 0.0],
++            [0.0, 0.0, 1.0, 0.0],
++            [-1.0, -1.0, 0.0, 1.0],
++        ];
++        self.active_program = std::ptr::null();
++        self.mask_state = MaskState::NoMask;
++        self.num_masks = 0;
++        self.mask_state_dirty = true;
++        self.mult_color = None;
++        self.add_color = None;
++        self.apply_blend_mode(
++            self.blend_modes
++                .last()
++                .cloned()
++                .unwrap_or(RenderBlendMode::Builtin(BlendMode::Normal)),
++        );
++        gl.viewport(0, 0, width, height);
++        self.set_stencil_state();
++        gl.stencil_mask(0xff);
++        gl.clear_color(0.0, 0.0, 0.0, 0.0);
++        if msaa.is_some() {
++            gl.clear(Gl::COLOR_BUFFER_BIT | Gl::STENCIL_BUFFER_BIT);
++            self.render_bitmap(
++                handle.clone(),
++                Transform::default(),
++                false,
++                PixelSnapping::Never,
++                PixelRegion::for_whole_size(entry.width, entry.height),
++            );
++        } else {
++            gl.clear(Gl::STENCIL_BUFFER_BIT);
++        }
++
++        commands.execute(self);
++
++        if let Some((gl2, render_framebuffer)) = msaa {
++            gl.disable(Gl::STENCIL_TEST);
++            gl.color_mask(true, true, true, true);
++            gl2.bind_framebuffer(Gl2::READ_FRAMEBUFFER, Some(&render_framebuffer));
++            gl2.bind_framebuffer(Gl2::DRAW_FRAMEBUFFER, Some(&texture_framebuffer));
++            gl2.blit_framebuffer(
++                0,
++                0,
++                width,
++                height,
++                0,
++                0,
++                width,
++                height,
++                Gl2::COLOR_BUFFER_BIT,
++                Gl2::NEAREST,
++            );
++        }
++        Ok(())
++    }
++
++    /// Puts back the stage's frame state after rendering into a bitmap.
++    fn restore_stage_target(&mut self, view_matrix: [[f32; 4]; 4]) {
++        self.view_matrix = view_matrix;
++        self.active_program = std::ptr::null();
++        self.mask_state = MaskState::NoMask;
++        self.num_masks = 0;
++        self.mask_state_dirty = true;
++        self.mult_color = None;
++        self.add_color = None;
++        self.set_stencil_state();
++        self.bind_stage_framebuffer();
++        self.gl.bind_renderbuffer(Gl::RENDERBUFFER, None);
++        self.gl
++            .viewport(0, 0, self.renderbuffer_width, self.renderbuffer_height);
++    }
++
++    fn bind_stage_framebuffer(&self) {
++        let framebuffer = self
++            .msaa_buffers
++            .as_ref()
++            .map(|buffers| &buffers.render_framebuffer);
++        self.gl.bind_framebuffer(Gl::FRAMEBUFFER, framebuffer);
++    }
++
+     fn push_blend_mode(&mut self, blend: RenderBlendMode) {
+         if !same_blend_mode(self.blend_modes.last(), &blend) {
+             self.apply_blend_mode(blend.clone());
+@@ -995,12 +1168,35 @@ fn same_blend_mode(first: Option<&RenderBlendMode>, second: &RenderBlendMode) ->
+ impl RenderBackend for WebGlRenderBackend {
+     fn render_offscreen(
+         &mut self,
+-        _handle: BitmapHandle,
+-        _commands: CommandList,
+-        _quality: StageQuality,
+-        _bounds: PixelRegion,
++        handle: BitmapHandle,
++        commands: CommandList,
++        quality: StageQuality,
++        bounds: PixelRegion,
+     ) -> Option<Box<dyn SyncHandle>> {
+-        None
++        let view_matrix = self.view_matrix;
++        let mut framebuffers = vec![];
++        let mut renderbuffers = vec![];
++        if let Err(e) = self.render_to_texture(
++            &handle,
++            commands,
++            quality,
++            &mut framebuffers,
++            &mut renderbuffers,
++        ) {
++            // Keep the bitmap as it was rather than failing the draw, which aborts the script.
++            log::error!("BitmapData.draw could not render: {e}");
++        }
++        self.restore_stage_target(view_matrix);
++        for framebuffer in &framebuffers {
++            self.gl.delete_framebuffer(Some(framebuffer));
++        }
++        for renderbuffer in &renderbuffers {
++            self.gl.delete_renderbuffer(Some(renderbuffer));
++        }
++        Some(Box::new(WebGlSyncHandle {
++            bitmap: handle,
++            bounds,
++        }))
+     }
+ 
+     fn viewport_dimensions(&self) -> ViewportDimensions {
+@@ -1201,7 +1397,36 @@ impl RenderBackend for WebGlRenderBackend {
+         "webgl"
+     }
+ 
+-    fn set_quality(&mut self, _quality: StageQuality) {}
++    fn set_quality(&mut self, quality: StageQuality) {
++        // MSAA needs WebGL2; WebGL1 relies on the context's own antialiasing.
++        let Some(gl2) = self.gl2.clone() else {
++            return;
++        };
++        let mut sample_count = quality.sample_count().min(4);
++        if let Ok(max_samples) = gl2.get_parameter(Gl2::MAX_SAMPLES) {
++            let max_samples = max_samples.as_f64().unwrap_or(0.0) as u32;
++            if max_samples > 0 {
++                sample_count = sample_count.min(max_samples);
++            }
++        }
++        if sample_count == self.msaa_sample_count {
++            return;
++        }
++        self.msaa_sample_count = sample_count;
++        // `build_msaa_buffers` leaves old buffers bound when MSAA is turned off, so drop them here.
++        if sample_count <= 1 {
++            if let Some(msaa_buffers) = self.msaa_buffers.take() {
++                gl2.delete_renderbuffer(Some(&msaa_buffers.color_renderbuffer));
++                gl2.delete_renderbuffer(Some(&msaa_buffers.stencil_renderbuffer));
++                gl2.delete_framebuffer(Some(&msaa_buffers.render_framebuffer));
++                gl2.delete_framebuffer(Some(&msaa_buffers.color_framebuffer));
++                gl2.delete_texture(Some(&msaa_buffers.framebuffer_texture));
++            }
++        }
++        if let Err(e) = self.build_msaa_buffers() {
++            log::error!("Couldn't rebuild MSAA buffers for quality {quality:?}: {e}");
++        }
++    }
+ 
+     fn compile_pixelbender_shader(
+         &mut self,
+@@ -1214,12 +1439,41 @@ impl RenderBackend for WebGlRenderBackend {
+ 
+     fn resolve_sync_handle(
+         &mut self,
+-        _handle: Box<dyn SyncHandle>,
+-        _with_rgba: RgbaBufRead,
++        handle: Box<dyn SyncHandle>,
++        with_rgba: RgbaBufRead,
+     ) -> Result<(), ruffle_render::error::Error> {
+-        Err(ruffle_render::error::Error::Unimplemented(
+-            "Sync handle resolution".into(),
+-        ))
++        let handle = Box::<dyn Any>::downcast::<WebGlSyncHandle>(handle).map_err(|_| {
++            ruffle_render::error::Error::Unimplemented("Sync handle from another backend".into())
++        })?;
++        let entry = as_registry_data(&handle.bitmap);
++        let bounds = handle.bounds;
++        let framebuffer = self.gl.create_framebuffer().ok_or_else(|| {
++            ruffle_render::error::Error::Unimplemented("Unable to create framebuffer".into())
++        })?;
++        self.gl
++            .bind_framebuffer(Gl::FRAMEBUFFER, Some(&framebuffer));
++        self.gl.framebuffer_texture_2d(
++            Gl::FRAMEBUFFER,
++            Gl::COLOR_ATTACHMENT0,
++            Gl::TEXTURE_2D,
++            Some(&entry.texture),
++            0,
++        );
++        let mut buffer = vec![0u8; bounds.width() as usize * bounds.height() as usize * 4];
++        let read = self.gl.read_pixels_with_opt_u8_array(
++            bounds.x_min as i32,
++            bounds.y_min as i32,
++            bounds.width() as i32,
++            bounds.height() as i32,
++            Gl::RGBA,
++            Gl::UNSIGNED_BYTE,
++            Some(&mut buffer),
++        );
++        self.bind_stage_framebuffer();
++        self.gl.delete_framebuffer(Some(&framebuffer));
++        read.map_err(ruffle_render::error::Error::JavascriptError)?;
++        with_rgba(&buffer, bounds.width() * 4);
++        Ok(())
+     }
+ 
+     fn run_pixelbender_shader(

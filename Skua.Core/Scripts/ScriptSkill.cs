@@ -152,7 +152,7 @@ public partial class ScriptSkill : IScriptSkill
     {
         OverrideProvider = new AdvancedSkillProvider(Player, Self, Target, Combat, Flash);
 
-        if (className == "generic")
+        if (string.Equals(className, "generic", StringComparison.OrdinalIgnoreCase))
         {
             OverrideProvider.Load(genericSkills);
             SkillUseMode = SkillUseMode.UseIfAvailable;
@@ -177,7 +177,12 @@ public partial class ScriptSkill : IScriptSkill
             SkillUseMode = SkillUseMode.UseIfAvailable;
             return;
         }
-        AdvancedSkill skill = skills.Find(s => s.ClassUseMode == useMode) ?? skills.FirstOrDefault()!;
+        // The asked-for mode, else the general-purpose ones before whatever is listed first.
+        AdvancedSkill skill = skills.Find(s => s.ClassUseMode == useMode)
+            ?? skills.Find(s => s.ClassUseMode == ClassUseMode.Base)
+            ?? skills.Find(s => s.ClassUseMode == ClassUseMode.Solo)
+            ?? skills.Find(s => s.ClassUseMode == ClassUseMode.Farm)
+            ?? skills.First();
         OverrideProvider.Load(skill.Skills);
         SkillTimeout = skill.SkillTimeout;
         SkillUseMode = skill.SkillUseMode;
@@ -222,6 +227,7 @@ public partial class ScriptSkill : IScriptSkill
     }
 
     private int _lastRank = -1;
+    private long _lastHealCheck;
     private SkillInfo[] _playerSkills = null!;
 
     private async Task _Timer(CancellationToken token)
@@ -248,7 +254,15 @@ public partial class ScriptSkill : IScriptSkill
             // then activate the skills
             if ((Options.AttackWithoutTarget && Player is { Loaded: true, Playing: true }) || Player is { HasTarget: true, Loaded: true, Playing: true })
             {
-                _Poll(token);
+                // One failed game read must not end the skill thread for the rest of the fight.
+                try
+                {
+                    _Poll(token);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    System.Diagnostics.Trace.WriteLine($"[Skills] poll failed: {ex.Message}");
+                }
             }
 
             // target reset if player has no target
@@ -290,6 +304,21 @@ public partial class ScriptSkill : IScriptSkill
         _lastRank = Player.CurrentClassRank;
         if (token.IsCancellationRequested)
             return;
+
+        // Heals first: a rotation entry with an "HP below" rule is cast as soon as it applies and the
+        // skill is ready, instead of waiting for its turn (it often came up while on cooldown and was
+        // skipped). Checked at most every 300 ms, since each check reads the player's HP from the game.
+        if (_provider is AdvancedSkillProvider advanced && !Combat.StopAttacking
+            && Environment.TickCount64 - _lastHealCheck >= 300)
+        {
+            _lastHealCheck = Environment.TickCount64;
+            int heal = advanced.FindUrgentHeal(CanUseSkill);
+            if (heal >= 0 && (_playerSkills is null || heal >= _playerSkills.Length || _playerSkills[heal].IsOk))
+            {
+                this.UseSkill(heal);
+                return;
+            }
+        }
 
         (int index, int skillS) = _provider!.GetNextSkill();
 

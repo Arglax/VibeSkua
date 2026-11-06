@@ -311,7 +311,7 @@ public partial class ScriptRepoViewModel : BotControlViewModelBase
         if (fileDialog == null)
             return;
 
-        string? path = fileDialog.OpenFile(ClientFileSources.SkuaScriptsDIR, "Skua Scripts (*.cs)|*.cs");
+        string? path = fileDialog.OpenFile(ClientFileSources.SkuaScriptsDIR, "MVS Scripts (*.cs)|*.cs");
         if (!string.IsNullOrEmpty(path))
         {
             ISettingsService? settings = Ioc.Default.GetService<ISettingsService>();

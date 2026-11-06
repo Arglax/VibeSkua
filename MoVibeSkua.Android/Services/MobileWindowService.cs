@@ -5,17 +5,19 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Controls;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using MoVibeSkua.Android.ViewModels;
 using Skua.Core.Interfaces;
+using Skua.Shared.Avalonia.Services;
 
 namespace MoVibeSkua.Android.Services;
 
 /// <summary>
-/// Desktop "windows" become pages in the shell's page stack.
+/// Desktop "windows" become pages in the shell's page stack, plugins' windows included.
 /// </summary>
-public class MobileWindowService : IWindowService
+public class MobileWindowService : IWindowService, IPluginPageHost
 {
     private readonly Dictionary<string, Func<IManagedWindow>> _factories = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IManagedWindow> _instances = new(StringComparer.OrdinalIgnoreCase);
@@ -40,15 +42,19 @@ public class MobileWindowService : IWindowService
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (!_instances.TryGetValue(key, out IManagedWindow? vm))
-            {
-                if (!_factories.TryGetValue(key, out Func<IManagedWindow>? factory))
-                    return;
-                vm = factory();
-                _instances[key] = vm;
-            }
-            Show(key, string.IsNullOrWhiteSpace(vm.Title) ? key : vm.Title, vm);
+            if (GetManagedWindow(key) is { } vm)
+                Show(key, string.IsNullOrWhiteSpace(vm.Title) ? key : vm.Title, vm);
         });
+    }
+
+    /// <summary>
+    /// The view model behind a managed window, created on first use, so another page can share it.
+    /// </summary>
+    public IManagedWindow? GetManagedWindow(string key)
+    {
+        if (!_instances.TryGetValue(key, out IManagedWindow? vm) && _factories.TryGetValue(key, out Func<IManagedWindow>? factory))
+            _instances[key] = vm = factory();
+        return vm;
     }
 
     public void RegisterManagedWindow<TViewModel>(string key, TViewModel viewModel) where TViewModel : class, IManagedWindow
@@ -64,6 +70,16 @@ public class MobileWindowService : IWindowService
     public void RegisterManagedWindow(string key, Func<IManagedWindow> factory)
     {
         _factories[key] = factory;
+    }
+
+    public void Show(string key, string title, Control view, Action closed)
+    {
+        Ioc.Default.GetRequiredService<ShellViewModel>().ShowPage(key, title, view, closed);
+    }
+
+    public void Close(string key)
+    {
+        Ioc.Default.GetRequiredService<ShellViewModel>().ClosePage(key);
     }
 
     private static void Show(string key, string title, object viewModel)

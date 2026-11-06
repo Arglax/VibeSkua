@@ -17,7 +17,7 @@ using Skua.Core.Models;
 
 namespace Skua.Plugin.DailyTracker;
 
-public partial class DailyTrackerWindow : Window
+public partial class DailyTrackerWindow : UserControl
 {
     private readonly IScriptInterface _bot;
     private CancellationTokenSource? _cts;
@@ -93,12 +93,15 @@ public partial class DailyTrackerWindow : Window
     {
         InitializeComponent();
         _bot = bot;
-        Skua.Shared.Avalonia.Services.WindowPlacementHelper.CenterOnActiveScreen(this);
         Loaded += OnLoaded;
-        Closed += OnClosed;
     }
 
-    private async void OnLoaded(object? sender, RoutedEventArgs e) => await InitializeAsync();
+    // A page is loaded again each time it comes back to the front; start once.
+    private async void OnLoaded(object? sender, RoutedEventArgs e)
+    {
+        Loaded -= OnLoaded;
+        await InitializeAsync();
+    }
 
     private async Task InitializeAsync()
     {
@@ -361,7 +364,8 @@ public partial class DailyTrackerWindow : Window
         });
     }
 
-    private void OnClosed(object? sender, EventArgs e)
+    /// <summary>Called by the plugin once the window or page showing this view has closed.</summary>
+    public void OnClosed()
     {
         try
         {

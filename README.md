@@ -16,13 +16,20 @@
 
 Turn your phone sideways. The game fills the middle; your controls sit on both edges.
 
+The side buttons start as the game's own buttons, made big: **Quests, Temp Inventory, Map, Lore, Menu, House, Settings** on the left; **Bag, Bank, Rest, Char** on the right, then **Guide** (how the screen works, plus a plain-words guide to the bot tools). The **MVS crest** at the bottom right:
+
+- **1 tap**: Support MVS (Discord help, a note from Arglax, credits).
+- **2 quick taps**: swap the side buttons to the bot tools below (2 taps again to go back).
+
+Bot tools:
+
 | Left side | Right side |
 | :--- | :--- |
 | **Menu**: every Skua tool (options, bank, packets, plugins…) | **Auto**: auto attack / hunt |
 | **Login**: log in, pick a server, auto-relogin | **Jump**: move between cells and pads |
 | **Scripts**: load, start, pause, edit options | **Loader / Grabber**: quests, shops, items |
 | **Repo**: browse and download community scripts | **Options**: game options (lag killer, etc.) |
-| **Logs** | **Game**: hide the panel, game full size |
+| **Logs**, **Army** | **Streamer**: hide your name, guild, gold and chat |
 | **▶ Start / ■ Stop**: run the loaded script | |
 
 **First run:** the app offers to download the community scripts. Say yes, then open **Repo** and hit **Start** on any script.
@@ -56,11 +63,17 @@ The APK lands in `MoVibeSkua.Android/bin/Release/net10.0-android/`.
 
 ## Credits
 
-- **[auqw/skua](https://github.com/auqw/skua)**: the original Skua framework and botting API.
+MoVibeSkua is a side project by Arglax: I couldn't find a bot that runs on phones, so I made one. The phone side (running the game on Android, the touch controls and side rails, the class stars, the big in-game menus, the script window) was put together for this app; everything it stands on is other people's work.
+
+Built on the work of:
+
+- **Skua** ([auqw/skua](https://github.com/auqw/skua)): Breno_Henrike (creator, 0.1 to 1.2.3), Purple (maintainer, 1.2.4 to 1.4.3.0), Tato (script team manager), Bogali (secondary script manager), Vanilla99 (Ultras v1), Crow (script dev, Ultra v3), Lonewolf_12 (script dev), and the auqw script community (scripts and skill rotations). Support them: [Skua donations](https://auqw.github.io/Skua-and-Grim-Donations/).
+- **VibeSkua** ([NinjaXz/VibeSkua](https://github.com/NinjaXz/VibeSkua)): Renoir Dessendre, creator of the VibeSkua branch this app builds on.
 - **[ArrowDev](https://github.com/ArrowDev123/Skua)** (BlackArrow on Discord): early Avalonia port.
-- **[NinjaXz/VibeSkua](https://github.com/NinjaXz/VibeSkua)**: the VibeSkua rehaul this app is built on.
 - **[Ruffle](https://github.com/ruffle-rs/ruffle)**: Flash emulation (MIT / Apache-2.0).
-- **Arglax**: MoVibeSkua, the Android port.
+- **r/AQW Simplified Bosses Guide** (community sheet): the class star ratings.
+
+Help and questions: [MVS Discord](https://discord.gg/Ybsy7KWE4).
 
 ## Disclaimer
 

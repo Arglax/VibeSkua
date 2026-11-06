@@ -1,0 +1,111 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:vm="clr-namespace:MoVibeSkua.Android.ViewModels"
+             x:Class="MoVibeSkua.Android.Views.GraphicsView"
+             x:DataType="vm:GraphicsViewModel">
+    <UserControl.Styles>
+        <Style Selector="Border.gfx-card">
+            <Setter Property="Background" Value="{DynamicResource SkuaSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SkuaBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12" />
+        </Style>
+        <Style Selector="TextBlock.gfx-title">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.gfx-note">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource SkuaMutedTextBrush}" />
+        </Style>
+        <Style Selector="TextBlock.gfx-label">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="8" Spacing="10">
+
+            <Border Classes="gfx-card">
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <materialIcons:MaterialIcon Kind="Speedometer" Width="16" Height="16" Foreground="{DynamicResource SkuaAccentBrush}" />
+                        <TextBlock Classes="gfx-title" Text="Presets" />
+                    </StackPanel>
+                    <UniformGrid Columns="2" Rows="2">
+                        <Button Classes="skua-button" Margin="3" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Content="Battery" Command="{Binding ApplyPresetCommand}" CommandParameter="battery" />
+                        <Button Classes="skua-button" Margin="3" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Content="Balanced" Command="{Binding ApplyPresetCommand}" CommandParameter="balanced" />
+                        <Button Classes="skua-button" Margin="3" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Content="Quality" Command="{Binding ApplyPresetCommand}" CommandParameter="quality" />
+                        <Button Classes="skua-button skua-primary" Margin="3" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Content="Ultra" Command="{Binding ApplyPresetCommand}" CommandParameter="ultra" />
+                    </UniformGrid>
+                    <TextBlock Classes="gfx-note"
+                               Text="Battery and Balanced keep fights smooth on weaker phones. Ultra draws above the screen's resolution with 8x anti-aliasing and richer colours; it needs a strong GPU." />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="gfx-card">
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <materialIcons:MaterialIcon Kind="MonitorScreenshot" Width="16" Height="16" Foreground="{DynamicResource SkuaAccentBrush}" />
+                        <TextBlock Classes="gfx-title" Text="Graphics" />
+                    </StackPanel>
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+                        <TextBlock Grid.Row="0" Classes="gfx-label" Text="Resolution" />
+                        <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding ResolutionChoices}" SelectedItem="{Binding Resolution}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GraphicsViewModel+Choice">
+                                    <TextBlock Text="{Binding Label}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Grid.Row="1" Classes="gfx-label" Text="Anti-aliasing" />
+                        <ComboBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding AntiAliasChoices}" SelectedItem="{Binding AntiAlias}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GraphicsViewModel+Choice">
+                                    <TextBlock Text="{Binding Label}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Grid.Row="2" Classes="gfx-label" Text="Colours" />
+                        <ComboBox Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding ColourChoices}" SelectedItem="{Binding ColourStyle}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GraphicsViewModel+Choice">
+                                    <TextBlock Text="{Binding Label}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+                    <TextBlock Classes="gfx-note"
+                               Text="Resolution and anti-aliasing cost the most GPU time. Game setting leaves anti-aliasing to AQW's own LOW/MEDIUM/HIGH switch." />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="gfx-card">
+                <StackPanel Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <materialIcons:MaterialIcon Kind="RocketLaunchOutline" Width="16" Height="16" Foreground="{DynamicResource SkuaAccentBrush}" />
+                        <TextBlock Classes="gfx-title" Text="Performance" />
+                    </StackPanel>
+                    <CheckBox Content="Show game FPS" IsChecked="{Binding ShowFps}" />
+                    <TextBlock Classes="gfx-note"
+                               Text="AQW is made for 30 frames a second: green is 28+, yellow 20+, red below. Running it faster would speed its animations up, not smooth them." />
+                    <CheckBox Content="Lag killer (hide the whole game world; bots keep playing)" IsChecked="{Binding Options.LagKiller}" />
+                    <CheckBox Content="Hide other players" IsChecked="{Binding Options.HidePlayers}" />
+                    <CheckBox Content="Optimize other players" IsChecked="{Binding Options.OptimizePlayers}" />
+                    <CheckBox Content="Disable skill effects" IsChecked="{Binding Options.DisableFX}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

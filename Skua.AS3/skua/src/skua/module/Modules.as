@@ -66,6 +66,8 @@ public class Modules {
         registerModule(new HidePlayers());
         registerModule(new DisableCollisions());
         registerModule(new DisableFX());
+        registerModule(new ClassRatingsUI());
+        registerModule(new GameMenusUI());
     }
 }
 }

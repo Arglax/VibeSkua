@@ -388,6 +388,12 @@ public class AdvancedSkillProvider : ISkillProvider
         return _currentCommand.ShouldUse(_player, _self, _target, skillIndex, canUse);
     }
 
+    /// <summary>A ready heal whose "HP below" rule holds now, or -1; see <see cref="AdvancedSkillCommand.FindUrgentHeal"/>.</summary>
+    public int FindUrgentHeal(Func<int, bool> canUse)
+    {
+        return _currentCommand.FindUrgentHeal(_player, _self, _target, canUse);
+    }
+
     public void Stop()
     {
         _combat.CancelAutoAttack();

@@ -7,7 +7,7 @@ public class ScriptVersionException : ScriptCompileException
     public string UpdateUrl { get; }
 
     public ScriptVersionException(string requiredVersion, string currentVersion, string updateUrl = "https://github.com/auqw/Skua/releases")
-        : base($"This script requires Skua {requiredVersion} or higher.\nYour current version is {currentVersion}.\nPlease update Skua to run this script.", string.Empty)
+        : base($"This script requires MVS {requiredVersion} or higher.\nYour current version is {currentVersion}.\nPlease update MVS to run this script.", string.Empty)
     {
         RequiredVersion = requiredVersion;
         CurrentVersion = currentVersion;
