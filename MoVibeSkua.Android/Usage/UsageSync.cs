@@ -118,6 +118,29 @@ internal static class UsageSync
         return true;
     }
 
+    /// <summary>The project id and a signed-in token for other writes (problem reports); null when offline or not configured.</summary>
+    public static async Task<(string ProjectId, string Uid, string IdToken)?> SignedInAsync()
+    {
+        if (ReadConfig() is not { } config)
+            return null;
+        Directory.CreateDirectory(Folder);
+        using FileStream? held = await LockAsync();
+        if (held is null)
+            return null;
+        Auth? auth = await SignInAsync(config);
+        return auth is null ? null : (config.ProjectId, auth.Uid, auth.IdToken);
+    }
+
+    /// <summary>Forgets the token after the server refused it, so the next sign-in refreshes it.</summary>
+    public static void TokenRefused()
+    {
+        if (ReadAuth() is { } auth)
+        {
+            auth.ExpiresAt = 0;
+            WriteAuth(auth);
+        }
+    }
+
     // One write: the plain fields by mask, and every count as an increment, so writes from several
     // clients add up instead of overwriting each other.
     private static string CommitBody(string document, IReadOnlyDictionary<string, long> counts, bool firstWrite)

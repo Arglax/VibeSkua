@@ -68,6 +68,7 @@ public class Modules {
         registerModule(new DisableFX());
         registerModule(new ClassRatingsUI());
         registerModule(new GameMenusUI());
+        registerModule(new DropsUI());
     }
 }
 }

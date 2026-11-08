@@ -90,6 +90,16 @@ public class KeepAliveService : Service
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
     {
         int slot = intent?.GetIntExtra(SlotExtra, 0) ?? 0;
+        // A notification button: the bot's controls (BotControl).
+        if (intent?.Action is BotControl.ActionToggle or BotControl.ActionPause or BotControl.ActionBotOnly or BotControl.ActionClose)
+        {
+            BotControl.Handle(intent.Action);
+            if (IsRunning)
+            {
+                UpdateNotification();
+                return StartCommandResult.Sticky;
+            }
+        }
         if (intent?.Action == ActionRelease)
         {
             ReleaseClient(slot);
@@ -108,10 +118,38 @@ public class KeepAliveService : Service
             StartForeground(NotificationId, notification);
 
         AcquireLocks();
+        if (!IsRunning)
+        {
+            BotControl.Changed += OnBotChanged;
+            // The run time, what was farmed and the map change without an event: refresh every 10 s.
+            _refresh = new Timer(_ => OnBotChanged(), null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+        }
         IsRunning = true;
         if (intent?.Action == ActionHold)
             HoldClient(slot);
         return StartCommandResult.Sticky;
+    }
+
+    private Timer? _refresh;
+    private string _lastShown = "";
+
+    private void OnBotChanged()
+    {
+        try
+        {
+            UpdateNotification();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[KeepAlive] notification: {ex.Message}");
+        }
+    }
+
+    private PendingIntent? ActionIntent(string action, int code)
+    {
+        Intent intent = new(this, typeof(KeepAliveService));
+        intent.SetAction(action);
+        return PendingIntent.GetService(this, code, intent, PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent);
     }
 
     private Notification BuildNotification()
@@ -120,22 +158,48 @@ public class KeepAliveService : Service
         open.SetFlags(ActivityFlags.SingleTop | ActivityFlags.ReorderToFront);
         PendingIntent? pending = PendingIntent.GetActivity(this, 0, open, PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent);
 
-        return new NotificationCompat.Builder(this, ChannelId)
-            .SetContentTitle("MVS is running")
-            .SetContentText(_held.Count == 0
-                ? "Keeping the game and scripts awake in the background."
-                : $"Keeping {_held.Count + 1} game clients and their scripts awake.")
+        (string title, string text, string details, bool running, bool paused, bool loaded) = BotControl.Describe();
+        if (_held.Count > 0)
+            details += $"\n{_held.Count + 1} game clients";
+        _lastShown = title + "|" + text + "|" + details + "|" + running + paused + loaded + BotControl.BotOnly;
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, ChannelId)
+            .SetContentTitle(title)
+            .SetContentText(text)
+            // Expanded: the full numbers instead of the short line (no repeat).
+            .SetStyle(new NotificationCompat.BigTextStyle().BigText(details.Length > 0 ? details : text))
             .SetSmallIcon(Resource.Drawable.ic_notification)
             .SetOngoing(true)
+            .SetOnlyAlertOnce(true)
+            .SetShowWhen(false)
             .SetContentIntent(pending)
-            .SetPriority(NotificationCompat.PriorityLow)
-            .Build()!;
+            .SetPriority(NotificationCompat.PriorityLow);
+        // Three buttons (what a notification shows): pause/resume and stop while a script runs, start
+        // when one is loaded, bot only while nothing runs, and always Close.
+        if (running)
+        {
+            builder.AddAction(0, paused ? "Resume" : "Pause", ActionIntent(BotControl.ActionPause, 11));
+            builder.AddAction(0, "Stop", ActionIntent(BotControl.ActionToggle, 12));
+        }
+        else
+        {
+            if (loaded)
+                builder.AddAction(0, "Start", ActionIntent(BotControl.ActionToggle, 12));
+            builder.AddAction(0, BotControl.BotOnly ? "Show game" : "Bot only", ActionIntent(BotControl.ActionBotOnly, 13));
+        }
+        builder.AddAction(0, "Close", ActionIntent(BotControl.ActionClose, 14));
+        return builder.Build()!;
     }
 
     private void UpdateNotification()
     {
-        if (IsRunning)
-            (GetSystemService(NotificationService) as NotificationManager)?.Notify(NotificationId, BuildNotification());
+        if (!IsRunning)
+            return;
+        string before = _lastShown;
+        Notification notification = BuildNotification();
+        // Only when something changed: each update wakes the system UI.
+        if (_lastShown != before)
+            (GetSystemService(NotificationService) as NotificationManager)?.Notify(NotificationId, notification);
     }
 
     private void HoldClient(int slot)
@@ -227,6 +291,9 @@ public class KeepAliveService : Service
     public override void OnDestroy()
     {
         IsRunning = false;
+        BotControl.Changed -= OnBotChanged;
+        _refresh?.Dispose();
+        _refresh = null;
         foreach (ClientConnection connection in _held.Values)
             UnbindService(connection);
         _held.Clear();

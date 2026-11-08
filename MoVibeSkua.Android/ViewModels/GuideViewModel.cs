@@ -84,4 +84,47 @@ public sealed partial class SupportViewModel : ObservableObject
     private void OpenSkuaDonations() => Open(SkuaDonationsUrl);
 
     internal static void Open(string url) => Ioc.Default.GetService<IProcessService>()?.OpenLink(url);
+
+    /// <summary>Crash and app-problem reports to the MVS developer (Diagnostics.ProblemReports).</summary>
+    public bool SendReports
+    {
+        get => Diagnostics.ProblemReports.SendEnabled;
+        set
+        {
+            Diagnostics.ProblemReports.SendEnabled = value;
+            OnPropertyChanged();
+        }
+    }
+
+    [ObservableProperty]
+    private string _reportButtonText = "Report a problem";
+
+    /// <summary>Sends the recent app log to the developer, for a problem MVS did not catch by itself.</summary>
+    [RelayCommand]
+    private void ReportProblem()
+    {
+        Diagnostics.ProblemReports.Save("user", "mvs", null, "Reported by the player from the Support page", null, fatal: false);
+        ReportButtonText = "Thanks! It will be sent to the developer.";
+    }
+
+    public string VersionText => $"MVS {Diagnostics.AppLog.AppVersion()}" + (Platform.DevMode.IsOn ? " · developer mode" : "");
+
+    private int _versionTaps;
+    private System.DateTime _lastVersionTap;
+
+    [RelayCommand]
+    private void VersionTap()
+    {
+        System.DateTime now = System.DateTime.UtcNow;
+        _versionTaps = now - _lastVersionTap < System.TimeSpan.FromSeconds(2) ? _versionTaps + 1 : 1;
+        _lastVersionTap = now;
+        if (_versionTaps < 7)
+            return;
+        _versionTaps = 0;
+        bool on = Platform.DevMode.Toggle();
+        OnPropertyChanged(nameof(VersionText));
+        Ioc.Default.GetService<IDialogService>()?.ShowMessageBox(
+            on ? "Developer mode is on. Restart MVS to see the developer tools." : "Developer mode is off. Restart MVS to hide the developer tools.",
+            "Developer mode");
+    }
 }

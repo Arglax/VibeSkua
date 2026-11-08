@@ -170,7 +170,8 @@ public class GameView : NativeControlHost
 
     private static AWebView CreateWebView(Context context)
     {
-        AWebView.SetWebContentsDebuggingEnabled(true);
+        // A PC can inspect the game page only in developer mode (Support page).
+        AWebView.SetWebContentsDebuggingEnabled(Platform.DevMode.IsOn);
         AWebView view = new GameWebView(context);
         view.SetBackgroundColor(Color.Black);
         view.Focusable = true;
@@ -209,6 +210,14 @@ public class GameView : NativeControlHost
         {
         }
 
+        // The game must keep running when MVS is out of sight (the bot plays on). A WebView in a hidden
+        // window marks its page hidden, and Chromium suspends a hidden page after a few minutes: the
+        // game and every bot call stop (seen on the phone after ~5 min in the background). The page is
+        // told about the background by the app instead (bridge "background": no drawing, muted, Ruffle's
+        // background ticking).
+        protected override void OnWindowVisibilityChanged(global::Android.Views.ViewStates visibility)
+            => base.OnWindowVisibilityChanged(global::Android.Views.ViewStates.Visible);
+
         protected override void OnSizeChanged(int w, int h, int oldw, int oldh)
         {
             base.OnSizeChanged(w, h, oldw, oldh);
@@ -216,11 +225,12 @@ public class GameView : NativeControlHost
         }
 
         // A touch that starts on the hidden part is refused, so the parent hands it to Avalonia's view,
-        // where the page lying over the game is.
+        // where the page lying over the game is. So is any touch while a dialog covers the game (it is
+        // only made transparent): tapping a dialog's OK also clicked the game button beneath it.
         public override bool DispatchTouchEvent(global::Android.Views.MotionEvent? e)
         {
             if (e?.ActionMasked == global::Android.Views.MotionEventActions.Down
-                && (e.GetX() >= VisibleWidth(this) || e.GetX() < VisibleLeft(this)))
+                && (Alpha == 0f || e.GetX() >= VisibleWidth(this) || e.GetX() < VisibleLeft(this)))
                 return false;
             return base.DispatchTouchEvent(e);
         }

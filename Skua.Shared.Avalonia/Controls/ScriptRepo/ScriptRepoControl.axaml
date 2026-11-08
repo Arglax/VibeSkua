@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:scriptRepo="clr-namespace:Skua.Shared.Avalonia.ViewModels.ScriptRepo;assembly=Skua.Shared.Avalonia"
+             xmlns:shared="clr-namespace:Skua.Shared.Avalonia;assembly=Skua.Shared.Avalonia"
              x:DataType="scriptRepo:ScriptRepoViewModel"
              x:Name="Root"
              Background="{DynamicResource SkuaPageBrush}"
@@ -165,7 +166,7 @@
                                     </MenuItem.Icon>
                                 </MenuItem>
                                 <MenuItem Command="{Binding OpenScriptCommand}"
-                                          Header="Open in VS Code"
+                                          Header="Open in editor"
                                           IsEnabled="{Binding SelectedItem.Downloaded, FallbackValue=False}">
                                     <MenuItem.Icon>
                                         <materialIcons:MaterialIcon Kind="MicrosoftVisualStudioCode" Width="14" Height="14" />
@@ -272,7 +273,7 @@
                                                             <materialIcons:MaterialIcon Kind="Update" Width="14" Height="14" />
                                                         </MenuItem.Icon>
                                                     </MenuItem>
-                                                    <MenuItem Header="Open in VS Code" IsEnabled="{Binding Downloaded}"
+                                                    <MenuItem Header="Open in editor" IsEnabled="{Binding Downloaded}"
                                                               Command="{Binding #Root.((scriptRepo:ScriptRepoViewModel)DataContext).OpenScriptCommand}" CommandParameter="{Binding .}">
                                                         <MenuItem.Icon>
                                                             <materialIcons:MaterialIcon Kind="MicrosoftVisualStudioCode" Width="14" Height="14" />
@@ -300,7 +301,8 @@
                                     IsVisible="{Binding !FilteredScripts.Count}">
                             <materialIcons:MaterialIcon Kind="CloudDownloadOutline" Width="40" Height="40" Foreground="{DynamicResource SkuaMutedTextBrush}" />
                             <TextBlock Text="Loading scripts..." FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" />
-                            <ProgressBar IsIndeterminate="True" Height="4" Width="200" HorizontalAlignment="Center" />
+                            <!-- Animates only while loading: a hidden indeterminate bar keeps animating and repaints the whole UI. -->
+                            <ProgressBar IsIndeterminate="{Binding IsLoadingScripts}" Height="4" Width="200" HorizontalAlignment="Center" />
                             <TextBlock Text="Getting the script list, this can take a few seconds." FontSize="12" Foreground="{DynamicResource SkuaMutedTextBrush}"
                                        HorizontalAlignment="Center" />
                         </StackPanel>
@@ -337,7 +339,7 @@
                         MinWidth="320"
                         MaxWidth="450">
                     <StackPanel Spacing="16" HorizontalAlignment="Center">
-                        <ProgressBar IsIndeterminate="True" Height="4" Width="240" HorizontalAlignment="Center" />
+                        <ProgressBar IsIndeterminate="{Binding IsBusy}" Height="4" Width="240" HorizontalAlignment="Center" />
                         <TextBlock Text="{Binding ProgressReportMessage, FallbackValue='Processing...'}"
                                    FontSize="12"
                                    FontWeight="SemiBold"
@@ -410,8 +412,9 @@
                                 <materialIcons:MaterialIcon Kind="FileDocumentPlus" Width="14" Height="14" />
                             </MenuItem.Icon>
                         </MenuItem>
-                        <Separator />
-                        <MenuItem Header="Open the Scripts folder in VS Code" Command="{Binding OpenScriptFolderCommand}">
+                        <Separator IsVisible="{x:Static shared:Platform.IsDesktop}" />
+                        <MenuItem Header="Open the Scripts folder in VS Code" Command="{Binding OpenScriptFolderCommand}"
+                                  IsVisible="{x:Static shared:Platform.IsDesktop}">
                             <MenuItem.Icon>
                                 <materialIcons:MaterialIcon Kind="MicrosoftVisualStudioCode" Width="14" Height="14" />
                             </MenuItem.Icon>

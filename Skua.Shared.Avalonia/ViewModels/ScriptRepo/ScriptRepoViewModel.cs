@@ -661,7 +661,7 @@ public partial class ScriptRepoViewModel : BotControlViewModelBase
             if (target.Info.Tags.Contains("Single"))
             {
                 DialogResult? result = dialogService?.ShowMessageBox(
-                    $"Do you want to permanently delete {target.FileName} from your computer, or just remove it from the Custom Scripts list?",
+                    $"Do you want to permanently delete {target.FileName} from this device, or just remove it from the Custom Scripts list?",
                     "Remove Custom Script", "Cancel", "Remove from List", "Delete File");
 
                 if (result == null || result.Text == "Cancel" || string.IsNullOrEmpty(result.Text))
@@ -686,7 +686,7 @@ public partial class ScriptRepoViewModel : BotControlViewModelBase
             else
             {
                 DialogResult? result = dialogService?.ShowMessageBox(
-                    $"This script is inside your Custom Scripts Folder.\r\nDo you want to permanently delete {target.FileName} from your computer?",
+                    $"This script is inside your Custom Scripts Folder.\r\nDo you want to permanently delete {target.FileName} from this device?",
                     "Delete Local Script", "No", "Yes");
 
                 if (result != null && result.Text == "Yes")

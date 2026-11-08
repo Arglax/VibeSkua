@@ -73,7 +73,7 @@
                 <Button Grid.Column="4" Classes="skua-button" HorizontalAlignment="Stretch"
                         Content="Log out" Command="{Binding LogoutCommand}" />
             </Grid>
-            <ProgressBar IsIndeterminate="True" Height="4" IsVisible="{Binding IsBusy}" />
+            <ProgressBar IsIndeterminate="{Binding IsBusy}" Height="4" IsVisible="{Binding IsBusy}" />
             <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
         </StackPanel>
     </ScrollViewer>

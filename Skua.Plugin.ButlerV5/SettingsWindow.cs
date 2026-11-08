@@ -147,7 +147,7 @@ public sealed class SettingsWindow : UserControl
         leftButtons.Children.Add(SmallButton("Save", "Write the current log to a timestamped file.", SaveLog));
         leftButtons.Children.Add(SmallButton("Clear", "Clear the in-memory log view.", ClearLog));
         logButtons.Children.Add(leftButtons);
-        Button openFolder = SmallButton("Open folder", "Open the ButlerV5 log folder.", OpenLogFolder);
+        Button openFolder = SmallButton("Open folder", "Open the folder with Butler's saved logs.", OpenLogFolder);
         Grid.SetColumn(openFolder, 1);
         logButtons.Children.Add(openFolder);
         Grid.SetRow(logButtons, 2);

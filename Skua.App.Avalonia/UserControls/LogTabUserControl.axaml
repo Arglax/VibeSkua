@@ -57,7 +57,7 @@
 
     <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
       <TextBlock Grid.Column="0" x:Name="CountText" Text="0 lines" FontSize="11" Foreground="{DynamicResource SkuaMutedTextBrush}" />
-      <TextBlock Grid.Column="1" x:Name="CopyHint" Text="Ctrl+C or right-click to copy selected lines" FontSize="11" Foreground="{DynamicResource SkuaMutedTextBrush}" />
+      <TextBlock Grid.Column="1" x:Name="CopyHint" Text="Select lines, then use Copy" FontSize="11" Foreground="{DynamicResource SkuaMutedTextBrush}" />
     </Grid>
   </Grid>
 </UserControl>

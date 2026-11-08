@@ -72,6 +72,8 @@ public partial class App : Application
             e.SetObserved();
         };
 
+        // Players see no developer tools unless developer mode is on (Support page).
+        Skua.App.Avalonia.AppStartup.AppFeatures.DeveloperTools = Platform.DevMode.IsOn;
         ServiceCollection services = new();
         services.AddCommonServices();
         services.AddCompiler();
@@ -90,12 +92,16 @@ public partial class App : Application
         services.AddSingleton<IProcessService, AndroidProcessService>();
         services.AddSingleton(_ => new RuffleHost(new RuffleHostOptions
         {
+            // A fixed port keeps the page's saved data (the game's settings such as its touch mode,
+            // MVS overlay settings) across launches; a free port is used if it's ever taken.
+            Port = 47911,
             // Native resolution with MSAA: at 1.5 the game drew at about half the screen's pixels and
             // looked blurry, while the phone's GPU held full frame rate at its native 2.75.
             Quality = "high",
             // The Graphics page's resolution when one is chosen; 3 keeps the screen's own ratio.
             MaxPixelRatio = ViewModels.GraphicsViewModel.StartupPixelRatio(),
-            PreferredRenderer = "webgl"
+            PreferredRenderer = "webgl",
+            TouchListRowHeight = Platform.DeviceProfile.Current.IsPhone ? 60 : 0
         }));
         services.AddSingleton<RuffleFlashUtil>();
         services.AddSingleton<IFlashUtil>(s => s.GetRequiredService<RuffleFlashUtil>());
@@ -155,8 +161,18 @@ public partial class App : Application
 
         // Script interface hooks the flash events in its constructor.
         _ = Ioc.Default.GetRequiredService<IScriptInterface>();
+        // MVS keeps the player logged in after disconnects, with or without a script running (as the
+        // Login page says). Skua turns Auto Relogin off whenever a script stops; KeepLoggedIn keeps it on.
+        Skua.Core.Scripts.ScriptOption.KeepLoggedIn = true;
+        Ioc.Default.GetRequiredService<IScriptOption>().AutoRelogin = true;
+        // A script that stops with an error: tell the player who can fix it, report MVS problems.
+        Diagnostics.ScriptProblems.Start();
+        // Phone temperature for the heat warning and the frame governor.
+        Services.ThermalMonitor.Start();
         // The small "script running" window over the game.
         ScriptStatusOverlay.Start();
+        // Bot-only mode and the notification's bot controls.
+        Platform.BotControl.Start();
 
         // Started once the UI has settled: the service's start callback runs on the main thread and
         // Android kills apps whose foreground service does not come up within a few seconds.
@@ -207,7 +223,19 @@ public partial class App : Application
         try
         {
             IGetScriptsService getScripts = Ioc.Default.GetRequiredService<IGetScriptsService>();
+            // Compare against today's list, not a cached one up to a day old (offline: the cache).
+            using (CancellationTokenSource listTimeout = new(TimeSpan.FromSeconds(15)))
+            {
+                try
+                {
+                    await getScripts.RefreshListCacheAsync(listTimeout.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
             await getScripts.GetScriptsAsync(null, default);
+            Trace.WriteLine($"[Scripts] {getScripts.Total} scripts, {getScripts.Outdated} outdated, {getScripts.Missing} missing");
 
             ISettingsService settings = Ioc.Default.GetRequiredService<ISettingsService>();
             IDialogService dialogs = Ioc.Default.GetRequiredService<IDialogService>();

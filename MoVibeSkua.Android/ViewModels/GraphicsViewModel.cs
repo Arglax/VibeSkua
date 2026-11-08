@@ -54,10 +54,15 @@ public partial class GraphicsViewModel : ObservableObject
     {
         _prefs = global::Android.App.Application.Context.GetSharedPreferences(PrefsName, FileCreationMode.Private)!;
         _loading = true;
-        Resolution = Find(Resolutions, _prefs.GetString("gfx.dpr", "0"));
-        AntiAlias = Find(AntiAliasing, _prefs.GetString("gfx.quality", ""));
+        // Starting values follow the phone (Platform.DeviceProfile); the player's saved choices win.
+        Platform.DeviceProfile device = Platform.DeviceProfile.Current;
+        Resolution = Find(Resolutions, _prefs.GetString("gfx.dpr", device.DefaultResolution));
+        AntiAlias = Find(AntiAliasing, _prefs.GetString("gfx.quality", device.DefaultAntiAlias));
         ColourStyle = Find(ColourStyles, _prefs.GetString("gfx.filter", "natural"));
         ShowFps = _prefs.GetBoolean("gfx.fps", false);
+        AutoSmooth = _prefs.GetBoolean("gfx.auto", true);
+        HeatWarnings = _prefs.GetBoolean("gfx.heat", true);
+        SmoothMotion = _prefs.GetBoolean("gfx.smooth", device.DefaultSmoothMotion);
         _loading = false;
     }
 
@@ -77,6 +82,18 @@ public partial class GraphicsViewModel : ObservableObject
     [ObservableProperty]
     private bool _showFps;
 
+    /// <summary>The page's frame governor: lowers anti-aliasing, then resolution, while the game is slow or the phone is hot.</summary>
+    [ObservableProperty]
+    private bool _autoSmooth;
+
+    /// <summary>A note over the game when the phone gets warm or hot (from ThermalMonitor).</summary>
+    [ObservableProperty]
+    private bool _heatWarnings;
+
+    /// <summary>MVS in-betweening: moving things are drawn at 60 a second between the game's 30 frames.</summary>
+    [ObservableProperty]
+    private bool _smoothMotion;
+
     /// <summary>Skua's own game options, shown here as shortcuts.</summary>
     public IScriptOption Options => Ioc.Default.GetRequiredService<IScriptOption>();
 
@@ -84,6 +101,9 @@ public partial class GraphicsViewModel : ObservableObject
     partial void OnAntiAliasChanged(Choice value) => Changed();
     partial void OnColourStyleChanged(Choice value) => Changed();
     partial void OnShowFpsChanged(bool value) => Changed();
+    partial void OnAutoSmoothChanged(bool value) => Changed();
+    partial void OnHeatWarningsChanged(bool value) => Changed();
+    partial void OnSmoothMotionChanged(bool value) => Changed();
 
     [RelayCommand]
     private void ApplyPreset(string preset)
@@ -112,6 +132,9 @@ public partial class GraphicsViewModel : ObservableObject
             .PutString("gfx.quality", AntiAlias.Value)!
             .PutString("gfx.filter", ColourStyle.Value)!
             .PutBoolean("gfx.fps", ShowFps)!
+            .PutBoolean("gfx.auto", AutoSmooth)!
+            .PutBoolean("gfx.heat", HeatWarnings)!
+            .PutBoolean("gfx.smooth", SmoothMotion)!
             .Apply();
         Apply();
     }
@@ -120,16 +143,19 @@ public partial class GraphicsViewModel : ObservableObject
     public void Apply()
     {
         string json = string.Create(CultureInfo.InvariantCulture,
-            $"{{\"t\":\"graphics\",\"dpr\":{double.Parse(Resolution.Value, CultureInfo.InvariantCulture)},\"quality\":\"{AntiAlias.Value}\",\"filter\":\"{ColourStyle.Value}\",\"fps\":{(ShowFps ? "true" : "false")}}}");
+            $"{{\"t\":\"graphics\",\"dpr\":{double.Parse(Resolution.Value, CultureInfo.InvariantCulture)},\"quality\":\"{AntiAlias.Value}\",\"filter\":\"{ColourStyle.Value}\",\"fps\":{B(ShowFps)},\"auto\":{B(AutoSmooth)},\"heat\":{B(HeatWarnings)},\"smooth\":{(SmoothMotion ? 60 : 0)},\"dev\":{B(Platform.DevMode.IsOn)}}}");
         Ioc.Default.GetService<Skua.Flash.Ruffle.RuffleFlashUtil>()?.PostCommand(json);
     }
+
+    private static string B(bool value) => value ? "true" : "false";
 
     /// <summary>The pixel ratio to start the game page with, before the page asks for settings.</summary>
     public static double StartupPixelRatio()
     {
         ISharedPreferences? prefs = global::Android.App.Application.Context.GetSharedPreferences(PrefsName, FileCreationMode.Private);
-        string value = prefs?.GetString("gfx.dpr", "0") ?? "0";
-        return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double ratio) && ratio > 0 ? ratio : 3;
+        Platform.DeviceProfile device = Platform.DeviceProfile.Current;
+        string value = prefs?.GetString("gfx.dpr", device.DefaultResolution) ?? device.DefaultResolution;
+        return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double ratio) && ratio > 0 ? ratio : device.StartupPixelRatio;
     }
 
     private static Choice Find(IReadOnlyList<Choice> choices, string? value)

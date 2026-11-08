@@ -80,6 +80,11 @@ public sealed partial class RailAction : ObservableObject
     public string Label { get; }
     public System.Windows.Input.ICommand Command { get; }
 
+    /// <summary>The game's own icon (Images/rail/*.png), shown instead of <see cref="Icon"/> when set.</summary>
+    public Avalonia.Media.IImage? Image { get; init; }
+
+    public bool HasImage => Image is not null;
+
     [ObservableProperty]
     private Material.Icons.MaterialIconKind _icon;
 
@@ -88,6 +93,13 @@ public sealed partial class RailAction : ObservableObject
 
     [ObservableProperty]
     private bool _isActive;
+
+    /// <summary>A count shown on the button (Drops waiting); hidden at 0.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasBadge))]
+    private int _badge;
+
+    public bool HasBadge => Badge > 0;
 }
 
 /// <summary>
@@ -117,6 +129,7 @@ public sealed partial class ShellViewModel : ObservableObject
         _isStreamerMode = _prefs?.GetBoolean("streamerMode", false) ?? false;
         _isBotMode = _prefs?.GetBoolean("botMode", false) ?? false;
         HookScriptStreamerMode();
+        HookDrops();
         ScriptLoader = scriptLoader;
         ScriptLoader.PropertyChanged += OnScriptLoaderChanged;
         Pages.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasPreviousPage));
@@ -421,21 +434,23 @@ public sealed partial class ShellViewModel : ObservableObject
         RailAction Managed(string label, Material.Icons.MaterialIconKind icon, string key)
             => Page(label, icon, key, () => OpenManaged(key));
         // One of the game's bottom-bar buttons, tapped inside the game (skua.swf mvsGameButton).
-        RailAction GameButton(string label, Material.Icons.MaterialIconKind icon, string button)
-            => new(label, icon, new CountedCommand(Signal.NAV_RAIL, new RelayCommand(() => TapGameButton(button))));
+        RailAction GameButton(string label, Material.Icons.MaterialIconKind icon, string button, string image)
+            => new(label, icon, new CountedCommand(Signal.NAV_RAIL, new RelayCommand(() => TapGameButton(button)))) { Image = RailImage(image) };
 
-        _gameLeft.Add(GameButton("Quests", Material.Icons.MaterialIconKind.AlertDecagram, "btnQuest"));
-        _gameLeft.Add(GameButton("Temp Inv", Material.Icons.MaterialIconKind.PackageVariant, "temp"));
-        _gameLeft.Add(GameButton("Map", Material.Icons.MaterialIconKind.Map, "btnMap"));
-        _gameLeft.Add(GameButton("Lore", Material.Icons.MaterialIconKind.BookOpenVariant, "btnBook"));
-        _gameLeft.Add(GameButton("Menu", Material.Icons.MaterialIconKind.ViewGrid, "btnMenu"));
-        _gameLeft.Add(GameButton("House", Material.Icons.MaterialIconKind.Home, "btnHouse"));
-        _gameLeft.Add(GameButton("Settings", Material.Icons.MaterialIconKind.Cog, "btnOption"));
+        _gameLeft.Add(GameButton("Quests", Material.Icons.MaterialIconKind.AlertDecagram, "btnQuest", "quests"));
+        _gameLeft.Add(GameButton("Temp Inv", Material.Icons.MaterialIconKind.PackageVariant, "temp", "tempinv"));
+        _gameLeft.Add(GameButton("Map", Material.Icons.MaterialIconKind.Map, "btnMap", "map"));
+        _gameLeft.Add(GameButton("Lore", Material.Icons.MaterialIconKind.BookOpenVariant, "btnBook", "lore"));
+        _gameLeft.Add(GameButton("Menu", Material.Icons.MaterialIconKind.ViewGrid, "btnMenu", "menu"));
+        _gameLeft.Add(GameButton("House", Material.Icons.MaterialIconKind.Home, "btnHouse", "house"));
+        _gameLeft.Add(GameButton("Settings", Material.Icons.MaterialIconKind.Cog, "btnOption", "settings"));
 
-        _gameRight.Add(GameButton("Bag", Material.Icons.MaterialIconKind.BagPersonal, "btnBag"));
-        _gameRight.Add(new RailAction("Bank", Material.Icons.MaterialIconKind.Safe, new CountedCommand(Signal.NAV_RAIL, new RelayCommand(OpenBank))));
-        _gameRight.Add(GameButton("Rest", Material.Icons.MaterialIconKind.HeartPulse, "btnRest"));
-        _gameRight.Add(GameButton("Char", Material.Icons.MaterialIconKind.ShieldAccount, "btnChar"));
+        _gameRight.Add(GameButton("Bag", Material.Icons.MaterialIconKind.BagPersonal, "btnBag", "bag"));
+        _dropsAction = new RailAction("Drops", Material.Icons.MaterialIconKind.PackageDown, new CountedCommand(Signal.NAV_RAIL, new RelayCommand(ToggleDrops))) { Image = RailImage("drops") };
+        _gameRight.Add(_dropsAction);
+        _gameRight.Add(new RailAction("Bank", Material.Icons.MaterialIconKind.Safe, new CountedCommand(Signal.NAV_RAIL, new RelayCommand(OpenBank))) { Image = RailImage("bank") });
+        _gameRight.Add(GameButton("Rest", Material.Icons.MaterialIconKind.HeartPulse, "btnRest", "rest"));
+        _gameRight.Add(GameButton("Char", Material.Icons.MaterialIconKind.ShieldAccount, "btnChar", "char"));
 
         _botLeft.Add(Page("Login", Material.Icons.MaterialIconKind.ShieldAccount, "Login", () => OpenLogin()));
         _botLeft.Add(Managed("Scripts", Material.Icons.MaterialIconKind.ScriptText, "Scripts"));
@@ -452,6 +467,21 @@ public sealed partial class ShellViewModel : ObservableObject
         _botRight.Add(_streamerAction);
         UpdateStreamerAction();
         ApplyRails();
+    }
+
+    /// <summary>The game's own bottom-bar art (and its gold icon for Bank, its bag item icon for Temp Inv).</summary>
+    private static Avalonia.Media.IImage? RailImage(string name)
+    {
+        try
+        {
+            using System.IO.Stream stream = Avalonia.Platform.AssetLoader.Open(new Uri($"avares://MoVibeSkua/Images/rail/{name}.png"));
+            return new Avalonia.Media.Imaging.Bitmap(stream);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[Rail] icon {name}: {ex.Message}");
+            return null;
+        }
     }
 
     private void ApplyRails()
@@ -477,7 +507,16 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>The MVS guide, from its button above the crest (portrait: the end of the bottom bar).</summary>
     [RelayCommand]
-    private void OpenGuide() => TogglePage("Guide", ShowGuide);
+    private void OpenGuide()
+    {
+        // The bot tools guide is opened from the guide: Guide closes either.
+        if (CurrentPage?.Key == "Bot Guide")
+        {
+            CloseAllPages();
+            return;
+        }
+        TogglePage("Guide", ShowGuide);
+    }
 
     partial void OnIsBotModeChanged(bool value)
     {
@@ -499,7 +538,11 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             try
             {
-                flash.Call("mvsGameButton", button);
+                // Quests opens the quest log itself (the game's L key), not the bottom bar's small list.
+                if (button == "btnQuest")
+                    flash.Call("callGameFunction", "world.toggleQuestLog");
+                else
+                    flash.Call("mvsGameButton", button);
             }
             catch
             {
@@ -581,7 +624,8 @@ public sealed partial class ShellViewModel : ObservableObject
             {
                 foreach (IMainMenuItemViewModel sub in item.SubItems)
                 {
-                    if (!DesktopOnlyEntries.Contains(sub.Header) && !OnRails.Contains(sub.Header))
+                    if (!DesktopOnlyEntries.Contains(sub.Header) && !OnRails.Contains(sub.Header)
+                        && (Platform.DevMode.IsOn || !DeveloperEntries.Contains(sub.Header)))
                         entries.Add(new ShellMenuEntry(sub.Header, sub.Command));
                 }
             }
@@ -603,10 +647,49 @@ public sealed partial class ShellViewModel : ObservableObject
     // clients through Win32), and the interceptor's local proxy is not a socket Ruffle may open.
     private static readonly HashSet<string> DesktopOnlyEntries = new() { "HotKeys", "Interceptor" };
 
+    // Developer tools, only in developer mode: the C# console and the raw packet tools.
+    private static readonly HashSet<string> DeveloperEntries = new() { "Console", "Spammer", "Logger" };
+
     // Menu entries the rails already open (Fast Travel's spots are on the Jump page).
     private static readonly HashSet<string> OnRails = new() { "Script Loader", "Game", "Loader", "Grabber", "Logs", "Fast Travel" };
 
     // The bank opens in the game; opening it waits for the game, so not on the UI thread.
+    private RailAction? _dropsAction;
+
+    /// <summary>Opens or closes the Drops panel over the game (overlays.js).</summary>
+    private static void ToggleDrops()
+        => Ioc.Default.GetService<Skua.Flash.Ruffle.RuffleFlashUtil>()?.PostCommand("{\"t\":\"drops\"}");
+
+    /// <summary>
+    /// MVS Drops: skua.swf keeps drops in the game's own drop store instead of popping them up, and
+    /// reports the waiting list ("mvsDrops"), which the Drops button counts. Switched on each time the
+    /// game loads.
+    /// </summary>
+    private void HookDrops()
+    {
+        Skua.Core.Interfaces.IFlashUtil flash = Ioc.Default.GetRequiredService<Skua.Core.Interfaces.IFlashUtil>();
+        flash.FlashCall += (function, args) =>
+        {
+            if (function == "loaded")
+            {
+                _ = Task.Run(() =>
+                {
+                    try { flash.Call("mvsDropsOn", true); }
+                    catch (Exception ex) { System.Diagnostics.Trace.WriteLine($"[Drops] {ex.Message}"); }
+                });
+            }
+            else if (function == "mvsDrops" && args is { Length: > 0 })
+            {
+                int count = 0;
+                try { count = Newtonsoft.Json.Linq.JArray.Parse(args[0]?.ToString() ?? "[]").Count; }
+                catch { }
+                Dispatcher.UIThread.Post(() => { if (_dropsAction is not null) _dropsAction.Badge = count; });
+            }
+        };
+        // Already loaded (the shell came up after the game).
+        _ = Task.Run(() => { try { flash.Call("mvsDropsOn", true); } catch { } });
+    }
+
     private void OpenBank()
     {
         IsMenuOpen = false;
@@ -614,7 +697,13 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             try
             {
-                if (_bot.Player.LoggedIn)
+                if (!_bot.Player.LoggedIn)
+                    return;
+                // A second tap closes it, like the other buttons (Skua's Open does nothing when it is open).
+                Skua.Core.Interfaces.IFlashUtil flash = Ioc.Default.GetRequiredService<Skua.Core.Interfaces.IFlashUtil>();
+                if (string.Equals(flash.GetGameObject<string>("ui.mcPopup.currentLabel"), "Bank", StringComparison.OrdinalIgnoreCase))
+                    flash.CallGameFunction("world.toggleBank");
+                else
                     Ioc.Default.GetRequiredService<IScriptBank>().Open();
             }
             catch (Exception ex)

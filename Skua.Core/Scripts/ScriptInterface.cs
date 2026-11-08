@@ -19,6 +19,14 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
     private GameStateChannel? _stateChannel;
     private GameApiThreadSafeWrapper? _apiWrapper;
     private const int _timerDelay = 20;
+
+    // On a phone (MVS) every game read is a round trip into the game page, answered between game
+    // frames, not an in-process call as with desktop Flash: the watch loop and its checks run less
+    // often there (script handlers keep their own intervals, measured in time).
+    private static readonly bool SlowCalls = OperatingSystem.IsAndroid();
+    private static readonly int LoopDelay = SlowCalls ? 100 : _timerDelay;
+    private static readonly int OptionsEvery = SlowCalls ? 1000 : 250;
+    private static readonly int ConnDetailEvery = SlowCalls ? 500 : 100;
     private readonly TimeLimiter _limit = new();
     private readonly ILogService _logger;
     private readonly IDialogService _dialogService;
@@ -315,7 +323,7 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                         if (Options.RestPackets && !Player.InCombat)
                             _limit.LimitedRun("rest", 1200, () => Send.Packet("%xt%zm%restRequest%1%%"));
 
-                        _limit.LimitedRun("opts", 250, CheckOptions);
+                        _limit.LimitedRun("opts", OptionsEvery, CheckOptions);
                     }
                 }
                 else
@@ -342,13 +350,13 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                     }
                 });
 
-                _limit.LimitedRun("connDetail", 100, () => (lastConnChange, lastConnDetail) = CheckStuckonLoading(lastConnChange, lastConnDetail));
+                _limit.LimitedRun("connDetail", ConnDetailEvery, () => (lastConnChange, lastConnDetail) = CheckStuckonLoading(lastConnChange, lastConnDetail));
 
                 if (Manager.ScriptRunning)
                     RunScriptHandlers();
 
                 sw.Stop();
-                Thread.Sleep(Math.Max(10, _timerDelay - (int)sw.Elapsed.TotalMilliseconds));
+                Thread.Sleep(Math.Max(10, LoopDelay - (int)sw.Elapsed.TotalMilliseconds));
             }
             catch (Exception e)
             {
@@ -655,6 +663,8 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                             break;
 
                         case "addGoldExp":
+                            Stats.Gold += PacketNumber(data.intGold);
+                            Stats.Experience += PacketNumber(data.intExp);
                             if (data.typ == "m")
                             {
                                 Stats.Kills++;
@@ -701,6 +711,18 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                                 Stats.GetSpace();
                             Options.CustomName = string.Empty;
                             Options.CustomGuild = string.Empty;
+                            // A host that keeps the player logged in relogs to the server they chose, not
+                            // the default one.
+                            if (ScriptOption.KeepLoggedIn)
+                            {
+                                try
+                                {
+                                    string? joined = Flash.GetGameObject<string>("objServerInfo.sName");
+                                    if (!string.IsNullOrWhiteSpace(joined))
+                                        Options.ReloginServer = joined;
+                                }
+                                catch { }
+                            }
                             Servers.IsIntentionalLogout = false;
                             _waitForLogin = false;
                             Messenger.Send<LoginMessage, int>(new(Convert.ToString(data[4])), (int)MessageChannels.GameEvents);
@@ -959,5 +981,18 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
     ~ScriptInterface()
     {
         Dispose(false);
+    }
+
+    // A number field of a game packet (missing or not a number counts as 0).
+    private static long PacketNumber(object? value)
+    {
+        try
+        {
+            return value is null ? 0 : Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture);
+        }
+        catch
+        {
+            return 0;
+        }
     }
 }

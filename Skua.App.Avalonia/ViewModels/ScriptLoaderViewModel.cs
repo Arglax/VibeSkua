@@ -53,7 +53,7 @@ public partial class ScriptLoaderViewModel : BotControlViewModelBase
             else if (e.PropertyName == nameof(IScriptManager.ScriptPaused))
             {
                 if (ScriptManager.ScriptRunning)
-                    ScriptStatus = ScriptManager.ScriptPaused ? "[Paused]" : "[Running]";
+                    ScriptStatus = ScriptManager.ScriptPaused ? "Paused" : "Running";
                 OnPropertyChanged(nameof(TogglePauseScriptText));
                 OnPropertyChanged(nameof(TogglePauseScriptIcon));
             }
@@ -82,7 +82,7 @@ public partial class ScriptLoaderViewModel : BotControlViewModelBase
     private bool _toggleScriptEnabled = true;
 
     [ObservableProperty]
-    private string _scriptStatus = "[No Script Loaded]";
+    private string _scriptStatus = "No script loaded";
 
     [ObservableProperty]
     private string _loadedScript = "No script loaded";
@@ -146,11 +146,20 @@ public partial class ScriptLoaderViewModel : BotControlViewModelBase
         if (ScriptManager.ScriptRunning)
         {
             ScriptManager.ScriptPaused = !ScriptManager.ScriptPaused;
-            ScriptStatus = ScriptManager.ScriptPaused ? "[Paused]" : "[Running]";
+            ScriptStatus = ScriptManager.ScriptPaused ? "Paused" : "Running";
             OnPropertyChanged(nameof(TogglePauseScriptText));
             OnPropertyChanged(nameof(TogglePauseScriptIcon));
         }
     }
+
+    /// <summary>
+    /// Handles an error from starting a script instead of the message box below when it returns true
+    /// (MVS explains who can fix it and reports app problems).
+    /// </summary>
+    public static Func<Exception, bool>? StartErrorHandler { get; set; }
+
+    /// <summary>"Open VSCode" opens a desktop editor; on a phone "Edit Script" does that.</summary>
+    public bool CanOpenEditor => !OperatingSystem.IsAndroid();
 
     private async Task StartScript()
     {
@@ -158,22 +167,26 @@ public partial class ScriptLoaderViewModel : BotControlViewModelBase
         Exception? ex = await ScriptManager.StartScript();
         if (ex is not null)
         {
-            if (ex is ScriptVersionException versionEx)
+            if (StartErrorHandler?.Invoke(ex) == true)
+            {
+                // Shown by the handler.
+            }
+            else if (ex is ScriptVersionException versionEx)
             {
                 _dialogService.ShowMessageBox($"Error while starting script:\r\n{ex.Message}", "Version Error");
                 _processService.OpenLink(versionEx.UpdateUrl);
             }
             else
             {
-                _dialogService.ShowMessageBox($"Error while starting script:\r\n{ex.Message}", "Script Error");
+                _dialogService.ShowMessageBox($"The script couldn't start:\r\n{ex.Message}", "Script couldn't start");
             }
-            ScriptStatus = "[Error]";
+            ScriptStatus = "Error";
             ScriptErrorToolTip = $"Error while starting script:\r\n{ex}";
             ToggleScriptEnabled = true;
         }
         else
         {
-            ScriptStatus = "[Running]";
+            ScriptStatus = "Running";
         }
         OnPropertyChanged(nameof(ToggleScriptText));
     }
@@ -190,7 +203,7 @@ public partial class ScriptLoaderViewModel : BotControlViewModelBase
 
         ScriptManager.SetLoadedScript(path);
         LoadedScript = Path.GetFileName(path) ?? string.Empty;
-        ScriptStatus = "[Script loaded]";
+        ScriptStatus = "Script loaded";
     }
 
     [RelayCommand]
@@ -228,7 +241,8 @@ public partial class ScriptLoaderViewModel : BotControlViewModelBase
         }
         catch (Exception ex)
         {
-            _dialogService.ShowMessageBox($"Script cannot be configured as it has compilation errors:\r\n{ex}", "Script Error");
+            System.Diagnostics.Trace.WriteLine($"[Script] options not opened: {ex}");
+            _dialogService.ShowMessageBox("This script has errors, so its options can't be opened. Try updating your scripts (Repo page).", "Script options");
         }
     }
 
@@ -255,7 +269,7 @@ public partial class ScriptLoaderViewModel : BotControlViewModelBase
                     startNew = true;
                 }
 
-                DialogResult dialogResult = _dialogService.ShowMessageBox(runningScriptMessage, "Script Error", "No", "Yes");
+                DialogResult dialogResult = _dialogService.ShowMessageBox(runningScriptMessage, "Script running", "No", "Yes");
                 if (dialogResult.Text != "Yes")
                     return;
 
@@ -276,7 +290,7 @@ public partial class ScriptLoaderViewModel : BotControlViewModelBase
         }
         catch (Exception ex)
         {
-            _dialogService.ShowMessageBox($"Failed to start script: {ex.Message}", "Script Error");
+            _dialogService.ShowMessageBox($"The script couldn't start: {ex.Message}", "Script couldn't start");
         }
         finally
         {
@@ -305,7 +319,7 @@ public partial class ScriptLoaderViewModel : BotControlViewModelBase
     private void ScriptStopped(ScriptLoaderViewModel recipient, ScriptStoppedMessage message)
     {
         recipient.ToggleScriptEnabled = true;
-        recipient.ScriptStatus = "[Stopped]";
+        recipient.ScriptStatus = "Stopped";
         if (!string.IsNullOrEmpty(recipient.ScriptManager.LoadedScript))
         {
             recipient.LoadedScript = Path.GetFileName(recipient.ScriptManager.LoadedScript) ?? string.Empty;
@@ -318,7 +332,7 @@ public partial class ScriptLoaderViewModel : BotControlViewModelBase
     private void ScriptStarted(ScriptLoaderViewModel recipient, ScriptStartedMessage message)
     {
         recipient.ToggleScriptEnabled = true;
-        recipient.ScriptStatus = "[Running]";
+        recipient.ScriptStatus = "Running";
         if (!string.IsNullOrEmpty(recipient.ScriptManager.LoadedScript))
         {
             recipient.LoadedScript = Path.GetFileName(recipient.ScriptManager.LoadedScript) ?? string.Empty;

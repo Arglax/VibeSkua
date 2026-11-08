@@ -651,7 +651,7 @@ public class Follower
         catch (Exception ex)
         {
             _log($"Follow loop error: {ex.Message}",
-                "Follow loop error. See ButlerV5's debug log for details.");
+                "Follow loop error. Turn on Butler's logs in its settings to see what happened.");
         }
     }
 
@@ -1364,7 +1364,7 @@ public class Follower
         catch (Exception ex)
         {
             _log($"Join {m.MapWithRoom} failed: {ex.Message}",
-                "Joining the master's room failed. See ButlerV5's debug log for details.");
+                "Joining the master's room failed. Turn on Butler's logs in its settings to see what happened.");
             DebugLog.Log("Follower", $"join {m.MapWithRoom} FAILED: {ex}");
         }
         return true;

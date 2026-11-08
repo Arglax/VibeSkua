@@ -42,6 +42,16 @@ public class ClassRatingsUI extends Module {
     private static const INFO_NAME:String = "mvsInfo";
     private static const ROW_H:Number = 30;
 
+    // The game's list row height: 30, unless MVS replaced it for touch screens (see TouchInventoryUI).
+    private static function rowH():Number {
+        try {
+            var c:* = Main.instance.getGame().loaderInfo.applicationDomain.getDefinition("LPFFrameInvAQ");
+            if (c.ROW_H > 0) return c.ROW_H;
+        } catch (e:Error) {
+        }
+        return ROW_H;
+    }
+
     private var _lastScan:int = 0;
     // What each star badge and Preview list shows, to redraw only on changes.
     private var _drawn:Dictionary = new Dictionary(true);
@@ -230,7 +240,11 @@ public class ClassRatingsUI extends Module {
         for (var i:int = 0; i < row.numChildren; i++) {
             var tf:TextField = row.getChildAt(i) as TextField;
             if (tf == null) continue;
-            if (tf.text.indexOf(item.sName) == 0) nameTf = tf;
+            // Long names are cut short with "…" ("Chaos Slayer Mys…, Rank 10"): match the part shown.
+            var shown:String = tf.text;
+            var cut:int = shown.indexOf("…");
+            if (cut < 0) cut = shown.indexOf("...");
+            if (shown.indexOf(item.sName) == 0 || (cut >= 4 && String(item.sName).indexOf(shown.substr(0, cut)) == 0)) nameTf = tf;
             else if (tf.text == "Lvl") lvlX = tf.x;
         }
         if (nameTf == null) {
@@ -453,7 +467,7 @@ public class ClassRatingsUI extends Module {
         for each (row in rows) {
             if (_bound[row] != null && _bound[row] === row.item) continue;
             delete _bound[row];
-            idx = Math.round(row.y / ROW_H);
+            idx = Math.round(row.y / rowH());
             if (_order[idx] !== row.item) {
                 // The game shows something this model does not know (a filter, a pending search).
                 _okKey = null;
@@ -464,7 +478,7 @@ public class ClassRatingsUI extends Module {
         if (checked) _okKey = _orderKey;
         else if (_okKey != _orderKey) return;
         for each (row in rows) {
-            idx = Math.round(row.y / ROW_H);
+            idx = Math.round(row.y / rowH());
             var want:* = _target[idx];
             if (want == null) continue;
             if (_hooked[row] !== true) {

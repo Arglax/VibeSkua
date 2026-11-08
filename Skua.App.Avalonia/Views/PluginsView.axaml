@@ -11,7 +11,7 @@
           <materialIcons:MaterialIcon Kind="Magnify" Width="15" Height="15" Margin="10,0,0,0" Foreground="{DynamicResource SkuaMutedTextBrush}" />
         </TextBox.InnerLeftContent>
       </TextBox>
-      <Button Grid.Column="1" Classes="skua-button skua-primary w112" Command="{Binding LoadPluginCommand}" ToolTip.Tip="Load a plugin DLL">
+      <Button Grid.Column="1" Classes="skua-button skua-primary w112" Command="{Binding LoadPluginCommand}" ToolTip.Tip="Add a plugin file">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <materialIcons:MaterialIcon Kind="FolderOpenOutline" Width="15" Height="15" />
           <TextBlock Text="Load..." VerticalAlignment="Center" />

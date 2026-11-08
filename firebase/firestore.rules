@@ -140,5 +140,31 @@ service cloud.firestore {
           && (!('THEMES' in screens) || screens.THEMES.keys().hasOnly(fields));
       }
     }
+
+    // Problem reports for the developer (MoVibeSkua.Android/Diagnostics/ProblemReports.cs): app crashes,
+    // MVS errors, scripts that stopped because of MVS, and "Report a problem". Written once by the
+    // install that made them; read only through the Admin SDK (tools/aggregate_usage.py).
+    match /movibeskua_reports/{id} {
+      allow read, update, delete: if false;
+
+      allow create: if request.auth != null
+        && id.size() <= 60
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'kind', 'category', 'summary', 'exception', 'stack', 'log',
+             'script', 'signature', 'appVersion', 'device', 'android', 'client', 'time'])
+        && request.resource.data.kind in ['crash', 'error', 'script', 'user']
+        && request.resource.data.category == 'mvs'
+        && request.resource.data.summary is string && request.resource.data.summary.size() <= 500
+        && request.resource.data.exception is string && request.resource.data.exception.size() <= 200
+        && request.resource.data.stack is string && request.resource.data.stack.size() <= 12000
+        && request.resource.data.log is string && request.resource.data.log.size() <= 24000
+        && request.resource.data.script is string && request.resource.data.script.size() <= 120
+        && request.resource.data.signature is string && request.resource.data.signature.size() <= 32
+        && request.resource.data.appVersion is string && request.resource.data.appVersion.size() <= 40
+        && request.resource.data.device is string && request.resource.data.device.size() <= 80
+        && request.resource.data.android is string && request.resource.data.android.size() <= 20
+        && request.resource.data.client is int
+        && request.resource.data.time is timestamp;
+    }
   }
 }

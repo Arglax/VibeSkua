@@ -279,6 +279,56 @@ def write_outputs(data):
         handle.write("window.USAGE_HISTORY = " + json.dumps(history) + ";\n")
 
 
+REPORTS = "movibeskua_reports"
+
+
+def fold_reports(reports):
+    """Problem reports (MoVibeSkua.Android/Diagnostics/ProblemReports.cs) grouped by problem: the same
+    exception at the same place is one row, newest first, with the latest stack and log to read."""
+    groups = {}
+    for report in reports:
+        key = report.get("signature") or report.get("summary", "")
+        when = as_datetime(report.get("time"))
+        group = groups.get(key)
+        if group is None:
+            group = groups[key] = {
+                "signature": key, "kind": report.get("kind", ""), "count": 0, "installs": set(), "versions": set(),
+                "devices": set(), "first": when, "last": None, "latest": {}
+            }
+        group["count"] += 1
+        group["installs"].add(report.get("uid", ""))
+        group["versions"].add(report.get("appVersion", ""))
+        group["devices"].add(report.get("device", ""))
+        if when and (group["first"] is None or when < group["first"]):
+            group["first"] = when
+        if when and (group["last"] is None or when > group["last"]):
+            group["last"] = when
+            group["latest"] = report
+    rows = []
+    for group in groups.values():
+        latest = group["latest"]
+        rows.append({
+            "signature": group["signature"], "kind": group["kind"], "count": group["count"],
+            "installs": len(group["installs"]), "versions": sorted(v for v in group["versions"] if v),
+            "devices": sorted(d for d in group["devices"] if d),
+            "first": group["first"].isoformat() if group["first"] else None,
+            "last": group["last"].isoformat() if group["last"] else None,
+            "summary": latest.get("summary", ""), "exception": latest.get("exception", ""),
+            "script": latest.get("script", ""), "stack": latest.get("stack", ""), "log": latest.get("log", "")
+        })
+    rows.sort(key=lambda r: r["last"] or "", reverse=True)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    week = [r for r in reports if (as_datetime(r.get("time")) or now) > now - datetime.timedelta(days=7)]
+    return {"generated": now.isoformat(), "total": len(reports), "week": len(week), "groups": rows}
+
+
+def write_reports(data):
+    with open(os.path.join(DASHBOARD, "reports_data.json"), "w", encoding="utf-8") as handle:
+        json.dump(data, handle, indent=2)
+    with open(os.path.join(DASHBOARD, "reports_data.js"), "w", encoding="utf-8") as handle:
+        handle.write("window.REPORTS_DATA = " + json.dumps(data) + ";" + chr(10))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--key", default=os.environ.get("MOVIBESKUA_SERVICE_ACCOUNT") or os.path.join(ROOT, "serviceAccount.json"))
@@ -302,6 +352,10 @@ def main():
 
     data = fold(documents, datetime.datetime.now(datetime.timezone.utc))
     write_outputs(data)
+
+    reports = [snapshot.to_dict() or {} for snapshot in db.collection(REPORTS).stream()]
+    write_reports(fold_reports(reports))
+    print("problem reports: " + str(len(reports)))
     print("installs: " + str(data["installs"]) + ", active 7d: " + str(data["active"]["active7"]))
 
 

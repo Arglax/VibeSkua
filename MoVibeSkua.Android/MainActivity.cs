@@ -41,10 +41,14 @@ public class MainActivity : AvaloniaMainActivity<App>
         if (!System.Diagnostics.Trace.Listeners.OfType<Platform.LogcatTraceListener>().Any())
             System.Diagnostics.Trace.Listeners.Add(new Platform.LogcatTraceListener());
         Platform.LogcatLogMirror.Start();
+        // The app's own log file and problem reports (crashes, MVS errors) for the MVS developer.
+        Diagnostics.AppLog.Start();
+        Diagnostics.ProblemReports.Install();
 
         Platform.AndroidBootstrap.Prepare(this);
         base.OnCreate(savedInstanceState);
         Window?.AddFlags(WindowManagerFlags.KeepScreenOn);
+        Services.PerformanceMode.Apply(this);
     }
 
     private bool _touchOnGame;
@@ -115,6 +119,19 @@ public class MainActivity : AvaloniaMainActivity<App>
         base.OnResume();
         Controls.GameView.Resume();
         Usage.UsageTracker.OnForeground();
+    }
+
+    // Out of sight (home screen, another app, screen off): the game keeps running but draws nothing.
+    protected override void OnStop()
+    {
+        Platform.BotControl.SetInBackground(true);
+        base.OnStop();
+    }
+
+    protected override void OnStart()
+    {
+        base.OnStart();
+        Platform.BotControl.SetInBackground(false);
     }
 
     protected override void OnPause()

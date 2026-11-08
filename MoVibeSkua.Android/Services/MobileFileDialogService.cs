@@ -131,6 +131,6 @@ public class MobileFileDialogService : IFileDialogService
     private static void Notify(string path)
     {
         global::Android.App.Application.SynchronizationContext.Post(_ =>
-            global::Android.Widget.Toast.MakeText(global::Android.App.Application.Context, $"Saved to {path}", global::Android.Widget.ToastLength.Long)?.Show(), null);
+            global::Android.Widget.Toast.MakeText(global::Android.App.Application.Context, $"Saved: {System.IO.Path.GetFileName(path)}", global::Android.Widget.ToastLength.Long)?.Show(), null);
     }
 }

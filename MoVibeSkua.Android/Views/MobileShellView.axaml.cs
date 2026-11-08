@@ -54,7 +54,11 @@ public partial class MobileShellView : UserControl
     {
         InitializeComponent();
         Instance = this;
-        Root.SizeChanged += (_, _) => UpdateLayoutMode();
+        Root.SizeChanged += (_, _) =>
+        {
+            UpdateLayoutMode();
+            UpdateRailScale();
+        };
         Body.SizeChanged += (_, _) => UpdateBodyLayout();
         Body.LayoutUpdated += (_, _) => UpdateGameClip();
         GameFrame.SizeChanged += (_, _) => FitGame();
@@ -129,6 +133,7 @@ public partial class MobileShellView : UserControl
     {
         _safeArea = e.SafeAreaPadding;
         ApplyInsets();
+        UpdateRailScale();
     }
 
     private void OnInputPaneChanged(object? sender, InputPaneStateEventArgs e)
@@ -140,6 +145,28 @@ public partial class MobileShellView : UserControl
     // Rail sizes from MobileStyles; set here instead because the cutout strip widens them.
     private const double RailWidth = 68;
     private const double BottomBarHeight = 60;
+
+    /// <summary>How much larger the landscape rails (and their buttons) are drawn than RailWidth.</summary>
+    private double _railScale = 1;
+
+    /// <summary>
+    /// In landscape the game keeps its shape, so a wide screen leaves empty bands beside it. The rails
+    /// grow into those bands (up to 1.3x, buttons and labels scaled with them) instead of standing
+    /// apart from the game; a screen with no spare width keeps the normal size.
+    /// </summary>
+    private void UpdateRailScale()
+    {
+        double scale = 1;
+        if (_landscape != false && Root.Bounds.Height > 0)
+        {
+            double spare = Root.Bounds.Width - Root.Bounds.Height * GameAspect - _safeArea.Left - _safeArea.Right;
+            scale = Math.Clamp(Math.Floor(spare / (2 * RailWidth) * 50) / 50, 1, 1.3);
+        }
+        if (Math.Abs(scale - _railScale) < 0.01)
+            return;
+        _railScale = scale;
+        ApplyInsets();
+    }
 
     /// <summary>
     /// The bar along a cutout's edge grows into the strip and keeps its buttons clear of the camera,
@@ -154,9 +181,11 @@ public partial class MobileShellView : UserControl
             // box lifts only the page; a game text field slides the game up, same size, when it's low.
             Root.Margin = new Thickness(0, s.Top, 0, s.Bottom);
             ApplyKeyboardLandscape();
-            LeftRailFrame.Width = RailWidth + s.Left;
+            LeftRailFrame.Width = RailWidth * _railScale + s.Left;
             LeftRailFrame.Padding = new Thickness(2 + s.Left, 4, 2, 4);
-            RightRailFrame.Width = RailWidth + s.Right;
+            RightRailFrame.Width = RailWidth * _railScale + s.Right;
+            LeftRailScale.LayoutTransform = RightRailScale.LayoutTransform =
+                _railScale > 1 ? new Avalonia.Media.ScaleTransform(_railScale, _railScale) : null;
             RightRailFrame.Height = double.NaN;
             RightRailFrame.Padding = new Thickness(2, 4, 2 + s.Right, 4);
             TopBar.Padding = new Thickness(2, 2, 6, 2);
@@ -172,6 +201,7 @@ public partial class MobileShellView : UserControl
             TopBar.Padding = new Thickness(2, 2 + s.Top, 6, 2);
             TopBar.MinHeight = 48 + s.Top;
             RightRailFrame.Width = double.NaN;
+            RightRailScale.LayoutTransform = null;
             RightRailFrame.Height = BottomBarHeight + bottom;
             RightRailFrame.Padding = new Thickness(4, 2, 4, 2 + bottom);
         }
@@ -432,6 +462,55 @@ public partial class MobileShellView : UserControl
     /// <summary>
     /// Stops the game drawing from where a page lying over it starts, so the page shows through.
     /// </summary>
+    // ---- UI cost diagnostics (developer use; switched from the game page: __skuaExt("mvsUiDebug", ["on"])) ----
+    private int _layouts;
+    private DispatcherTimer? _uiDebugTimer;
+
+    /// <summary>Shows Avalonia's dirty-rect and frame-rate overlays and logs layout passes per second.</summary>
+    public void SetUiDebug(bool on)
+    {
+        TopLevel? top = TopLevel.GetTopLevel(this);
+        if (top is null)
+            return;
+        top.RendererDiagnostics.DebugOverlays = on
+            ? Avalonia.Rendering.RendererDebugOverlays.DirtyRects | Avalonia.Rendering.RendererDebugOverlays.Fps
+            : Avalonia.Rendering.RendererDebugOverlays.None;
+        top.LayoutUpdated -= CountLayout;
+        _uiDebugTimer?.Stop();
+        if (!on)
+            return;
+        top.LayoutUpdated += CountLayout;
+        _layouts = 0;
+        _uiDebugTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _uiDebugTimer.Tick += (_, _) =>
+        {
+            Trace.WriteLine($"[UiDebug] {_layouts / 5.0:0.0} layout passes/s");
+            _layouts = 0;
+        };
+        _uiDebugTimer.Start();
+    }
+
+    private void CountLayout(object? sender, EventArgs e) => _layouts++;
+
+    /// <summary>Diagnostics: hides (or shows again) one named part of the shell, to find what repaints.</summary>
+    public void SetUiDebugHidden(string name, bool hidden)
+    {
+        if (this.FindControl<Control>(name) is { } control)
+        {
+            control.IsVisible = !hidden;
+            Trace.WriteLine($"[UiDebug] {name} {(hidden ? "hidden" : "shown")}");
+        }
+        else if (name == "pages")
+        {
+            // The kept page views (only the open one is visible): drop them all.
+            PageHost.Children.Clear();
+            _pageViews.Clear();
+            _pageOrder.Clear();
+            _shownContent = null;
+            Trace.WriteLine("[UiDebug] kept pages removed");
+        }
+    }
+
     private void UpdateGameClip()
     {
         double fraction = 1;

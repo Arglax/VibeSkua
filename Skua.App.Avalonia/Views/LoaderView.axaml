@@ -118,7 +118,7 @@
         </Button.Flyout>
       </Button>
       <Button x:Name="FakeCompleteButton" Grid.Column="2" Classes="skua-button w112" Command="{Binding UpdateSelectedQuestCommand}" CommandParameter="{Binding SelectedQuest}"
-              ToolTip.Tip="Send a quest-complete packet to the client">
+              ToolTip.Tip="Complete the quest in the game">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <materialIcons:MaterialIcon Kind="CheckAll" Width="15" Height="15" />
           <TextBlock Text="Fake complete" VerticalAlignment="Center" />

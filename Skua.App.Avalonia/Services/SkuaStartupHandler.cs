@@ -78,14 +78,16 @@ public sealed class SkuaStartupHandler : IDisposable
         }
     }
 
+    // Every game page asks once, as skua.swf starts. A reloaded page (the bridge reloads it after a
+    // Ruffle crash, and the WebView can reload it) is a fresh skua.swf that asks again: answering only
+    // the first request left it at "Loading game client..." for good.
     private void LoadGame(string function, params object[] args)
     {
-        if (function != "requestLoadGame" || _clientLoadRequested)
+        if (function != "requestLoadGame")
             return;
 
         _clientLoadRequested = true;
         _bot.Flash.Call("loadClient");
-        _bot.Flash.FlashCall -= LoadGame;
     }
 
     private void Login(string function, params object[] args)

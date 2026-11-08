@@ -21,6 +21,12 @@ public interface IGetScriptsService : INotifyPropertyChanged
 
     Task RefreshScriptsAsync(IProgress<string>? progress, CancellationToken token);
 
+    /// <summary>
+    /// Fetches the latest script list into the local cache without any dialogs (false when offline),
+    /// so the next <see cref="GetScriptsAsync"/> compares against what is on GitHub now.
+    /// </summary>
+    Task<bool> RefreshListCacheAsync(CancellationToken token) => Task.FromResult(false);
+
     Task UpdateScriptDatesAsync(IProgress<string>? progress, CancellationToken token);
 
     Task<int> IncrementalUpdateScriptsAsync(IProgress<string>? progress, CancellationToken token);

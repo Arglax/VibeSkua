@@ -68,13 +68,13 @@
                     <Grid ColumnDefinitions="60,*,60" Height="240" ColumnSpacing="6">
                         <Border Grid.Column="0" Classes="g-rail">
                             <StackPanel Spacing="4" HorizontalAlignment="Center">
-                                <StackPanel><materialIcons:MaterialIcon Kind="AlertDecagram" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Quests" /></StackPanel>
-                                <StackPanel><materialIcons:MaterialIcon Kind="PackageVariant" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Temp Inv" /></StackPanel>
-                                <StackPanel><materialIcons:MaterialIcon Kind="Map" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Map" /></StackPanel>
-                                <StackPanel><materialIcons:MaterialIcon Kind="BookOpenVariant" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Lore" /></StackPanel>
-                                <StackPanel><materialIcons:MaterialIcon Kind="ViewGrid" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Menu" /></StackPanel>
-                                <StackPanel><materialIcons:MaterialIcon Kind="Home" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="House" /></StackPanel>
-                                <StackPanel><materialIcons:MaterialIcon Kind="Cog" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Settings" /></StackPanel>
+                                <StackPanel><Image Source="avares://MoVibeSkua/Images/rail/quests.png" Width="16" Height="16" /><TextBlock Classes="g-mini" Text="Quests" /></StackPanel>
+                                <StackPanel><Image Source="avares://MoVibeSkua/Images/rail/tempinv.png" Width="16" Height="16" /><TextBlock Classes="g-mini" Text="Temp Inv" /></StackPanel>
+                                <StackPanel><Image Source="avares://MoVibeSkua/Images/rail/map.png" Width="16" Height="16" /><TextBlock Classes="g-mini" Text="Map" /></StackPanel>
+                                <StackPanel><Image Source="avares://MoVibeSkua/Images/rail/lore.png" Width="16" Height="16" /><TextBlock Classes="g-mini" Text="Lore" /></StackPanel>
+                                <StackPanel><Image Source="avares://MoVibeSkua/Images/rail/menu.png" Width="16" Height="16" /><TextBlock Classes="g-mini" Text="Menu" /></StackPanel>
+                                <StackPanel><Image Source="avares://MoVibeSkua/Images/rail/house.png" Width="16" Height="16" /><TextBlock Classes="g-mini" Text="House" /></StackPanel>
+                                <StackPanel><Image Source="avares://MoVibeSkua/Images/rail/settings.png" Width="16" Height="16" /><TextBlock Classes="g-mini" Text="Settings" /></StackPanel>
                             </StackPanel>
                         </Border>
                         <Border Grid.Column="1" Background="#14263A" BorderBrush="#3A5A7A" BorderThickness="1" CornerRadius="6">
@@ -87,10 +87,10 @@
                         <Border Grid.Column="2" Classes="g-rail">
                             <Grid RowDefinitions="*,Auto,Auto">
                                 <StackPanel Spacing="4" HorizontalAlignment="Center">
-                                    <StackPanel><materialIcons:MaterialIcon Kind="BagPersonal" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Bag" /></StackPanel>
-                                    <StackPanel><materialIcons:MaterialIcon Kind="Safe" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Bank" /></StackPanel>
-                                    <StackPanel><materialIcons:MaterialIcon Kind="HeartPulse" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Rest" /></StackPanel>
-                                    <StackPanel><materialIcons:MaterialIcon Kind="ShieldAccount" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Char" /></StackPanel>
+                                    <StackPanel><Image Source="avares://MoVibeSkua/Images/rail/bag.png" Width="16" Height="16" /><TextBlock Classes="g-mini" Text="Bag" /></StackPanel>
+                                    <StackPanel><Image Source="avares://MoVibeSkua/Images/rail/bank.png" Width="16" Height="16" /><TextBlock Classes="g-mini" Text="Bank" /></StackPanel>
+                                    <StackPanel><Image Source="avares://MoVibeSkua/Images/rail/rest.png" Width="16" Height="16" /><TextBlock Classes="g-mini" Text="Rest" /></StackPanel>
+                                    <StackPanel><Image Source="avares://MoVibeSkua/Images/rail/char.png" Width="16" Height="16" /><TextBlock Classes="g-mini" Text="Char" /></StackPanel>
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Margin="0,0,0,4"><StackPanel><materialIcons:MaterialIcon Kind="HelpCircle" Width="14" Height="14" Foreground="#E8C15A" /><TextBlock Classes="g-mini" Text="Guide" /></StackPanel></StackPanel>
                                 <Image Grid.Row="2" Source="avares://MoVibeSkua/Images/mvs-crest.png" Width="30" Height="30" />

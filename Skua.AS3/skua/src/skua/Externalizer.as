@@ -11,6 +11,7 @@ import skua.api.Shop;
 import skua.api.Skills;
 import skua.api.World;
 import skua.module.ClassRatingsUI;
+import skua.module.DropsUI;
 import skua.module.GameMenusUI;
 import skua.module.Modules;
 import skua.remote.RemoteRegistry;
@@ -146,6 +147,9 @@ public class Externalizer {
         this.addCallback("mvsMenuClick", GameMenusUI.menuClick);
         this.addCallback("mvsMenuClose", GameMenusUI.menuClose);
         this.addCallback("mvsGameButton", GameMenusUI.gameButton);
+        this.addCallback("mvsDropsOn", DropsUI.dropsOn);
+        this.addCallback("mvsDropAccept", DropsUI.dropAccept);
+        this.addCallback("mvsDropDecline", DropsUI.dropDecline);
 
 		this.debug("Externalizer::init done.");
         this.call("requestLoadGame");

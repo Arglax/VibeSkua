@@ -166,7 +166,8 @@ public sealed partial class LoginViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Status = $"Could not load servers: {ex.Message}";
+            System.Diagnostics.Trace.WriteLine($"[Login] servers: {ex}");
+            Status = "Couldn't load the server list. Check your connection.";
         }
     }
 
@@ -210,7 +211,8 @@ public sealed partial class LoginViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Status = $"Login failed: {ex.Message}";
+            System.Diagnostics.Trace.WriteLine($"[Login] failed: {ex}");
+            Status = "Login failed. Try again, or pick another server.";
         }
         finally
         {

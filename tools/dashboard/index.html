@@ -97,6 +97,11 @@ input[type=search]{background:var(--surface);color:var(--text);border:1px solid 
 #tip .row{display:flex;justify-content:space-between;gap:14px}
 #tip .row i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
 @media (max-width:560px){.hb{grid-template-columns:minmax(80px,40%) 1fr 52px}.funnel .hb{grid-template-columns:minmax(90px,40%) 1fr 84px}}
+details.report { border-top: 1px solid var(--border, rgba(127,127,127,.25)); padding: 8px 0; }
+details.report summary { cursor: pointer; }
+details.report pre { white-space: pre-wrap; word-break: break-word; max-height: 360px; overflow: auto; font-size: 12px;
+  background: rgba(127,127,127,.08); padding: 8px; border-radius: 6px; }
+details.report h3 { font-size: 13px; margin: 10px 0 4px; }
 </style>
 </head>
 <body>
@@ -115,6 +120,14 @@ input[type=search]{background:var(--surface);color:var(--text);border:1px solid 
 
 <div id="banner"></div>
 <div class="tiles" id="tiles"></div>
+
+<section class="card full">
+  <div class="card-head">
+    <div><h2>Problem reports</h2><div class="note">Crashes, MVS errors and scripts that stopped because of MVS, grouped by problem (same error at the same place), newest first. Account names and passwords are removed on the phone before sending. Script mistakes are not sent; players are pointed to the AUQW Discord for those.</div></div>
+  </div>
+  <div id="reports"></div>
+</section>
+
 
 <section class="card full">
   <div class="card-head">
@@ -197,6 +210,7 @@ input[type=search]{background:var(--surface);color:var(--text);border:1px solid 
 
 <script src="usage_data.js"></script>
 <script src="usage_history.js"></script>
+<script src="reports_data.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -448,6 +462,18 @@ function demoData(){
 
 
 /* ---------- render ---------- */
+function renderReports(){
+  const el = $('reports'), data = window.REPORTS_DATA;
+  if (!data || !data.groups || !data.groups.length){ el.innerHTML = '<div class="empty">No problem reports yet.</div>'; return; }
+  const kinds = { crash: 'Crash', error: 'MVS error', script: 'Script stopped (MVS)', user: 'Reported by a player' };
+  const when = t => t ? new Date(t).toLocaleString() : '-';
+  el.innerHTML = '<div class="note" style="margin-bottom:8px">' + fmt(data.total) + ' reports, ' + fmt(data.week) + ' in the last 7 days, ' + fmt(data.groups.length) + ' different problems.</div>' +
+    data.groups.map(g => '<details class="report"><summary><b>' + esc(kinds[g.kind] || g.kind) + '</b> · ' + esc(g.summary || g.exception) +
+      ' <span class="note">×' + fmt(g.count) + ', ' + fmt(g.installs) + ' install' + (g.installs === 1 ? '' : 's') + ', last ' + esc(when(g.last)) + '</span></summary>' +
+      '<div class="note">Versions: ' + esc(g.versions.join(', ') || '-') + ' · Devices: ' + esc(g.devices.join(', ') || '-') + (g.script ? ' · Script: ' + esc(g.script) : '') + ' · First: ' + esc(when(g.first)) + '</div>' +
+      (g.stack ? '<h3>Error</h3><pre>' + esc(g.stack) + '</pre>' : '') + (g.log ? '<h3>App log before it</h3><pre>' + esc(g.log) + '</pre>' : '') + '</details>').join('');
+}
+
 const real = window.USAGE_DATA || null, realHistory = window.USAGE_HISTORY || [];
 let demo = !real && /[?&]demo/.test(location.search);
 const regionNames = typeof Intl.DisplayNames === 'function' ? new Intl.DisplayNames(['en'], {type:'region'}) : null;
@@ -456,6 +482,7 @@ const view = {versions:'all', countries:'all'};
 const SECTIONS = ['timeChart','history','newPerDay','startFunnel','armySize','stability','armyActions','nav','screens','versions','countries','features'];
 
 function render(){
+  try { renderReports(); } catch (e) { console.error(e); }
   const pack = demo ? demoData() : {data: real, history: realHistory};
   const data = pack.data, history = pack.history;
   $('demo').textContent = demo ? 'Hide demo data' : 'Show demo data';

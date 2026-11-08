@@ -72,6 +72,30 @@ uid with no link to the person.
    `tools/dashboard/index.html` directly and press **Show demo data** to preview the layout without
    any credentials. ArgSense on the PC has a tile for it.
 
+## App log and problem reports
+
+- **App log:** `MoVibeSkua.Android/Diagnostics/AppLog.cs` writes everything the app and the bot engine trace
+  (start-up, game page, Flash calls, heat, script and Flash log lines) to `files/logs/mvs-YYYYMMDD[-cN].log`
+  on the phone, kept 5 days, max 4 MB a file. Nothing of it is shown on screen.
+- **Problem reports:** `Diagnostics/ProblemReports.cs` saves a report to `files/reports/` and sends it to the
+  `movibeskua_reports` collection (same project and anonymous sign-in as the usage counts) for:
+  app crashes (`kind` crash), unobserved errors in MVS (error), scripts that stopped because of MVS (script),
+  and "Report a problem" on the Support page (user). Each carries the exception, stack, the last ~150 log
+  lines, app version, device, Android version and army client. Account names, saved passwords, e-mail
+  addresses and anything token- or password-like are replaced before sending. At most 20 a day per install,
+  the same problem (exception type + place) once a day. The player can turn it off on the Support page
+  ("Send problem reports", on by default).
+- **Script triage:** `Diagnostics/ScriptVerdicts.cs` decides whether a script that stopped is the script's
+  fault (its own code threw, a syntax error, or it asked the bot for something that does not exist: the
+  player is pointed to the AUQW Discord, nothing is sent) or MVS's (Windows-only APIs, Android limits, a
+  part of the bot MVS lacks, or a fault in MVS / the bot engine: reported). The script's own code is
+  recognised by its assembly name (`<Class>.cs`). `tools/ScriptTriageCheck` runs it on real compile errors
+  and crashes (`dotnet run -c Release`).
+- **Reading them:** `tools/aggregate_usage.py` also writes `tools/dashboard/reports_data.js`; the dashboard
+  shows them under "Problem reports", grouped by problem, newest first, with the stack and log.
+- **Rules:** `python tools/generate_firestore_rules.py` includes the reports collection (create-only, size
+  limits, no reads). It must be deployed before reports can be stored.
+
 ## Known limits
 
 - Counts from one client process can sit on the phone until that client runs again (each client

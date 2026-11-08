@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <application
         android:label="MVS"
         android:icon="@mipmap/ic_launcher"
@@ -14,6 +15,8 @@
         android:allowBackup="false"
         android:hardwareAccelerated="true"
         android:largeHeap="true"
+        android:appCategory="game"
+        android:isGame="true"
         android:usesCleartextTraffic="true"
         android:networkSecurityConfig="@xml/network_security_config">
         <service android:name="com.arglax.movibeskua.KeepAliveService"
@@ -22,6 +25,9 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                       android:value="Keeps a game automation session running while the screen is off." />
         </service>
+        <!-- Android's Game Mode (and MIUI Game Turbo): MVS is a game; the system's own frame-rate cap and
+             downscaling stay off, since the app paces and scales the game itself. -->
+        <meta-data android:name="android.game_mode_config" android:resource="@xml/game_mode_config" />
         <!-- Lets an installed editor open and save scripts ("Edit Script" / "Open VSCode"). -->
         <provider android:name="androidx.core.content.FileProvider"
                   android:authorities="com.arglax.movibeskua.files"

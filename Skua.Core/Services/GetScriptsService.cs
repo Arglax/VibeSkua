@@ -49,6 +49,28 @@ public partial class GetScriptsService : ObservableObject, IGetScriptsService
         await GetScripts(progress, true, token);
     }
 
+    public async Task<bool> RefreshListCacheAsync(CancellationToken token)
+    {
+        try
+        {
+            using HttpResponseMessage response = await ValidatedHttpExtensions.GetAsync(HttpClients.GitHubRaw, _rawScriptsJsonUrl, token).ConfigureAwait(false);
+            string content = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+            List<ScriptInfo>? scripts = string.IsNullOrWhiteSpace(content) ? null : JsonConvert.DeserializeObject<List<ScriptInfo>>(content);
+            if (scripts is null || scripts.Count == 0)
+                return false;
+            string cacheFile = ClientFileSources.SkuaScriptsCacheFile;
+            Directory.CreateDirectory(Path.GetDirectoryName(cacheFile)!);
+            await File.WriteAllTextAsync(cacheFile + ".tmp", content, token).ConfigureAwait(false);
+            File.Move(cacheFile + ".tmp", cacheFile, true);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            System.Diagnostics.Trace.WriteLine($"[Scripts] list refresh failed: {ex.Message}");
+            return false;
+        }
+    }
+
     private Task? _fetchTask;
 
     private Task GetScripts(IProgress<string>? progress, bool refresh, CancellationToken token)
@@ -87,7 +109,8 @@ public partial class GetScriptsService : ObservableObject, IGetScriptsService
         }
         catch (Exception ex)
         {
-            _dialogService.ShowMessageBox($"Something went wrong when retrieving scripts.\r\nPlease, try again later.\r\n Error: {ex}", "Search Scripts Error");
+            System.Diagnostics.Trace.WriteLine($"Error retrieving scripts: {ex}");
+            _dialogService.ShowMessageBox("Couldn't get the script list. Check your connection and try again.", "Search Scripts Error");
         }
         finally
         {
@@ -586,7 +609,7 @@ public partial class GetScriptsService : ObservableObject, IGetScriptsService
         }
         catch (Exception ex)
         {
-            _dialogService.ShowMessageBox($"Error getting changed files: {ex.Message}", "Debug Info");
+            System.Diagnostics.Trace.WriteLine($"Error getting changed files: {ex}");
             return new HashSet<string>();
         }
     }
@@ -700,7 +723,7 @@ public partial class GetScriptsService : ObservableObject, IGetScriptsService
         }
         catch (Exception ex)
         {
-            _dialogService.ShowMessageBox($"Error during incremental update: {ex.Message}\r\nFalling back to full refresh.", "Update Error");
+            System.Diagnostics.Trace.WriteLine($"Error during incremental update, falling back to full refresh: {ex}");
             await RefreshScriptsAsync(progress, token);
             return 0;
         }

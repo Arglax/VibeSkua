@@ -1,4 +1,4 @@
-﻿using Skua.Core.Flash;
+using Skua.Core.Flash;
 using Skua.Core.Interfaces;
 using Skua.Core.Messaging;
 using Skua.Core.Models.Skills;
@@ -239,6 +239,8 @@ public partial class ScriptSkill : IScriptSkill
         while (!token.IsCancellationRequested)
         {
             _pauseEvent.WaitOne();
+            // One round trip for this pass's game reads where calls are slow (the mobile page).
+            Flash.BeginReadCycle("skills");
             if (Combat.StopAttacking)
             {
                 _counterAttack.WaitOne(10000);

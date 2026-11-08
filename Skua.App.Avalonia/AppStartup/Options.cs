@@ -69,10 +69,10 @@ internal class Options
         List<DisplayOptionItemViewModelBase> appOptions = new()
         {
             CreateSettingOptionItem<bool>("Show Username in Title", "Whether to display logged-in character name in window title", "ShowUsernameInTitle"),
-            CreateSettingOptionItem<bool>("Auto Update Scripts", "Whether to auto update scripts when launching the Manager or the game client (the client asks first when this is off), needs \"Check for Scripts Updates\" to be true", "AutoUpdateBotScripts"),
-            CreateSettingOptionItem<bool>("Check for Script Updates", "Whether to check for scripts updates when launching the Manager or the game client", "CheckBotScriptsUpdates"),
-            CreateSettingOptionItem<bool>("Auto Update AdvanceSkill Sets", "Whether to auto update advance skill sets when launching the Manager, needs \"Check for AdvanceSkill Sets updates\" to be true", "AutoUpdateAdvanceSkillSetsUpdates"),
-            CreateSettingOptionItem<bool>("Check for AdvanceSkill Sets Updates", "Whether to check for scripts updates when launching the Manager", "CheckAdvanceSkillSetsUpdates"),
+            CreateSettingOptionItem<bool>("Auto Update Scripts", "Whether to auto update scripts when MVS starts (MVS asks first when this is off), needs \"Check for Script Updates\" to be true", "AutoUpdateBotScripts"),
+            CreateSettingOptionItem<bool>("Check for Script Updates", "Whether to check for script updates when MVS starts", "CheckBotScriptsUpdates"),
+            CreateSettingOptionItem<bool>("Auto Update Advanced Skill Sets", "Whether to auto update the advanced skill sets (the class skill orders scripts use) when MVS starts, needs \"Check for Advanced Skill Sets Updates\" to be true", "AutoUpdateAdvanceSkillSetsUpdates"),
+            CreateSettingOptionItem<bool>("Check for Advanced Skill Sets Updates", "Whether to check for new advanced skill sets (the class skill orders scripts use) when MVS starts", "CheckAdvanceSkillSetsUpdates"),
             CreateSettingOptionItem<bool>("Auto Update Junk Items", "Whether to auto update junk items when launching the Manager, needs \"Check for Junk Items Updates\" to be true", "AutoUpdateJunkItems"),
             CreateSettingOptionItem<bool>("Check for Junk Items Updates", "Whether to check for junk items updates when launching the Manager", "CheckJunkItemsUpdates"),
             CreateSettingOptionItem<string>("Discord Webhook URL", "URL to send Discord notifications and live statistics when scripts start, stop, or crash", "DiscordWebhookUrl"),
@@ -101,7 +101,7 @@ internal class Options
                     return;
                 Ioc.Default.GetRequiredService<ISettingsService>().Set("AnimationFrameRate", result);
             }), s.GetRequiredService<ISettingsService>().Get<int>("AnimationFrameRate")) { RequiresRestart = true },
-            new CommandOptionItemViewModel<int>("Relogin Try Delay", "Delay in milliseconds between login attempts when disconnected", "ReloginTryDelay", "ms", new RelayCommand<string>(value =>
+            new CommandOptionItemViewModel<int>("Wait Between Relogin Attempts", "How long to wait between login attempts when disconnected, in milliseconds", "ReloginTryDelay", "ms", new RelayCommand<string>(value =>
             {
                 if (!int.TryParse(value, out int result) || result < 0)
                     return;

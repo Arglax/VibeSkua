@@ -193,7 +193,8 @@ public partial class ScriptSchedulerViewModel : BotControlViewModelBase
         }
         catch (Exception ex)
         {
-            _dialogService.ShowMessageBox($"Script cannot be configured as it has compilation errors:\r\n{ex}", "Script Error");
+            Trace.WriteLine(ex);
+            _dialogService.ShowMessageBox("This script has errors, so its options can't be opened. Try updating your scripts (Repo page).", "Script Error");
         }
         finally
         {

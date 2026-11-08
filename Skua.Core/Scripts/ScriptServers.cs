@@ -284,7 +284,7 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
             if (CachedServers.Count == 0)
             {
                 GetServers(true).AsTask().GetAwaiter().GetResult();
-                ReloginLog($"Refreshed server list ({CachedServers.Count} servers from API).");
+                ReloginLog("Server list updated.");
             }
         }
         catch
@@ -293,11 +293,14 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
         }
     }
 
-    private void AddReloginCandidates(List<Server> candidates, List<Server> source)
+    private void AddReloginCandidates(List<Server> candidates, List<Server>? source)
     {
+        // The game's server list is gone while its page reloads.
+        if (source is null)
+            return;
         foreach (Server server in source)
         {
-            if (IsServerBlacklistedForRelogin(server))
+            if (server is null || IsServerBlacklistedForRelogin(server))
                 continue;
 
             if (candidates.Exists(x => string.Equals(x.Name, server.Name, StringComparison.OrdinalIgnoreCase)))
@@ -416,7 +419,8 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
         }
         bool autoRelogSwitch = Options.AutoRelogin;
         Options.AutoRelogin = false;
-        ReloginLog($"Relogging using IP {ip}.");
+        System.Diagnostics.Trace.WriteLine($"[Relogin] Relogging using IP {ip}.");
+        ReloginLog("Connecting to the server...");
         StrongReferenceMessenger.Default.Send<LogoutRequestedMessage, int>(new(), (int)MessageChannels.GameEvents);
 
         Thread.Sleep(2000);
@@ -429,10 +433,10 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
         else
             Login(Player.Username, Player.Password);
 
-        ReloginLog($"Waiting for server list screen before connecting to IP {ip}...");
+        ReloginLog("Connecting to the server...");
         if (!WaitForServerListReady(CancellationToken.None).GetAwaiter().GetResult())
         {
-            ReloginLog($"Authentication timed out or froze while connecting to IP {ip}.");
+            ReloginLog("Login took too long. Try again.");
             Options.AutoRelogin = autoRelogSwitch;
             return false;
         }
@@ -575,7 +579,7 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
                     if (trimmedModal.Contains("banned", StringComparison.OrdinalIgnoreCase) ||
                         trimmedModal.Contains("disabled", StringComparison.OrdinalIgnoreCase))
                     {
-                        ReloginLog($"FATAL: Account lockout detected ('{trimmedModal}'). Halting auto re-login loop.");
+                        ReloginLog("AQW has locked this account for now. Try again later.");
                         IsIntentionalLogout = true;
                         throw new OperationCanceledException($"Account lockout: {trimmedModal}");
                     }
@@ -659,7 +663,7 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
                     int backoffMs = Options.SafeRelogin
                         ? Math.Max(10000 + (tries - 2) * 3000, Options.ReloginTryDelay)
                         : Math.Max(4000, Options.ReloginTryDelay);
-                    ReloginLog($"Waiting {backoffMs / 1000.0:F1}s ghost session backoff before attempt {tries}...");
+                    ReloginLog($"Waiting {backoffMs / 1000.0:F1}s before trying again...");
                     await Task.Delay(backoffMs, token);
                 }
 
@@ -690,7 +694,8 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
                 bool clicked = Flash.Call<bool>("clickServer", targetServer.Name);
                 if (!clicked)
                 {
-                    ReloginLog($"Server {targetServer.Name} button not clickable in UI, initiating direct bridge connection to {targetServer.IP}:{port}...");
+                    System.Diagnostics.Trace.WriteLine($"[Relogin] Server {targetServer.Name} button not clickable, direct connection to {targetServer.IP}:{port}.");
+                    ReloginLog("Connecting...");
                     bool connectedDirect = false;
                     try
                     {
@@ -733,7 +738,7 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
                     return true;
                 }
 
-                ReloginLog($"Attempt {tries}/{Options.ReloginTries} failed on {targetServer.Name}. Watchdog aborting attempt.");
+                ReloginLog("That try took too long, trying again...");
                 preferredServerName = null;
                 DisconnectForRelogin();
 

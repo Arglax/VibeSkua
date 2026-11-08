@@ -25,6 +25,16 @@ public interface IScriptBotStats : INotifyPropertyChanged
     int Drops { get; set; }
 
     /// <summary>
+    /// Gold received from kills and quests (AQW's addGoldExp packets).
+    /// </summary>
+    long Gold { get; set; }
+
+    /// <summary>
+    /// Experience received from kills and quests (AQW's addGoldExp packets).
+    /// </summary>
+    long Experience { get; set; }
+
+    /// <summary>
     /// The number of monsters killed by the bot.
     /// </summary>
     int Kills { get; set; }

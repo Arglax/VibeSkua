@@ -85,7 +85,7 @@ public class MobileDialogService : IDialogService
 
     private static string DefaultTitle(object viewModel)
     {
-        return viewModel is DialogViewModelBase { Title: { Length: > 0 } title } ? title : viewModel.GetType().Name;
+        return viewModel is DialogViewModelBase { Title: { Length: > 0 } title } ? title : "MVS";
     }
 
     private static bool? ShowDialogInternal<TViewModel>(TViewModel viewModel, string title) where TViewModel : class

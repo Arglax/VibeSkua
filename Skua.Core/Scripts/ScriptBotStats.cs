@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Skua.Core.Interfaces;
 using System.Diagnostics;
 
@@ -48,6 +48,12 @@ public partial class ScriptBotStats : ObservableObject, IScriptBotStats, IAsyncD
     private int _drops;
 
     [ObservableProperty]
+    private long _gold;
+
+    [ObservableProperty]
+    private long _experience;
+
+    [ObservableProperty]
     private int _inventorySpace;
 
     [ObservableProperty]
@@ -76,6 +82,8 @@ public partial class ScriptBotStats : ObservableObject, IScriptBotStats, IAsyncD
         Deaths = 0;
         Relogins = 0;
         Drops = 0;
+        Gold = 0;
+        Experience = 0;
         _sw.Restart();
     }
 

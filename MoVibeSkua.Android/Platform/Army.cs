@@ -20,7 +20,8 @@ public static class Army
     public const int MaxClients = 12;
 
     /// <summary>Past this many clients the Army page warns about memory and heat.</summary>
-    public const int ComfortableClients = 4;
+    /// <summary>How many clients this phone's memory holds comfortably (Platform.DeviceProfile).</summary>
+    public static int ComfortableClients => DeviceProfile.Current.ComfortableClients;
 
     private const string ProcessSuffix = ":army";
     private static bool _webViewDataSeparated;

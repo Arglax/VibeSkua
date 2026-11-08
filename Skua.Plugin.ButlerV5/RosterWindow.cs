@@ -107,7 +107,7 @@ public sealed class RosterWindow : UserControl
         footer.Children.Add(_summonAllButton);
 
         Button settings = AvaloniaUi.Button("Settings", _plugin.OpenSettings);
-        AvaloniaUi.SetToolTip(settings, "Open the ButlerV5 settings and debug log.");
+        AvaloniaUi.SetToolTip(settings, "Open Butler's settings.");
         Grid.SetColumn(settings, 2);
         footer.Children.Add(settings);
         Grid.SetRow(footer, 2);
@@ -154,9 +154,9 @@ public sealed class RosterWindow : UserControl
         _releaseAllButton.IsEnabled = !pluginOff;
         _summonAllButton.IsEnabled = !pluginOff && followingWho == null;
         AvaloniaUi.SetToolTip(_summonAllButton, pluginOff
-            ? "ButlerV5 is disabled. Turn it on in Settings first."
+            ? "Butler is disabled. Turn it on in Settings first."
             : followingWho == null
-                ? "Order every available ButlerV5 account on this server to follow this one."
+                ? "Order every available Butler account on this server to follow this one."
                 : $"You're following {followingWho}; stop before summoning anyone.");
 
         int refreshSeconds = Math.Clamp(_plugin.RosterRefreshSeconds, 1, 30);
@@ -164,7 +164,7 @@ public sealed class RosterWindow : UserControl
         if (_timer.Interval != interval)
             _timer.Interval = interval;
         _footerText.Text = pluginOff
-            ? "ButlerV5 is DISABLED - turn it on in Settings"
+            ? "Butler is DISABLED - turn it on in Settings"
             : $"{online.Count} other plugin account{(online.Count == 1 ? "" : "s")} online - refreshes every {refreshSeconds}s";
 
         string myServer = _plugin.MyServerName;
@@ -180,7 +180,7 @@ public sealed class RosterWindow : UserControl
         if (online.Count == 0)
         {
             TextBlock empty = AvaloniaUi.TextBlock(12, AvaloniaUi.SubText);
-            empty.Text = "No other ButlerV5 accounts online.\nAccounts appear after they log in with the plugin installed.";
+            empty.Text = "No other Butler accounts online.\nAccounts appear after they log in with the plugin installed.";
             empty.TextAlignment = TextAlignment.Center;
             empty.TextWrapping = TextWrapping.Wrap;
             empty.Margin = new Thickness(0, 40, 0, 0);
@@ -267,7 +267,7 @@ public sealed class RosterWindow : UserControl
         follow.VerticalAlignment = VerticalAlignment.Center;
         string? followBlock = null;
         if (pluginOff)
-            followBlock = "ButlerV5 is disabled.";
+            followBlock = "Butler is disabled.";
         else if (!amFollowing)
             followBlock = iAmButler ? $"You're following {_plugin.FollowingWho}; stop first."
                 : summonedByMe ? $"Release {account.Username} before following them."
@@ -294,7 +294,7 @@ public sealed class RosterWindow : UserControl
         summon.VerticalAlignment = VerticalAlignment.Center;
         string? summonBlock = null;
         if (!summonedByMe)
-            summonBlock = pluginOff ? "ButlerV5 is disabled."
+            summonBlock = pluginOff ? "Butler is disabled."
                 : iAmButler ? $"You're following {_plugin.FollowingWho}; stop before summoning anyone."
                 : amFollowing ? $"You're following {account.Username}; stop first."
                 : followingMe ? $"{account.Username} is already following you manually."

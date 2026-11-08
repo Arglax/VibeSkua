@@ -24,9 +24,11 @@ namespace Skua.Flash.Ruffle;
 /// </remarks>
 public sealed partial class RuffleHost : IDisposable
 {
+    // "ccid" and "token" are AQW's own: the game's api/char calls (the bank's item list, saving a house
+    // room) send the character ID and session token in them, and fail without.
     private static readonly string[] _forwardedRequestHeaders =
     {
-        "Accept", "Accept-Language", "Content-Type", "If-None-Match", "If-Modified-Since", "Range"
+        "Accept", "Accept-Language", "Content-Type", "If-None-Match", "If-Modified-Since", "Range", "ccid", "token"
     };
 
     private static readonly string[] _forwardedResponseHeaders =
@@ -80,7 +82,16 @@ public sealed partial class RuffleHost : IDisposable
             return;
 
         TcpListener listener = new(IPAddress.Loopback, _options.Port);
-        listener.Start(64);
+        try
+        {
+            listener.Start(64);
+        }
+        catch (SocketException ex) when (_options.Port != 0)
+        {
+            Trace.WriteLine($"[RuffleHost] port {_options.Port} unavailable ({ex.SocketErrorCode}), using a free port");
+            listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start(64);
+        }
         _listener = listener;
         Port = ((IPEndPoint)listener.LocalEndpoint).Port;
         _ = Task.Run(() => AcceptLoop(listener, _cts.Token));
@@ -439,6 +450,7 @@ public sealed partial class RuffleHost : IDisposable
             w.WriteNumber("frameRate", _options.FrameRate);
             w.WriteNumber("maxPixelRatio", _options.MaxPixelRatio);
             w.WriteString("preferredRenderer", _options.PreferredRenderer);
+            w.WriteNumber("touchRowH", _options.TouchListRowHeight);
             w.WriteStartArray("socketProxy");
             foreach ((string host, int port) in sockets)
             {
@@ -498,6 +510,25 @@ public sealed partial class RuffleHost : IDisposable
                 Trace.WriteLine($"[RuffleHost] WARNING: {method} patch did not apply; typing into game text fields may not work.");
             patched = patched.Replace(definition, $"{definition}if(window.__skuaKeyboard)return window.__skuaKeyboard.{method}(this);", StringComparison.Ordinal);
         }
+
+        // MVS keeps the game page "visible" while the app is in the background (a hidden page is
+        // suspended by Chromium after a few minutes: the game and the bot stop). The app says when it
+        // is out of sight (window.__mvsBackground, then a visibilitychange event), and Ruffle then
+        // ticks from its background worker as it would for a hidden tab: screen refreshes, which
+        // drive the normal loop, stop when the screen is off.
+        const string hiddenCheck = "document.hidden?(this.lastActivePlayingState";
+        if (patched.Contains(hiddenCheck, StringComparison.Ordinal))
+            patched = patched.Replace(hiddenCheck, "(document.hidden||window.__mvsBackground)?(this.lastActivePlayingState", StringComparison.Ordinal);
+        else
+            Trace.WriteLine("[RuffleHost] WARNING: background tick patch did not apply; the game may stop in the background.");
+
+        // The background worker waited a whole frame after each tick finished (about 22 game frames a
+        // second instead of 30); keep to the frame rate by waiting only for what is left of the frame.
+        const string workerWait = "self.onmessage = () => {\n                setTimeout(() => self.postMessage(\"tick\"), intervalMs);\n            };";
+        if (patched.Contains(workerWait, StringComparison.Ordinal))
+            patched = patched.Replace(workerWait, "let next = Date.now() + intervalMs;\n            self.onmessage = () => {\n                next = Math.max(next + intervalMs, Date.now());\n                setTimeout(() => self.postMessage(\"tick\"), Math.max(0, next - Date.now()));\n            };", StringComparison.Ordinal);
+        else
+            Trace.WriteLine("[RuffleHost] WARNING: background tick pacing patch did not apply.");
         return Encoding.UTF8.GetBytes(patched);
     }
 

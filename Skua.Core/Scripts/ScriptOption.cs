@@ -41,7 +41,7 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
                 await Task.Delay(1000); // Give the Flash map UI time to load the string
                 try
                 {
-                    var rawMapName = recipient._lazyFlash.Value.GetGameObject("world.strMapName") ?? "";
+                    var rawMapName = recipient._lazyFlash.Value.GetGameObject<string>("world.strMapName") ?? "";
                     if (!string.IsNullOrEmpty(rawMapName) && rawMapName != "null")
                     {
                         var cleanMapName = rawMapName.Length > 1 
@@ -56,9 +56,16 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
         }
     }
 
+    /// <summary>
+    /// The host keeps the player logged in outside scripts too (MoVibeSkua's Login page promises it):
+    /// a stopped script then leaves Auto Relogin on instead of switching it off. An in-game Logout or
+    /// Change Server still disarms relogin as before.
+    /// </summary>
+    public static bool KeepLoggedIn = false;
+
     private void ScriptStopped(ScriptOption recipient, ScriptStoppedMessage message)
     {
-        recipient.AutoRelogin = false;
+        recipient.AutoRelogin = KeepLoggedIn;
         recipient.LagKiller = false;
         recipient.LagKiller = true;
         recipient.LagKiller = false;
@@ -234,8 +241,13 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
 
             _originalHidePlayers = HidePlayers;
             HidePlayers = true;
-            CustomName = StreamerName;
-            CustomGuild = StreamerGuild;
+            // CustomName also writes objData.strUsername (the game's own record of the player's name);
+            // when the host draws the stand-in name itself, leave both alone so the real name survives.
+            if (!NameTagsDrawnByHost)
+            {
+                CustomName = StreamerName;
+                CustomGuild = StreamerGuild;
+            }
 
             _streamerModeCts?.Cancel();
             _streamerModeCts?.Dispose();
@@ -261,6 +273,8 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
                         flash.Call("setGameObject", "world.rootClass.ui.mcPortraitTarget.strName.text", "Hidden");
 
                         // Hide Gold/Coins visually instead of wiping the client's cached integer amounts
+                        // Current AQW shows gold in mcGold; the te/str/txt fields are from older versions.
+                        flash.Call("setGameObject", "world.rootClass.ui.mcInterface.mcGold.visible", false);
                         flash.Call("setGameObject", "world.rootClass.ui.mcInterface.teGold.visible", false);
                         flash.Call("setGameObject", "world.rootClass.ui.mcInterface.teCoins.visible", false);
                         flash.Call("setGameObject", "world.rootClass.ui.mcInterface.strGold.visible", false);
@@ -273,7 +287,7 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
                         flash.Call("setGameObject", "world.rootClass.ui.mcInterface.te.visible", false);
 
                         // Force map UI text cleanly
-                        var rawMapName = flash.GetGameObject("world.strMapName") ?? "";
+                        var rawMapName = flash.GetGameObject<string>("world.strMapName") ?? "";
                         if (!string.IsNullOrEmpty(rawMapName) && rawMapName != "null")
                         {
                             var cleanMapName = rawMapName.Length > 1 
@@ -294,8 +308,11 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
             _streamerModeCts?.Dispose();
             _streamerModeCts = null;
 
-            CustomName = _originalName;
-            CustomGuild = _originalGuild;
+            if (!NameTagsDrawnByHost)
+            {
+                CustomName = _originalName;
+                CustomGuild = _originalGuild;
+            }
             HidePlayers = _originalHidePlayers;
 
             try
@@ -308,6 +325,7 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
                     flash.Call("setGameObject", "world.rootClass.ui.mcInterface.te.visible", true);
 
                     // Restore Gold/Coins visibility
+                    flash.Call("setGameObject", "world.rootClass.ui.mcInterface.mcGold.visible", true);
                     flash.Call("setGameObject", "world.rootClass.ui.mcInterface.teGold.visible", true);
                     flash.Call("setGameObject", "world.rootClass.ui.mcInterface.teCoins.visible", true);
                     flash.Call("setGameObject", "world.rootClass.ui.mcInterface.strGold.visible", true);

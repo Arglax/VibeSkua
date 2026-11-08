@@ -165,6 +165,64 @@ public sealed class ControlChannel : IDisposable
     }
 
     /// <summary>
+    /// Makes several read calls in one round trip (the page answers them together, between two game
+    /// frames). Returns each call's raw result, or null for the whole batch when the page is not
+    /// connected; a call that failed comes back with Ok false.
+    /// </summary>
+    public (bool Ok, string? Raw)[]? CallBatch(IReadOnlyList<(string Function, string ArgsJson)> calls)
+    {
+        WebSocket? socket = _socket;
+        if (socket is null || socket.State != WebSocketState.Open || calls.Count == 0)
+            return null;
+
+        int id = Interlocked.Increment(ref _nextId);
+        TaskCompletionSource<string?> tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[id] = tcs;
+        try
+        {
+            StringBuilder sb = new();
+            sb.Append("{\"t\":\"batch\",\"id\":").Append(id).Append(",\"c\":[");
+            for (int i = 0; i < calls.Count; i++)
+            {
+                if (i > 0)
+                    sb.Append(',');
+                sb.Append("{\"f\":").Append(JsonSerializer.Serialize(calls[i].Function)).Append(",\"a\":").Append(calls[i].ArgsJson).Append('}');
+            }
+            sb.Append("]}");
+            Send(socket, sb.ToString());
+            if (!tcs.Task.Wait(CallTimeout))
+                throw new TimeoutException("Flash batch timed out.");
+            string? raw = tcs.Task.Result;
+            if (raw is null)
+                return null;
+            using JsonDocument doc = JsonDocument.Parse(raw);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                return null;
+            var results = new (bool Ok, string? Raw)[calls.Count];
+            int n = 0;
+            foreach (JsonElement item in doc.RootElement.EnumerateArray())
+            {
+                if (n >= results.Length)
+                    break;
+                if (item.ValueKind == JsonValueKind.Object && item.TryGetProperty("v", out JsonElement v))
+                    results[n] = (true, v.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined ? null : v.GetRawText());
+                else
+                    results[n] = (false, null);
+                n++;
+            }
+            return results;
+        }
+        catch (AggregateException ex) when (ex.InnerException is not null)
+        {
+            throw ex.InnerException;
+        }
+        finally
+        {
+            _pending.TryRemove(id, out _);
+        }
+    }
+
+    /// <summary>
     /// Sends a fire-and-forget command to the page (for example <c>{"t":"reload"}</c>).
     /// </summary>
     public bool Post(string json)

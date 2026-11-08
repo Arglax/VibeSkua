@@ -1,0 +1,3476 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index f2446120..a6cbc28b 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -2076,8 +2076,6 @@ dependencies = [
+ [[package]]
+ name = "gc-arena"
+ version = "0.7.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "160a11f93020eea95cb4c59e2eda2e4c6353f75aa4fbb01f2bf8729b2e4d6dd2"
+ dependencies = [
+  "enum-map",
+  "gc-arena-derive",
+diff --git a/Cargo.toml b/Cargo.toml
+index 488efefd..63529259 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -206,3 +206,7 @@ lto = "off"
+ incremental = true
+ # Right between the defaults of 16 and 256, for crate fragment caching.
+ codegen-units = 64
++
++[patch.crates-io]
++# MVS: gc-arena with heap inspection (vendor/gc-arena/src/mvs.rs).
++gc-arena = { path = "vendor/gc-arena" }
+diff --git a/core/common/src/tag_utils.rs b/core/common/src/tag_utils.rs
+index 739529ee..52ac63a6 100644
+--- a/core/common/src/tag_utils.rs
++++ b/core/common/src/tag_utils.rs
+@@ -1,6 +1,6 @@
+ use crate::sandbox::SandboxType;
+ 
+-use gc_arena::{Collect, Gc, GcWeak, Mutation};
++use gc_arena::{Collect, Finalization, Gc, GcWeak, Mutation};
+ use std::fmt::{Debug, Formatter};
+ use std::hash::{Hash, Hasher};
+ use std::ops::Deref;
+@@ -64,6 +64,29 @@ impl<'gc> SwfMovieWeak<'gc> {
+     pub fn upgrade(&self, mc: &Mutation<'gc>) -> Option<SwfMovie<'gc>> {
+         self.0.upgrade(mc).map(SwfMovie)
+     }
++
++    /// MVS: whether nothing but weak handles reaches this movie (during finalization).
++    pub fn is_dead(self, fc: &Finalization<'gc>) -> bool {
++        self.0.is_dead(fc)
++    }
++
++    /// MVS: keeps the movie for this collection cycle.
++    pub fn resurrect(self, fc: &Finalization<'gc>) {
++        let _ = self.0.resurrect(fc);
++    }
++
++    pub fn as_ptr(self) -> *const SwfMovieData {
++        self.0.as_ptr()
++    }
++
++    /// MVS: the movie itself, for a handle whose movie is known to be kept alive (see
++    /// `Library::mvs_finalize` in ruffle_core).
++    ///
++    /// # Safety
++    /// The movie must not have been collected.
++    pub unsafe fn assume_alive(self) -> SwfMovie<'gc> {
++        SwfMovie(unsafe { Gc::from_ptr(self.0.as_ptr()) })
++    }
+ }
+ 
+ /// An open, fully parsed SWF movie ready to play back, either in a Player or a
+diff --git a/core/src/avm2.rs b/core/src/avm2.rs
+index 389112d1..84a42025 100644
+--- a/core/src/avm2.rs
++++ b/core/src/avm2.rs
+@@ -49,7 +49,7 @@ pub mod bytearray;
+ mod call_stack;
+ mod class;
+ mod domain;
+-mod dynamic_map;
++pub(crate) mod dynamic_map;
+ mod e4x;
+ pub mod error;
+ pub mod error_messages;
+@@ -82,11 +82,12 @@ mod value;
+ pub mod vector;
+ mod verify;
+ mod vtable;
++pub use vtable::mvs_set_const_overrides;
+ 
+ pub use crate::avm2::activation::Activation;
+ pub use crate::avm2::array::ArrayStorage;
+ pub use crate::avm2::call_stack::CallStack;
+-pub use crate::avm2::class::Class;
++pub use crate::avm2::class::{Class, ClassWeak};
+ #[allow(unused)] // For debug_ui
+ pub use crate::avm2::domain::{Domain, DomainPtr};
+ pub use crate::avm2::error::Error;
+diff --git a/core/src/avm2/class.rs b/core/src/avm2/class.rs
+index 438da116..4b39a628 100644
+--- a/core/src/avm2/class.rs
++++ b/core/src/avm2/class.rs
+@@ -241,11 +241,31 @@ impl<'gc> ClassData<'gc> {
+     }
+ }
+ 
++/// MVS: a weak handle to a class (see `Avm2ClassRegistry` in library.rs).
++#[derive(Collect, Clone, Copy)]
++#[collect(no_drop)]
++pub struct ClassWeak<'gc>(gc_arena::GcWeak<'gc, ClassData<'gc>>);
++
++impl<'gc> ClassWeak<'gc> {
++    pub fn is_dead(self, fc: &gc_arena::Finalization<'gc>) -> bool {
++        self.0.is_dead(fc)
++    }
++
++    pub fn resurrect(self, fc: &gc_arena::Finalization<'gc>) {
++        let _ = self.0.resurrect(fc);
++    }
++}
++
+ impl<'gc> Class<'gc> {
+     pub fn as_ptr(self) -> *const () {
+         Gc::as_ptr(self.0).cast()
+     }
+ 
++    /// MVS: a weak handle to this class.
++    pub fn mvs_downgrade(self) -> ClassWeak<'gc> {
++        ClassWeak(Gc::downgrade(self.0))
++    }
++
+     /// Create an unlinked class from its name, superclass, and traits.
+     pub fn custom_new(
+         name: QName<'gc>,
+diff --git a/core/src/avm2/dynamic_map.rs b/core/src/avm2/dynamic_map.rs
+index 6a0c92a1..161ed27c 100644
+--- a/core/src/avm2/dynamic_map.rs
++++ b/core/src/avm2/dynamic_map.rs
+@@ -1,4 +1,5 @@
+ use crate::avm2::object::Object;
++use crate::avm2::object::TObject as _;
+ use crate::string::AvmString;
+ use fnv::FnvBuildHasher;
+ use gc_arena::Collect;
+@@ -30,17 +31,19 @@ pub enum DynamicKey<'gc> {
+ ///
+ /// Uses `HashTable` directly to expose stable bucket indices, which are
+ /// needed for correct iteration when entries are added or removed mid-iteration.
+-#[derive(Debug, Clone, Collect)]
+-#[collect(no_drop)]
++#[derive(Debug, Clone)]
+ pub struct DynamicMap<K, V> {
+     table: HashTable<(K, DynamicProperty<V>)>,
+-    #[collect(require_static)]
++    /// MVS: `new Dictionary(true)`: object keys don't keep their entries alive (see `Collect` below
++    /// and `Library::mvs_keep`).
++    weak_keys: Cell<bool>,
++
+     hasher: FnvBuildHasher,
+     // The last index that was given back to flash
+-    #[collect(require_static)]
++
+     public_index: Cell<usize>,
+     // The actual bucket index that represents where an item is in the table
+-    #[collect(require_static)]
++
+     real_index: Cell<usize>,
+ }
+ 
+@@ -61,9 +64,19 @@ impl<K: Eq + Hash, V> DynamicMap<K, V> {
+             hasher: FnvBuildHasher::default(),
+             public_index: Cell::new(0),
+             real_index: Cell::new(0),
++            weak_keys: Cell::new(false),
+         }
+     }
+ 
++    /// MVS: whether object keys are held weakly (`new Dictionary(true)`).
++    pub fn weak_keys(&self) -> bool {
++        self.weak_keys.get()
++    }
++
++    pub fn set_weak_keys(&self) {
++        self.weak_keys.set(true);
++    }
++
+     pub fn get(&self, key: &K) -> Option<&DynamicProperty<V>> {
+         let hash = self.hash_key(key);
+ 
+@@ -257,3 +270,25 @@ mod tests {
+         }
+     }
+ }
++
++// MVS: like the derived impl, except that in a weak-keyed map (`new Dictionary(true)`) an entry with an
++// object key is traced weakly: the key doesn't keep itself alive, and its value is kept by
++// `Library::mvs_keep` only while the key is in use elsewhere (an ephemeron, as in Flash). Entries
++// whose key died are removed before the sweep that frees it.
++unsafe impl<'gc> Collect<'gc> for DynamicMap<DynamicKey<'gc>, crate::avm2::Value<'gc>> {
++    fn trace<T: gc_arena::collect::Trace<'gc>>(&self, cc: &mut T) {
++        let weak = self.weak_keys.get();
++        for (key, prop) in self.table.iter() {
++            match key {
++                DynamicKey::Object(o) if weak => {
++                    // SAFETY: the object is a live GC value; this only records a weak reference.
++                    cc.trace_gc_weak(unsafe { gc_arena::GcWeak::from_ptr(o.as_ptr() as *const ()) });
++                }
++                _ => {
++                    cc.trace(key);
++                    cc.trace(&prop.value);
++                }
++            }
++        }
++    }
++}
+diff --git a/core/src/avm2/events.rs b/core/src/avm2/events.rs
+index 050f0ebf..44fb1d15 100644
+--- a/core/src/avm2/events.rs
++++ b/core/src/avm2/events.rs
+@@ -4,11 +4,11 @@ use crate::avm2::Avm2;
+ use crate::avm2::activation::Activation;
+ use crate::avm2::function::FunctionArgs;
+ use crate::avm2::globals::slots::flash_events_event_dispatcher as slots;
+-use crate::avm2::object::{EventObject, FunctionObject, Object, TObject as _};
++use crate::avm2::object::{EventObject, FunctionObject, FunctionObjectWeak, Object, TObject as _};
+ use crate::display_object::TDisplayObject;
+ use crate::string::AvmString;
+ use fnv::FnvHashMap;
+-use gc_arena::Collect;
++use gc_arena::{Collect, Gc, GcWeak, Mutation};
+ use std::collections::BTreeMap;
+ use std::hash::{Hash, Hasher};
+ 
+@@ -220,8 +220,21 @@ impl<'gc> DispatchList<'gc> {
+         priority: i32,
+         handler: FunctionObject<'gc>,
+         use_capture: bool,
++        use_weak_reference: bool,
+     ) {
+-        let new_handler = EventHandler::new(handler, use_capture);
++        // MVS: `useWeakReference` is honoured for methods bound to their object (`this.onClick`):
++        // the list then doesn't keep that object alive, as in Flash. AQW registers these on the
++        // stage and other long-lived objects (drop windows, item lists, chat, the camera) and
++        // relies on Flash to let them go. Other functions stay strongly held, so a one-off
++        // anonymous handler can't be collected before it runs.
++        let new_handler = if use_weak_reference && handler.executable().is_bound() {
++            EventHandler {
++                handler: HandlerRef::Weak(FunctionObjectWeak(Gc::downgrade(handler.0))),
++                use_capture,
++            }
++        } else {
++            EventHandler::new(handler, use_capture)
++        };
+ 
+         if let Some(event_sheaf) = self.get_event(event) {
+             for other_set in event_sheaf.values() {
+@@ -277,15 +290,21 @@ impl<'gc> DispatchList<'gc> {
+     /// phases.
+     pub fn iter_event_handlers<'a>(
+         &'a mut self,
++        mc: &'a Mutation<'gc>,
+         event: AvmString<'gc>,
+         use_capture: bool,
+     ) -> impl 'a + Iterator<Item = FunctionObject<'gc>> {
+-        self.get_event_mut(event)
++        // MVS: forget weak handlers whose object is gone.
++        let sheaf = self.get_event_mut(event);
++        for set in sheaf.values_mut() {
++            set.retain(|eh| eh.handler.upgrade(mc).is_some());
++        }
++        sheaf
+             .iter()
+             .rev()
+             .flat_map(|(_p, v)| v.iter())
+             .filter(move |eh| eh.use_capture == use_capture)
+-            .map(|eh| eh.handler)
++            .filter_map(move |eh| eh.handler.upgrade(mc))
+     }
+ }
+ 
+@@ -300,7 +319,7 @@ impl Default for DispatchList<'_> {
+ #[collect(no_drop)]
+ struct EventHandler<'gc> {
+     /// The event handler to call.
+-    handler: FunctionObject<'gc>,
++    handler: HandlerRef<'gc>,
+ 
+     /// Indicates if this handler should only be called for capturing events
+     /// (when `true`), or if it should only be called for bubbling and
+@@ -311,16 +330,40 @@ struct EventHandler<'gc> {
+ impl<'gc> EventHandler<'gc> {
+     fn new(handler: FunctionObject<'gc>, use_capture: bool) -> Self {
+         Self {
+-            handler,
++            handler: HandlerRef::Strong(handler),
+             use_capture,
+         }
+     }
+ }
+ 
++/// MVS: an event handler, held strongly or (for `useWeakReference` on a bound method) weakly.
++#[derive(Clone, Copy, Collect)]
++#[collect(no_drop)]
++enum HandlerRef<'gc> {
++    Strong(FunctionObject<'gc>),
++    Weak(FunctionObjectWeak<'gc>),
++}
++
++impl<'gc> HandlerRef<'gc> {
++    fn upgrade(self, mc: &Mutation<'gc>) -> Option<FunctionObject<'gc>> {
++        match self {
++            HandlerRef::Strong(f) => Some(f),
++            HandlerRef::Weak(w) => w.0.upgrade(mc).map(FunctionObject),
++        }
++    }
++
++    fn ptr(self) -> *const () {
++        match self {
++            HandlerRef::Strong(f) => Gc::as_ptr(f.0).cast(),
++            HandlerRef::Weak(w) => GcWeak::as_ptr(w.0).cast(),
++        }
++    }
++}
++
+ impl PartialEq for EventHandler<'_> {
+     fn eq(&self, rhs: &Self) -> bool {
+         self.use_capture == rhs.use_capture
+-            && std::ptr::eq(self.handler.as_ptr(), rhs.handler.as_ptr())
++            && std::ptr::eq(self.handler.ptr(), rhs.handler.ptr())
+     }
+ }
+ 
+@@ -329,7 +372,7 @@ impl Eq for EventHandler<'_> {}
+ impl Hash for EventHandler<'_> {
+     fn hash<H: Hasher>(&self, state: &mut H) {
+         self.use_capture.hash(state);
+-        self.handler.as_ptr().hash(state);
++        self.handler.ptr().hash(state);
+     }
+ }
+ 
+@@ -386,7 +429,7 @@ fn dispatch_event_to_target<'gc>(
+     let handlers: Vec<FunctionObject<'gc>> = dispatch_list
+         .as_dispatch_mut(activation.gc())
+         .expect("Internal dispatch list is missing during dispatch!")
+-        .iter_event_handlers(name, use_capture)
++        .iter_event_handlers(activation.gc(), name, use_capture)
+         .collect();
+ 
+     if !handlers.is_empty() {
+diff --git a/core/src/avm2/function.rs b/core/src/avm2/function.rs
+index 23b3e671..d03a3328 100644
+--- a/core/src/avm2/function.rs
++++ b/core/src/avm2/function.rs
+@@ -39,6 +39,12 @@ pub struct BoundMethod<'gc> {
+ }
+ 
+ impl<'gc> BoundMethod<'gc> {
++    /// MVS: whether this is a method bound to its object (a method closure such as `this.onClick`).
++    /// Such closures are cached on their object, so they live exactly as long as it does.
++    pub fn is_bound(&self) -> bool {
++        self.bound_receiver.is_some()
++    }
++
+     pub fn from_method(
+         method: Method<'gc>,
+         scope: ScopeChain<'gc>,
+diff --git a/core/src/avm2/globals/flash/events/event_dispatcher.rs b/core/src/avm2/globals/flash/events/event_dispatcher.rs
+index e721670d..e3ed4122 100644
+--- a/core/src/avm2/globals/flash/events/event_dispatcher.rs
++++ b/core/src/avm2/globals/flash/events/event_dispatcher.rs
+@@ -38,12 +38,12 @@ pub fn add_event_listener<'gc>(
+     let listener = args.get_function(activation, 1, "listener")?;
+     let use_capture = args.get_bool(2);
+     let priority = args.get_i32(3);
++    let use_weak_reference = args.get_bool(4);
+ 
+-    //TODO: If we ever get weak GC references, we should respect `useWeakReference`.
+     dispatch_list
+         .as_dispatch_mut(activation.gc())
+         .expect("Internal properties should have what I put in them")
+-        .add_event_listener(event_type, priority, listener, use_capture);
++        .add_event_listener(event_type, priority, listener, use_capture, use_weak_reference);
+ 
+     Avm2::register_broadcast_listener(activation.context, this, event_type);
+ 
+diff --git a/core/src/avm2/globals/flash/utils/Dictionary.as b/core/src/avm2/globals/flash/utils/Dictionary.as
+index 3184bde5..d29daf99 100644
+--- a/core/src/avm2/globals/flash/utils/Dictionary.as
++++ b/core/src/avm2/globals/flash/utils/Dictionary.as
+@@ -10,8 +10,11 @@ package flash.utils {
+ 
+         public function Dictionary(weakKeys:Boolean = false) {
+             if (weakKeys) {
+-                stub_constructor("flash.utils.Dictionary", "with weak keys");
++                this.mvsWeakKeys();
+             }
+         }
++
++        // MVS: weak keys (see dynamic_map.rs and Library::mvs_keep).
++        private native function mvsWeakKeys():void;
+     }
+ }
+diff --git a/core/src/avm2/globals/flash/utils/dictionary.rs b/core/src/avm2/globals/flash/utils/dictionary.rs
+index 644bc350..e52e94eb 100644
+--- a/core/src/avm2/globals/flash/utils/dictionary.rs
++++ b/core/src/avm2/globals/flash/utils/dictionary.rs
+@@ -1 +1,15 @@
+ pub use crate::avm2::object::dictionary_allocator;
++
++/// MVS: `new Dictionary(true)`: object keys are held weakly, as in Flash.
++pub fn mvs_weak_keys<'gc>(
++    activation: &mut crate::avm2::Activation<'_, 'gc>,
++    this: crate::avm2::Value<'gc>,
++    _args: crate::avm2::function::FunctionArgs<'_, 'gc>,
++) -> Result<crate::avm2::Value<'gc>, crate::avm2::Error<'gc>> {
++    use crate::avm2::object::TObject as _;
++    if let Some(this) = this.as_object() {
++        this.base().values().set_weak_keys();
++        activation.context.library.mvs_register_weak_dict(this);
++    }
++    Ok(crate::avm2::Value::Undefined)
++}
+diff --git a/core/src/avm2/globals/json.rs b/core/src/avm2/globals/json.rs
+index 43e19628..db4bada4 100644
+--- a/core/src/avm2/globals/json.rs
++++ b/core/src/avm2/globals/json.rs
+@@ -237,6 +237,11 @@ impl<'gc> AvmSerializer<'gc> {
+             Value::Null => JsonValue::Null,
+             Value::Undefined => JsonValue::Null,
+             Value::Integer(i) => JsonValue::from(i),
++            // Flash writes a whole Number without a fraction ("1354390967"); serde_json would write
++            // "1354390967.0", which integer fields reading the JSON refuse.
++            Value::Number(n) if n.fract() == 0.0 && n.abs() < 9_007_199_254_740_992.0 => {
++                JsonValue::from(n as i64)
++            }
+             Value::Number(n) => JsonValue::from(n),
+             Value::Bool(b) => JsonValue::from(b),
+             Value::String(s) => JsonValue::from(s.to_utf8_lossy().deref()),
+diff --git a/core/src/avm2/object/class_object.rs b/core/src/avm2/object/class_object.rs
+index a9ed61c7..21811617 100644
+--- a/core/src/avm2/object/class_object.rs
++++ b/core/src/avm2/object/class_object.rs
+@@ -368,6 +368,28 @@ impl<'gc> ClassObject<'gc> {
+ 
+         class_init_fn.call(activation, self_value, FunctionArgs::empty())?;
+ 
++        // MVS: a class initializer may set a constant in code instead of declaring its value, so
++        // overridden constants are set again once it has run (see `vtable::mvs_const_override`).
++        // Matched by local name in any namespace: AQW's constants are mostly private (MoveInput.DASH_PX
++        // is set in its class initializer, so a public-only lookup left the dash at its original 180).
++        let overrides = crate::avm2::vtable::mvs_const_overrides_for(&c_class.name().local_name().to_string());
++        for (name, v) in overrides {
++            let found = self
++                .vtable()
++                .resolved_traits()
++                .iter()
++                .find(|(n, _, _)| n.to_string() == name)
++                .map(|(_, _, prop)| *prop);
++            if let Some(Property::Slot { slot_id } | Property::ConstSlot { slot_id }) = found
++            {
++                let value = match self.base().get_slot(slot_id) {
++                    Value::Integer(_) => Value::Integer(v as i32),
++                    _ => Value::Number(v),
++                };
++                self.set_slot_no_coerce(slot_id, value, activation.gc());
++            }
++        }
++
+         Ok(())
+     }
+ 
+diff --git a/core/src/avm2/vtable.rs b/core/src/avm2/vtable.rs
+index ea299b01..c0db4763 100644
+--- a/core/src/avm2/vtable.rs
++++ b/core/src/avm2/vtable.rs
+@@ -442,6 +442,8 @@ impl<'gc> VTable<'gc> {
+                     let slot_id = *slot_id;
+ 
+                     let default_value = trait_to_default_value(trait_data);
++                    let default_value =
++                        mvs_const_override(defining_class_def, trait_data, default_value);
+ 
+                     let prop_class = match trait_data.kind() {
+                         TraitKind::Slot { slot_type, .. } | TraitKind::Const { slot_type, .. } => {
+@@ -618,6 +620,59 @@ impl VTableInitError {
+     }
+ }
+ 
++/// MVS: values that replace class constants' declared values, as ("Class.NAME", value). The game
++/// page sets them (window.__mvsAs3Consts) before the game loads; MVS uses this to make AQW's item
++/// lists touch-friendly on phones (`LPFFrameInvAQ.ROW_H`, the row height every list window uses).
++static MVS_CONSTS: std::sync::Mutex<Vec<(String, f64)>> = std::sync::Mutex::new(Vec::new());
++
++pub fn mvs_set_const_overrides(list: Vec<(String, f64)>) {
++    if let Ok(mut consts) = MVS_CONSTS.lock() {
++        *consts = list;
++    }
++}
++
++/// MVS: the overrides for this class's public constants, as (name, value).
++pub fn mvs_const_overrides_for(class_name: &str) -> Vec<(String, f64)> {
++    let class_name = class_name.trim_end_matches('$');
++    let Ok(consts) = MVS_CONSTS.lock() else {
++        return Vec::new();
++    };
++    consts
++        .iter()
++        .filter_map(|(key, v)| {
++            let (c, t) = key.split_once('.')?;
++            (c == class_name).then(|| (t.to_string(), *v))
++        })
++        .collect()
++}
++
++fn mvs_const_override<'gc>(class: Class<'gc>, trait_data: &Trait<'gc>, value: Value<'gc>) -> Value<'gc> {
++    if !matches!(trait_data.kind(), TraitKind::Const { .. } | TraitKind::Slot { .. }) {
++        return value;
++    }
++    let Ok(consts) = MVS_CONSTS.lock() else {
++        return value;
++    };
++    if consts.is_empty() {
++        return value;
++    }
++    let class_name = class.name().local_name().to_string();
++    let class_name = class_name.trim_end_matches('$');
++    let trait_name = trait_data.name().local_name().to_string();
++    for (key, v) in consts.iter() {
++        if let Some((c, t)) = key.split_once('.')
++            && c == class_name
++            && t == trait_name
++        {
++            return match value {
++                Value::Integer(_) => Value::Integer(*v as i32),
++                _ => Value::Number(*v),
++            };
++        }
++    }
++    value
++}
++
+ fn trait_to_default_value<'gc>(trait_data: &Trait<'gc>) -> Value<'gc> {
+     match trait_data.kind() {
+         TraitKind::Slot { default_value, .. } => *default_value,
+diff --git a/core/src/display_object.rs b/core/src/display_object.rs
+index 0a6fde56..669cf097 100644
+--- a/core/src/display_object.rs
++++ b/core/src/display_object.rs
+@@ -124,6 +124,11 @@ impl BitmapCache {
+     }
+ 
+     fn is_dirty(&self, other: &Matrix, source_width: u32, source_height: u32) -> bool {
++        // MVS: an in-between picture reuses the bitmap unless the game changed its contents
++        // (make_dirty); a size or scale off by a fraction for 1/60 s is not visible.
++        if mvs_interp::in_between() && !self.matrix_a.is_nan() && self.bitmap.is_some() {
++            return false;
++        }
+         self.matrix_a != other.a
+             || self.matrix_b != other.b
+             || self.matrix_c != other.c
+@@ -259,6 +264,12 @@ pub enum RenderMask<'gc> {
+ #[repr(align(8))]
+ pub struct DisplayObjectBase<'gc> {
+     cell: RefCell<DisplayObjectBaseMut>,
++
++    /// MVS in-betweening: the matrix before this object's first change in frame `prev_frame`, and
++    /// the frame it joined a display list (it is drawn as is in that frame).
++    prev_matrix: Cell<Matrix>,
++    prev_frame: Cell<u32>,
++    born_frame: Cell<u32>,
+     parent: Lock<Option<DisplayObject<'gc>>>,
+     place_frame: Cell<u16>,
+     depth: Cell<Depth>,
+@@ -329,6 +340,9 @@ struct DisplayObjectBaseMut {
+     /// If this Display Object should cacheAsBitmap - and if so, the cache itself.
+     /// None means not cached, Some means cached.
+     cache: Option<BitmapCache>,
++
++    /// MVS: cached as a bitmap because a child needs the pixels behind it for its blend mode.
++    blend_cache: bool,
+ }
+ 
+ impl Default for DisplayObjectBase<'_> {
+@@ -338,7 +352,11 @@ impl Default for DisplayObjectBase<'_> {
+                 filters: Default::default(),
+                 blend_shader: None,
+                 cache: None,
++                blend_cache: false,
+             }),
++            prev_matrix: Default::default(),
++            prev_frame: Cell::new(0),
++            born_frame: Cell::new(mvs_interp::frame()),
+             parent: Default::default(),
+             place_frame: Default::default(),
+             depth: Default::default(),
+@@ -417,8 +435,45 @@ impl<'gc> DisplayObjectBase<'gc> {
+         self.matrix.get()
+     }
+ 
+-    pub fn set_matrix(&self, matrix: Matrix) {
++    /// MVS: sets the matrix, keeping the one it had at the start of this frame for in-betweening.
++    fn store_matrix(&self, matrix: Matrix) {
++        let frame = mvs_interp::frame();
++        if self.prev_frame.get() != frame {
++            self.prev_frame.set(frame);
++            self.prev_matrix.set(self.matrix.get());
++        }
+         self.matrix.set(matrix);
++    }
++
++    /// MVS: the matrix to draw with. While in-betweening is on, an object that moved in the latest
++    /// game frame is drawn part of the way from where it was to where it is now; big jumps, flips
++    /// and objects that just appeared are drawn where they are.
++    fn render_matrix(&self) -> Matrix {
++        let matrix = self.matrix.get();
++        let Some(t) = mvs_interp::alpha() else {
++            return matrix;
++        };
++        let frame = mvs_interp::frame();
++        if self.prev_frame.get() != frame || self.born_frame.get() >= frame || t >= 1.0 {
++            return matrix;
++        }
++        let prev = self.prev_matrix.get();
++        if prev == matrix || !mvs_interp::can_blend(&prev, &matrix) {
++            return matrix;
++        }
++        mvs_interp::lerp(&prev, &matrix, t)
++    }
++
++    fn render_transform(&self, apply_matrix: bool) -> Transform {
++        let mut transform = self.transform(false);
++        if apply_matrix {
++            transform.matrix = self.render_matrix();
++        }
++        transform
++    }
++
++    pub fn set_matrix(&self, matrix: Matrix) {
++        self.store_matrix(matrix);
+         self.set_scale_rotation_cached(false);
+     }
+ 
+@@ -450,7 +505,7 @@ impl<'gc> DisplayObjectBase<'gc> {
+         let mut matrix = self.matrix.get();
+         let changed = matrix.tx != x;
+         matrix.tx = x;
+-        self.matrix.set(matrix);
++        self.store_matrix(matrix);
+         self.set_transformed_by_script(true);
+         changed
+     }
+@@ -463,7 +518,7 @@ impl<'gc> DisplayObjectBase<'gc> {
+         let mut matrix = self.matrix.get();
+         let changed = matrix.ty != y;
+         matrix.ty = y;
+-        self.matrix.set(matrix);
++        self.store_matrix(matrix);
+         self.set_transformed_by_script(true);
+         changed
+     }
+@@ -551,7 +606,7 @@ impl<'gc> DisplayObjectBase<'gc> {
+         matrix.b = (scale_x * sin_x) as f32;
+         matrix.c = (scale_y * -sin_y) as f32;
+         matrix.d = (scale_y * cos_y) as f32;
+-        self.matrix.set(matrix);
++        self.store_matrix(matrix);
+ 
+         changed
+     }
+@@ -586,7 +641,7 @@ impl<'gc> DisplayObjectBase<'gc> {
+         let mut matrix = self.matrix.get();
+         matrix.a = (cos * value.unit()) as f32;
+         matrix.b = (sin * value.unit()) as f32;
+-        self.matrix.set(matrix);
++        self.store_matrix(matrix);
+ 
+         changed
+     }
+@@ -622,7 +677,7 @@ impl<'gc> DisplayObjectBase<'gc> {
+         let mut matrix = self.matrix.get();
+         matrix.c = (-sin * value.unit()) as f32;
+         matrix.d = (cos * value.unit()) as f32;
+-        self.matrix.set(matrix);
++        self.store_matrix(matrix);
+ 
+         changed
+     }
+@@ -679,6 +734,7 @@ impl<'gc> DisplayObjectBase<'gc> {
+     /// You should almost always use `DisplayObject.set_parent` instead, which
+     /// properly handles 'orphan' movie clips
+     fn set_parent_ignoring_orphan_list(this: &Write<Self>, parent: Option<DisplayObject<'gc>>) {
++        this.born_frame.set(mvs_interp::frame());
+         unlock!(this, Self, parent).set(parent)
+     }
+ 
+@@ -838,6 +894,20 @@ impl<'gc> DisplayObjectBase<'gc> {
+         self.recheck_cache_as_bitmap();
+     }
+ 
++    /// MVS: caches this object as a bitmap while one of its children uses a blend mode that needs the
++    /// pixels behind it, so the renderer mixes it inside that small image (see `render_base`).
++    fn set_blend_cache(&self, wanted: bool) {
++        let changed = {
++            let mut write = self.cell.borrow_mut();
++            let changed = write.blend_cache != wanted;
++            write.blend_cache = wanted;
++            changed
++        };
++        if changed {
++            self.recheck_cache_as_bitmap();
++        }
++    }
++
+     fn bitmap_cache_mut(&self) -> RefMut<'_, Option<BitmapCache>> {
+         RefMut::map(self.cell.borrow_mut(), |c| &mut c.cache)
+     }
+@@ -864,7 +934,9 @@ impl<'gc> DisplayObjectBase<'gc> {
+ 
+     fn recheck_cache_as_bitmap(&self) {
+         let mut write = self.cell.borrow_mut();
+-        let should_cache = self.is_bitmap_cached_preference() || !write.filters.is_empty();
++        // MVS: the WebGL renderer cannot draw filters, so a filter alone does not make the object a
++        // cached bitmap (that would only cost a redraw per change); cacheAsBitmap still does.
++        let should_cache = self.is_bitmap_cached_preference() || write.blend_cache;
+         if should_cache {
+             write.cache.get_or_insert_default();
+         } else {
+@@ -965,6 +1037,202 @@ struct DrawCacheInfo {
+     filters: Vec<Filter>,
+ }
+ 
++/// MVS motion in-betweening. The game runs its frames at its own rate (AQW: 30 a second); the
++/// player can draw more often than that, and each extra drawing shows moving objects between where
++/// they were in the previous game frame and where they are now (`alpha` = how far into the current
++/// frame interval this drawing is). Only positions, sizes and rotations are in-betweened; art that
++/// changes from one frame to the next still changes 30 times a second.
++pub mod mvs_interp {
++    use ruffle_render::matrix::Matrix;
++    use std::sync::atomic::{AtomicU32, Ordering::Relaxed};
++    use swf::Twips;
++
++    static FRAME: AtomicU32 = AtomicU32::new(1);
++    /// f32 bits of the current alpha, or u32::MAX when in-betweening is off.
++    static ALPHA: AtomicU32 = AtomicU32::new(u32::MAX);
++
++    pub fn frame() -> u32 {
++        FRAME.load(Relaxed)
++    }
++
++    /// Called at the start of each game frame.
++    pub fn next_frame() {
++        FRAME.fetch_add(1, Relaxed);
++    }
++
++    pub fn set_alpha(alpha: Option<f32>) {
++        ALPHA.store(alpha.map_or(u32::MAX, |a| a.clamp(0.0, 1.0).to_bits()), Relaxed);
++    }
++
++    pub fn alpha() -> Option<f32> {
++        let bits = ALPHA.load(Relaxed);
++        (bits != u32::MAX).then(|| f32::from_bits(bits))
++    }
++
++    /// Lag-killer experiments (off unless the page turns them on): skip the timelines of hidden
++    /// clips, and of orphans (clips removed from the stage that Flash still runs).
++    static FREEZE_HIDDEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
++    static FREEZE_ORPHANS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
++
++    pub fn set_freeze(hidden: bool, orphans: bool) {
++        FREEZE_HIDDEN.store(hidden, Relaxed);
++        FREEZE_ORPHANS.store(orphans, Relaxed);
++    }
++
++    pub fn freeze_hidden() -> bool {
++        FREEZE_HIDDEN.load(Relaxed)
++    }
++
++    pub fn freeze_orphans() -> bool {
++        FREEZE_ORPHANS.load(Relaxed)
++    }
++
++    /// Whether movie libraries are freed once their movies are unused (see `Library::mvs_finalize`).
++    /// On unless the page sets window.__mvsKeepLibraries.
++    static FREE_LIBRARIES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
++
++    pub fn set_free_libraries(on: bool) {
++        FREE_LIBRARIES.store(on, Relaxed);
++    }
++
++    pub fn free_libraries() -> bool {
++        FREE_LIBRARIES.load(Relaxed)
++    }
++
++    /// Whether a game frame ran since the last picture (set for each picture while in-betweening).
++    static FRESH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
++
++    pub fn set_fresh(fresh: bool) {
++        FRESH.store(fresh, Relaxed);
++    }
++
++    /// A picture drawn between game frames: the objects are the same as in the last one, only moved.
++    /// Work that only follows changes (bitmap caches, the blend-cache check) can be skipped for it.
++    pub fn in_between() -> bool {
++        alpha().is_some() && !FRESH.load(Relaxed)
++    }
++
++    /// Jumps (more than 120 px in one frame), mirror flips and big turns or size changes are
++    /// shown as they are: blending them would draw a squashed or sliding in-between.
++    pub fn can_blend(a: &Matrix, b: &Matrix) -> bool {
++        const MAX_MOVE: i32 = 120 * 20;
++        let flip = |x: f32, y: f32| (x > 0.001 && y < -0.001) || (x < -0.001 && y > 0.001);
++        (b.tx.get() - a.tx.get()).abs() <= MAX_MOVE
++            && (b.ty.get() - a.ty.get()).abs() <= MAX_MOVE
++            && !flip(a.a, b.a)
++            && !flip(a.d, b.d)
++            && (b.a - a.a).abs() + (b.b - a.b).abs() + (b.c - a.c).abs() + (b.d - a.d).abs() <= 0.6
++    }
++
++    pub fn lerp(a: &Matrix, b: &Matrix, t: f32) -> Matrix {
++        let f = |x: f32, y: f32| x + (y - x) * t;
++        let tw = |x: Twips, y: Twips| {
++            Twips::new((x.get() as f32 + (y.get() - x.get()) as f32 * t).round() as i32)
++        };
++        Matrix {
++            a: f(a.a, b.a),
++            b: f(a.b, b.b),
++            c: f(a.c, b.c),
++            d: f(a.d, b.d),
++            tx: tw(a.tx, b.tx),
++            ty: tw(a.ty, b.ty),
++        }
++    }
++}
++
++/// MVS culling: shapes, text and bitmaps whose box lies wholly outside what can be seen (the screen,
++/// and the masks and scroll rects they are drawn under) are not drawn. Ruffle otherwise draws every
++/// one of them; a scrolled list such as the badge book sent over 5,000 draw calls a picture.
++/// Rectangles are in the main picture's pixel space (twips); bitmap caches and BitmapData.draw
++/// (offscreen pictures) are not culled.
++pub mod mvs_cull {
++    use std::cell::RefCell;
++    use swf::{Rectangle, Twips};
++
++    thread_local! {
++        static RECTS: RefCell<Vec<Rectangle<Twips>>> = const { RefCell::new(Vec::new()) };
++    }
++
++    /// Narrows what can be seen to `rect` (an empty or invalid mask box narrows nothing).
++    pub fn push(rect: Rectangle<Twips>) {
++        RECTS.with(|r| {
++            let mut r = r.borrow_mut();
++            let next = match (r.last(), rect.is_valid()) {
++                (Some(top), true) => Rectangle {
++                    x_min: top.x_min.max(rect.x_min),
++                    y_min: top.y_min.max(rect.y_min),
++                    x_max: top.x_max.min(rect.x_max),
++                    y_max: top.y_max.min(rect.y_max),
++                },
++                (Some(top), false) => *top,
++                (None, _) => rect,
++            };
++            r.push(next);
++        });
++    }
++
++    pub fn pop() {
++        RECTS.with(|r| {
++            r.borrow_mut().pop();
++        });
++    }
++
++    pub fn clear() {
++        RECTS.with(|r| r.borrow_mut().clear());
++    }
++
++    pub fn active() -> bool {
++        RECTS.with(|r| !r.borrow().is_empty())
++    }
++
++    pub fn visible(bounds: &Rectangle<Twips>) -> bool {
++        if !bounds.is_valid() {
++            return true;
++        }
++        RECTS.with(|r| match r.borrow().last() {
++            Some(top) => {
++                top.x_min <= bounds.x_max
++                    && top.x_max >= bounds.x_min
++                    && top.y_min <= bounds.y_max
++                    && top.y_max >= bounds.y_min
++            }
++            None => true,
++        })
++    }
++}
++
++/// Blend modes the WebGL renderer can only draw inside an offscreen image (they need the pixels behind).
++fn needs_backdrop(mode: ExtendedBlendMode) -> bool {
++    matches!(
++        mode,
++        ExtendedBlendMode::Darken
++            | ExtendedBlendMode::Difference
++            | ExtendedBlendMode::Invert
++            | ExtendedBlendMode::Overlay
++            | ExtendedBlendMode::HardLight
++    )
++}
++
++/// Largest object (in stage pixels) cached for its children's blend modes; anything bigger draws them
++/// as Normal, since redrawing a big image each change costs more than it is worth.
++const MAX_BLEND_CACHE_AREA: f64 = 1024.0 * 1024.0;
++
++fn update_blend_cache<'gc>(this: DisplayObject<'gc>, context: &mut RenderContext<'_, 'gc>) {
++    let mut wanted = match this.as_container() {
++        Some(container) => container
++            .iter_render_list()
++            .any(|child| child.visible() && needs_backdrop(child.blend_mode())),
++        None => false,
++    };
++    if wanted {
++        let matrix = context.transform_stack.transform().matrix;
++        let bounds = this.render_bounds_with_transform(&matrix, false, &context.stage.view_matrix());
++        let area = bounds.width().to_pixels() * bounds.height().to_pixels();
++        wanted = area > 0.0 && area <= MAX_BLEND_CACHE_AREA;
++    }
++    this.base().set_blend_cache(wanted);
++}
++
+ pub fn render_base<'gc>(
+     this: DisplayObject<'gc>,
+     context: &mut RenderContext<'_, 'gc>,
+@@ -976,10 +1244,25 @@ pub fn render_base<'gc>(
+     }
+ 
+     if options.apply_transform {
+-        let transform = this.base().transform(options.apply_matrix);
++        let transform = if context.is_offscreen {
++            this.base().transform(options.apply_matrix)
++        } else {
++            this.base().render_transform(options.apply_matrix)
++        };
+         context.transform_stack.push(&transform);
+     }
+ 
++    if !context.is_offscreen && this.as_container().is_none() && mvs_cull::active() {
++        let matrix = context.transform_stack.transform().matrix;
++        let bounds = this.render_bounds_with_transform(&matrix, true, &context.stage.view_matrix());
++        if !mvs_cull::visible(&bounds) {
++            if options.apply_transform {
++                context.transform_stack.pop();
++            }
++            return;
++        }
++    }
++
+     let blend_mode = this.blend_mode();
+     let original_commands = if blend_mode != ExtendedBlendMode::Normal {
+         Some(std::mem::take(&mut context.commands))
+@@ -987,6 +1270,15 @@ pub fn render_base<'gc>(
+         None
+     };
+ 
++    // In-between pictures (MVS in-betweening) show the same objects as the last game frame: skip the check.
++    if context.use_bitmap_cache
++        && !context.is_offscreen
++        && !mvs_interp::in_between()
++        && context.renderer.is_offscreen_supported()
++    {
++        update_blend_cache(this, context);
++    }
++
+     let cache_info = if context.use_bitmap_cache && this.is_bitmap_cached() {
+         let mut cache_info: Option<DrawCacheInfo> = None;
+         let base_transform = context.transform_stack.transform();
+@@ -1212,6 +1504,17 @@ pub fn apply_standard_mask_and_scroll<'gc, F>(
+         None
+     };
+ 
++    // MVS culling: the crop box of the scroll rect, in picture space.
++    let scroll_cull = this.scroll_rect().map(|rect| {
++        context.transform_stack.transform().matrix
++            * Rectangle {
++                x_min: Twips::ZERO,
++                y_min: Twips::ZERO,
++                x_max: rect.width(),
++                y_max: rect.height(),
++            }
++    });
++
+     if let Some(rect) = this.scroll_rect() {
+         // Translate everything that we render (including DisplayObject.mask)
+         context.transform_stack.push(&Transform {
+@@ -1230,10 +1533,16 @@ pub fn apply_standard_mask_and_scroll<'gc, F>(
+         }
+         mask_transform.matrix *= m.local_to_global_matrix();
+     }
++    let mut culls = 0;
+     if let RenderMask::Stencil(m) = mask {
+         context.commands.push_mask();
+         context.transform_stack.push(&mask_transform);
+         m.render_self(context);
++        if !context.is_offscreen && mvs_cull::active() {
++            let matrix = context.transform_stack.transform().matrix;
++            mvs_cull::push(m.render_bounds_with_transform(&matrix, false, &context.stage.view_matrix()));
++            culls += 1;
++        }
+         context.transform_stack.pop();
+         context.commands.activate_mask();
+     }
+@@ -1254,6 +1563,12 @@ pub fn apply_standard_mask_and_scroll<'gc, F>(
+         // The color doesn't matter, as this is a mask.
+         context.commands.draw_rect(Color::WHITE, rect_mat);
+         context.commands.activate_mask();
++        if !context.is_offscreen && mvs_cull::active() {
++            if let Some(bounds) = scroll_cull {
++                mvs_cull::push(bounds);
++                culls += 1;
++            }
++        }
+     }
+ 
+     if let RenderMask::Alpha(m) = mask {
+@@ -1301,6 +1616,9 @@ pub fn apply_standard_mask_and_scroll<'gc, F>(
+         // Remove the translation that we pushed
+         context.transform_stack.pop();
+     }
++    for _ in 0..culls {
++        mvs_cull::pop();
++    }
+ }
+ 
+ #[enum_trait_object(
+diff --git a/core/src/display_object/container.rs b/core/src/display_object/container.rs
+index d987edde..1e39ecbf 100644
+--- a/core/src/display_object/container.rs
++++ b/core/src/display_object/container.rs
+@@ -517,6 +517,8 @@ pub trait TDisplayObjectContainer<'gc>:
+     /// Renders the children of this container in render list order.
+     #[no_dynamic]
+     fn render_children(self, context: &mut RenderContext<'_, 'gc>) {
++        use crate::display_object::mvs_cull;
++        let cull = !context.is_offscreen && mvs_cull::active();
+         let mut clip_depth = 0;
+         let mut clip_depth_stack: Vec<(Depth, DisplayObject<'_>)> = vec![];
+         for child in self.iter_render_list() {
+@@ -531,6 +533,9 @@ pub trait TDisplayObjectContainer<'gc>:
+                 // Clear the mask stencil and pop the mask.
+                 let (prev_clip_depth, clip_child) = clip_depth_stack.pop().unwrap();
+                 clip_depth = prev_clip_depth;
++                if cull {
++                    mvs_cull::pop();
++                }
+                 context.commands.deactivate_mask();
+                 clip_child.render(context);
+                 context.commands.pop_mask();
+@@ -542,6 +547,10 @@ pub trait TDisplayObjectContainer<'gc>:
+                 context.commands.push_mask();
+                 child.render(context);
+                 context.commands.activate_mask();
++                if cull {
++                    let matrix = context.transform_stack.transform().matrix * child.base().render_matrix();
++                    mvs_cull::push(child.render_bounds_with_transform(&matrix, false, &context.stage.view_matrix()));
++                }
+             } else if child.visible() || context.commands.drawing_mask() {
+                 // Either a normal visible child, or a descendant of a mask object
+                 // that we're drawing. The 'visible' flag is ignored for all descendants
+@@ -552,6 +561,9 @@ pub trait TDisplayObjectContainer<'gc>:
+ 
+         // Pop any remaining masks.
+         for (_, clip_child) in clip_depth_stack.into_iter().rev() {
++            if cull {
++                mvs_cull::pop();
++            }
+             context.commands.deactivate_mask();
+             clip_child.render(context);
+             context.commands.pop_mask();
+diff --git a/core/src/display_object/movie_clip.rs b/core/src/display_object/movie_clip.rs
+index 6f1a27a8..e4a4778d 100644
+--- a/core/src/display_object/movie_clip.rs
++++ b/core/src/display_object/movie_clip.rs
+@@ -273,6 +273,11 @@ impl<'gc> MovieClipData<'gc> {
+ }
+ 
+ impl<'gc> MovieClip<'gc> {
++    /// MVS lag-killer experiment: a hidden clip that is already built is left as it is.
++    fn mvs_frozen(self) -> bool {
++        !self.visible() && self.0.initialized() && self.0.object2.get().is_some()
++    }
++
+     pub fn downgrade(self) -> MovieClipWeak<'gc> {
+         MovieClipWeak(Gc::downgrade(self.0))
+     }
+@@ -2530,6 +2535,9 @@ impl<'gc> TDisplayObject<'gc> for MovieClip<'gc> {
+     }
+ 
+     fn enter_frame(self, context: &mut UpdateContext<'gc>) {
++        if crate::display_object::mvs_interp::freeze_hidden() && self.mvs_frozen() {
++            return;
++        }
+         let skip_frame = self.base().should_skip_next_enter_frame();
+         //Child removals from looping gotos appear to resolve in reverse order.
+         for child in self.iter_render_list().rev() {
+@@ -2583,6 +2591,9 @@ impl<'gc> TDisplayObject<'gc> for MovieClip<'gc> {
+ 
+     /// Construct objects placed on this frame.
+     fn construct_frame(self, context: &mut UpdateContext<'gc>) {
++        if crate::display_object::mvs_interp::freeze_hidden() && self.mvs_frozen() {
++            return;
++        }
+         // AVM1 code expects to execute in line with timeline instructions, so
+         // it's exempted from frame construction.
+         if self.movie().is_action_script_3()
+@@ -2647,6 +2658,9 @@ impl<'gc> TDisplayObject<'gc> for MovieClip<'gc> {
+     }
+ 
+     fn run_frame_scripts(self, context: &mut UpdateContext<'gc>) {
++        if crate::display_object::mvs_interp::freeze_hidden() && self.mvs_frozen() {
++            return;
++        }
+         self.run_local_frame_scripts(context);
+ 
+         for child in self.iter_render_list() {
+@@ -2796,7 +2810,7 @@ impl<'gc> TDisplayObject<'gc> for MovieClip<'gc> {
+ 
+     fn on_parent_removed(self, context: &mut UpdateContext<'gc>) {
+         if self.movie().is_action_script_3() {
+-            context.orphan_manager.add_orphan_obj(self.into())
++            context.orphan_manager.add_removed_orphan_obj(self.into())
+         }
+     }
+ 
+diff --git a/core/src/display_object/stage.rs b/core/src/display_object/stage.rs
+index 3c73b541..93e78fee 100644
+--- a/core/src/display_object/stage.rs
++++ b/core/src/display_object/stage.rs
+@@ -621,6 +621,17 @@ impl<'gc> Stage<'gc> {
+     /// You can easily observe the difference between render_viewport and render
+     /// in FP by checking which stuff can be rendered using `BitmapData.draw`.
+     pub fn render_viewport(self, context: &mut RenderContext<'_, 'gc>) {
++        use crate::display_object::mvs_cull;
++        mvs_cull::clear();
++        if !context.is_offscreen {
++            let size = context.renderer.viewport_dimensions();
++            mvs_cull::push(swf::Rectangle {
++                x_min: swf::Twips::ZERO,
++                y_min: swf::Twips::ZERO,
++                x_max: swf::Twips::from_pixels(size.width as f64),
++                y_max: swf::Twips::from_pixels(size.height as f64),
++            });
++        }
+         context.transform_stack.push(&Transform {
+             matrix: self.0.viewport_matrix.get(),
+             color_transform: Default::default(),
+@@ -650,6 +661,7 @@ impl<'gc> Stage<'gc> {
+         }
+ 
+         context.transform_stack.pop();
++        mvs_cull::clear();
+     }
+ 
+     /// Draw the stage's letterbox.
+diff --git a/core/src/lib.rs b/core/src/lib.rs
+index d76c1cba..9862fff5 100644
+--- a/core/src/lib.rs
++++ b/core/src/lib.rs
+@@ -7,6 +7,9 @@
+ 
+ #[macro_use]
+ mod display_object;
++pub use display_object::mvs_interp::set_free_libraries as mvs_set_free_libraries;
++pub use avm2::mvs_set_const_overrides;
++pub use display_object::mvs_interp::set_freeze as mvs_set_freeze;
+ pub use display_object::{StageAlign, StageDisplayState, StageScaleMode};
+ 
+ #[macro_use]
+diff --git a/core/src/library.rs b/core/src/library.rs
+index b89702eb..cbd87697 100644
+--- a/core/src/library.rs
++++ b/core/src/library.rs
+@@ -1,4 +1,5 @@
+ use crate::avm1::{PropertyMap as Avm1PropertyMap, PropertyMap};
++use crate::avm2::ClassWeak as Avm2ClassWeak;
+ use crate::avm2::{Class as Avm2Class, Domain as Avm2Domain};
+ use crate::backend::audio::SoundHandle;
+ use crate::character::Character;
+@@ -7,8 +8,9 @@ use crate::display_object::{Bitmap, Graphic, MorphShape, Text};
+ use crate::font::{Font, FontDescriptor, FontLike, FontQuery, FontType};
+ use crate::prelude::*;
+ use crate::string::AvmString;
+-use crate::tag_utils::SwfMovie;
+-use gc_arena::{Collect, Mutation};
++use crate::tag_utils::{SwfMovie, SwfMovieWeak};
++use gc_arena::{Collect, Finalization, Gc, GcWeak, Mutation};
++use std::cell::UnsafeCell;
+ use ruffle_render::backend::RenderBackend;
+ use ruffle_render::bitmap::BitmapHandle;
+ use ruffle_render::utils::remove_invalid_jpeg_data;
+@@ -19,9 +21,12 @@ use crate::font::DefaultFont;
+ use fnv::{FnvHashMap, FnvHashSet};
+ use std::collections::HashMap;
+ 
++/// MVS: a class's library symbol. Held weakly: the entry keeps its movie only while the class is
++/// in use elsewhere (see `Library::mvs_keep`), so classes of unloaded movies (each AQW player's
++/// items load into their own domain) can be freed with their movies.
+ #[derive(Clone, Collect)]
+ #[collect(no_drop)]
+-struct MovieSymbol<'gc>(SwfMovie<'gc>, CharacterId);
++struct MovieSymbol<'gc>(Avm2ClassWeak<'gc>, SwfMovieWeak<'gc>, CharacterId);
+ 
+ /// The mappings between class objects and library characters defined by
+ /// `SymbolClass`.
+@@ -30,7 +35,8 @@ struct MovieSymbol<'gc>(SwfMovie<'gc>, CharacterId);
+ pub struct Avm2ClassRegistry<'gc> {
+     /// A list of AVM2 class objects and the character IDs they are expected to
+     /// instantiate.
+-    class_map: HashMap<Avm2Class<'gc>, MovieSymbol<'gc>>,
++    /// Keyed by the class's address.
++    class_map: HashMap<usize, MovieSymbol<'gc>>,
+ }
+ 
+ impl Default for Avm2ClassRegistry<'_> {
+@@ -51,8 +57,9 @@ impl<'gc> Avm2ClassRegistry<'gc> {
+     /// A value of `None` indicates that this AVM2 class is not associated with
+     /// a library symbol.
+     pub fn class_symbol(&self, class_def: Avm2Class<'gc>) -> Option<(SwfMovie<'gc>, CharacterId)> {
+-        match self.class_map.get(&class_def) {
+-            Some(MovieSymbol(movie, symbol)) => Some((*movie, *symbol)),
++        match self.class_map.get(&(class_def.as_ptr() as usize)) {
++            // SAFETY: an entry's movie is kept while its class lives (`Library::mvs_keep`).
++            Some(MovieSymbol(_, movie, symbol)) => Some((unsafe { movie.assume_alive() }, *symbol)),
+             None => None,
+         }
+     }
+@@ -64,8 +71,8 @@ impl<'gc> Avm2ClassRegistry<'gc> {
+         movie: SwfMovie<'gc>,
+         symbol: CharacterId,
+     ) {
+-        if let Some(old) = self.class_map.get(&class_def) {
+-            if SwfMovie::ptr_eq(&movie, &old.0) && symbol != old.1 {
++        if let Some(old) = self.class_map.get(&(class_def.as_ptr() as usize)) {
++            if std::ptr::eq(movie.as_ptr(), old.1.as_ptr()) && symbol != old.2 {
+                 // Flash player actually allows using the same class in multiple SymbolClass
+                 // entries in the same swf, with *different* symbol ids. Whichever one
+                 // is processed first will *win*, and the second one will be ignored.
+@@ -74,7 +81,7 @@ impl<'gc> Avm2ClassRegistry<'gc> {
+                 tracing::warn!(
+                     "Tried to overwrite class {:?} id={:?} with symbol id={:?} from same movie",
+                     class_def,
+-                    old.1,
++                    old.2,
+                     symbol,
+                 );
+             }
+@@ -85,7 +92,36 @@ impl<'gc> Avm2ClassRegistry<'gc> {
+             // instantiates the clip on the timeline.
+             return;
+         }
+-        self.class_map.insert(class_def, MovieSymbol(movie, symbol));
++        self.class_map.insert(
++            class_def.as_ptr() as usize,
++            MovieSymbol(class_def.mvs_downgrade(), movie.downgrade(), symbol),
++        );
++    }
++
++    /// MVS: keeps the movie of every class still in use (with `free` off: every class and movie).
++    /// True if that kept anything new.
++    fn mvs_keep(&self, fc: &Finalization<'gc>, free: bool) -> bool {
++        let mut kept = false;
++        for MovieSymbol(class, movie, _) in self.class_map.values() {
++            let class_dead = class.is_dead(fc);
++            if class_dead && !free {
++                class.resurrect(fc);
++                kept = true;
++            }
++            if (!class_dead || !free) && movie.is_dead(fc) {
++                movie.resurrect(fc);
++                kept = true;
++            }
++        }
++        kept
++    }
++
++    fn mvs_has_dead(&self, fc: &Finalization<'gc>) -> bool {
++        self.class_map.values().any(|MovieSymbol(class, _, _)| class.is_dead(fc))
++    }
++
++    fn mvs_drop_dead(&mut self, fc: &Finalization<'gc>) {
++        self.class_map.retain(|_, MovieSymbol(class, _, _)| !class.is_dead(fc));
+     }
+ }
+ 
+@@ -373,27 +409,85 @@ impl ruffle_render::bitmap::BitmapSource for MovieLibrarySource<'_, '_> {
+     }
+ }
+ 
++/// MVS: a movie library in its own GC allocation, which `MovieLibraries` holds weakly.
++struct LibCell<'gc>(UnsafeCell<MovieLibrary<'gc>>);
++
++// SAFETY: traces the library it holds. Tracing only happens between game frames, never while a
++// reference from `LibSlot::library`/`library_mut` is alive.
++unsafe impl<'gc> Collect<'gc> for LibCell<'gc> {
++    fn trace<T: gc_arena::collect::Trace<'gc>>(&self, cc: &mut T) {
++        unsafe { &*self.0.get() }.trace(cc)
++    }
++}
++
++/// MVS: one movie's library.
++#[derive(Collect)]
++#[collect(no_drop)]
++enum LibSlot<'gc> {
++    /// Made since the last collection step: owned here until `Library::mvs_prepare` moves it into
++    /// its own allocation.
++    Fresh(Box<MovieLibrary<'gc>>),
++    /// Kept only while its movie is in use elsewhere (see `Library::mvs_keep`). The cell is reached
++    /// only through this weak handle, so the collector leaves it unmarked until finalization; then
++    /// `Player::mvs_collect` marks what it keeps without letting the game run in between, and the
++    /// cycle goes straight on to the sweep. A cell is therefore never marked while the game can
++    /// change it during marking, and needs no write barrier.
++    Held {
++        movie: SwfMovieWeak<'gc>,
++        cell: GcWeak<'gc, LibCell<'gc>>,
++    },
++}
++
++impl<'gc> LibSlot<'gc> {
++    fn library(&self) -> &MovieLibrary<'gc> {
++        match self {
++            LibSlot::Fresh(library) => library,
++            // SAFETY: a held cell lives while its entry does (dead entries are removed before the
++            // sweep that frees them), and no `&mut` to it can be alive alongside `&self`.
++            LibSlot::Held { cell, .. } => unsafe { &*(*cell.as_ptr()).0.get() },
++        }
++    }
++
++    fn library_mut(&mut self) -> &mut MovieLibrary<'gc> {
++        match self {
++            LibSlot::Fresh(library) => library,
++            // SAFETY: as above; `&mut self` makes this the only reference.
++            LibSlot::Held { cell, .. } => unsafe { &mut *(*cell.as_ptr()).0.get() },
++        }
++    }
++}
++
++/// The libraries of all movies, keyed by the movie's address.
++///
++/// MVS: upstream keeps every library (and so every movie loaded since start) forever. AQW loads each
++/// player's gear, pet and effects as separate movies, so a busy room filled the 4 GB WebAssembly
++/// memory in minutes. Libraries are now freed once nothing else uses their movie.
+ #[derive(Collect)]
+ #[collect(no_drop)]
+-struct MovieLibraries<'gc>(HashMap<SwfMovie<'gc>, MovieLibrary<'gc>>);
++struct MovieLibraries<'gc> {
++    slots: HashMap<usize, LibSlot<'gc>>,
++}
+ 
+ impl<'gc> MovieLibraries<'gc> {
+     fn new() -> Self {
+-        Self(HashMap::new())
++        Self {
++            slots: HashMap::new(),
++        }
+     }
+ 
+     fn get(&self, key: SwfMovie<'gc>) -> Option<&MovieLibrary<'gc>> {
+-        self.0.get(&key)
++        self.slots.get(&(key.as_ptr() as usize)).map(LibSlot::library)
+     }
+ 
+     fn get_or_insert_mut(&mut self, movie: SwfMovie<'gc>) -> &mut MovieLibrary<'gc> {
+-        self.0
+-            .entry(movie)
+-            .or_insert_with(|| MovieLibrary::new(movie))
++        self.slots
++            .entry(movie.as_ptr() as usize)
++            .or_insert_with(|| LibSlot::Fresh(Box::new(MovieLibrary::new(movie))))
++            .library_mut()
+     }
+ 
+     fn known_movies(&self) -> impl Iterator<Item = SwfMovie<'gc>> {
+-        self.0.keys().copied()
++        self.slots.values().map(|slot| slot.library().swf)
+     }
+ }
+ 
+@@ -428,6 +522,9 @@ pub struct Library<'gc> {
+     /// A list of the symbols associated with specific AVM2 constructor
+     /// prototypes.
+     avm2_class_registry: Avm2ClassRegistry<'gc>,
++
++    /// MVS: every `new Dictionary(true)` still alive (see `mvs_keep`).
++    mvs_weak_dicts: Vec<crate::avm2::object::WeakObject<'gc>>,
+ }
+ 
+ impl<'gc> Library<'gc> {
+@@ -441,6 +538,95 @@ impl<'gc> Library<'gc> {
+             default_font_names: Default::default(),
+             default_font_cache: Default::default(),
+             avm2_class_registry: Default::default(),
++            mvs_weak_dicts: Vec::new(),
++        }
++    }
++
++    /// MVS: a dictionary created with weak keys.
++    pub fn mvs_register_weak_dict(&mut self, dict: crate::avm2::Object<'gc>) {
++        self.mvs_weak_dicts.push(dict.downgrade());
++    }
++
++    // MVS: whether the GC value at `ptr` is unreachable so far this cycle (during finalization).
++    fn mvs_ptr_dead(fc: &Finalization<'gc>, ptr: *const ()) -> bool {
++        // SAFETY: `ptr` is a GC value the caller holds a (weak or strong) reference to.
++        unsafe { GcWeak::<()>::from_ptr(ptr) }.is_dead(fc)
++    }
++
++    // MVS: keeps the values of weak-keyed dictionary entries whose key is in use elsewhere.
++    fn mvs_keep_dict_values(&self, fc: &Finalization<'gc>) -> bool {
++        use crate::avm2::object::TObject as _;
++        let mut kept = false;
++        for weak in &self.mvs_weak_dicts {
++            if Self::mvs_ptr_dead(fc, weak.as_ptr() as *const ()) {
++                continue;
++            }
++            let Some(dict) = weak.upgrade(fc) else {
++                continue;
++            };
++            let base = dict.base();
++            let values = base.values();
++            for (key, prop) in values.iter() {
++                let crate::avm2::dynamic_map::DynamicKey::Object(o) = key else {
++                    continue;
++                };
++                if Self::mvs_ptr_dead(fc, o.as_ptr() as *const ()) {
++                    continue;
++                }
++                for ptr in gc_arena::mvs::root_edges(&prop.value) {
++                    // SAFETY: a pointer held by a live entry's value.
++                    let gc = unsafe { Gc::<()>::from_ptr(ptr) };
++                    if Gc::is_dead(fc, gc) {
++                        Gc::resurrect(fc, gc);
++                        kept = true;
++                    }
++                }
++            }
++        }
++        kept
++    }
++
++    fn mvs_dicts_have_dead(&self, fc: &Finalization<'gc>) -> bool {
++        use crate::avm2::object::TObject as _;
++        self.mvs_weak_dicts.iter().any(|weak| {
++            if Self::mvs_ptr_dead(fc, weak.as_ptr() as *const ()) {
++                return true;
++            }
++            weak.upgrade(fc).is_some_and(|dict| {
++                dict.base().values().iter().any(|(key, _)| {
++                    matches!(key, crate::avm2::dynamic_map::DynamicKey::Object(o)
++                        if Self::mvs_ptr_dead(fc, o.as_ptr() as *const ()))
++                })
++            })
++        })
++    }
++
++    fn mvs_drop_dead_dict_entries(&mut self, fc: &Finalization<'gc>) {
++        use crate::avm2::object::TObject as _;
++        self.mvs_weak_dicts.retain(|weak| !Self::mvs_ptr_dead(fc, weak.as_ptr() as *const ()));
++        for weak in &self.mvs_weak_dicts {
++            let Some(dict) = weak.upgrade(fc) else {
++                continue;
++            };
++            let base = dict.base();
++            let dead: Vec<_> = base
++                .values()
++                .iter()
++                .filter_map(|(key, _)| match key {
++                    crate::avm2::dynamic_map::DynamicKey::Object(o)
++                        if Self::mvs_ptr_dead(fc, o.as_ptr() as *const ()) =>
++                    {
++                        Some(*key)
++                    }
++                    _ => None,
++                })
++                .collect();
++            if !dead.is_empty() {
++                let mut values = base.values_mut(fc);
++                for key in dead {
++                    values.remove(&key);
++                }
++            }
+         }
+     }
+ 
+@@ -456,6 +642,93 @@ impl<'gc> Library<'gc> {
+         self.movie_libraries.known_movies()
+     }
+ 
++    /// MVS: how many movie libraries are kept, and the movies' uncompressed size in bytes.
++    pub fn mvs_stats(&self) -> (usize, usize) {
++        self.known_movies().fold((0, 0), |(n, bytes), m| (n + 1, bytes + m.data().len()))
++    }
++
++    /// MVS: whether `mvs_prepare` has anything to do. The root movie's library stays owned here
++    /// (it is never freed, and is the biggest).
++    pub fn mvs_needs_prepare(&self, root: SwfMovie<'gc>) -> bool {
++        let root = root.as_ptr() as usize;
++        self.movie_libraries
++            .slots
++            .iter()
++            .any(|(key, slot)| *key != root && matches!(slot, LibSlot::Fresh(_)))
++    }
++
++    /// MVS: run at the start of each collection step: libraries made since the last step (other
++    /// than the root movie's) move into their own allocations, held weakly from then on.
++    pub fn mvs_prepare(&mut self, mc: &Mutation<'gc>, root: SwfMovie<'gc>) {
++        let root = root.as_ptr() as usize;
++        let keys: Vec<usize> = self
++            .movie_libraries
++            .slots
++            .iter()
++            .filter(|(key, slot)| **key != root && matches!(slot, LibSlot::Fresh(_)))
++            .map(|(key, _)| *key)
++            .collect();
++        for key in keys {
++            let Some(LibSlot::Fresh(library)) = self.movie_libraries.slots.remove(&key) else {
++                continue;
++            };
++            let movie = library.swf.downgrade();
++            let cell = Gc::new(mc, LibCell(UnsafeCell::new(*library)));
++            self.movie_libraries.slots.insert(
++                key,
++                LibSlot::Held {
++                    movie,
++                    cell: Gc::downgrade(cell),
++                },
++            );
++        }
++    }
++
++    /// MVS: called on the fully marked arena (see `Player::mvs_collect`). Keeps the library of every
++    /// movie still in use elsewhere, and the movie of every class still in use (with `free` off:
++    /// everything, like upstream). Returns true if that kept anything new: the arena must then be
++    /// marked again and this called again. Once nothing new is kept, `mvs_drop_dead` removes the
++    /// rest.
++    pub fn mvs_keep(&self, fc: &Finalization<'gc>, free: bool) -> bool {
++        let mut kept = self.avm2_class_registry.mvs_keep(fc, free);
++        kept |= self.mvs_keep_dict_values(fc);
++        for slot in self.movie_libraries.slots.values() {
++            if let LibSlot::Held { movie, cell } = slot {
++                let movie_dead = movie.is_dead(fc);
++                if movie_dead && !free {
++                    movie.resurrect(fc);
++                    kept = true;
++                }
++                if (!movie_dead || !free) && cell.is_dead(fc) {
++                    let _ = cell.resurrect(fc);
++                    kept = true;
++                }
++            }
++        }
++        kept
++    }
++
++    /// MVS: whether `mvs_drop_dead` has anything to remove.
++    pub fn mvs_has_dead(&self, fc: &Finalization<'gc>) -> bool {
++        self.avm2_class_registry.mvs_has_dead(fc)
++            || self.mvs_dicts_have_dead(fc)
++            || self.movie_libraries.slots.values().any(|slot| match slot {
++                LibSlot::Held { movie, .. } => movie.is_dead(fc),
++                LibSlot::Fresh(_) => false,
++            })
++    }
++
++    /// MVS: forgets libraries and class symbols whose movie or class is no longer used; the sweep
++    /// that follows frees them.
++    pub fn mvs_drop_dead(&mut self, fc: &Finalization<'gc>) {
++        self.avm2_class_registry.mvs_drop_dead(fc);
++        self.mvs_drop_dead_dict_entries(fc);
++        self.movie_libraries.slots.retain(|_, slot| match slot {
++            LibSlot::Held { movie, .. } => !movie.is_dead(fc),
++            LibSlot::Fresh(_) => true,
++        });
++    }
++
+     /// Returns the default Font implementations behind the built in names (ie `_sans`)
+     pub fn default_font(
+         &mut self,
+diff --git a/core/src/loader.rs b/core/src/loader.rs
+index 33adb41c..df94f8b1 100644
+--- a/core/src/loader.rs
++++ b/core/src/loader.rs
+@@ -250,6 +250,11 @@ impl<'gc> LoadManager<'gc> {
+     }
+ 
+     /// Retrieve a loader by handle.
++    /// MVS: loaders still kept (for the memory report).
++    pub fn mvs_len(&self) -> usize {
++        self.0.len()
++    }
++
+     pub fn get_loader(&self, handle: LoaderHandle) -> Option<&MovieLoader<'gc>> {
+         self.0.get(handle)
+     }
+diff --git a/core/src/orphan_manager.rs b/core/src/orphan_manager.rs
+index a231dc08..c06f286b 100644
+--- a/core/src/orphan_manager.rs
++++ b/core/src/orphan_manager.rs
+@@ -18,6 +18,9 @@ use std::rc::Rc;
+ #[collect(no_drop)]
+ pub struct OrphanManager<'gc> {
+     orphans: Rc<Vec<DisplayObjectWeak<'gc>>>,
++    /// MVS: per orphan, whether it was taken off the stage (not one that never was on it).
++    #[collect(require_static)]
++    removed: Rc<Vec<bool>>,
+ }
+ 
+ impl<'gc> OrphanManager<'gc> {
+@@ -31,17 +34,36 @@ impl<'gc> OrphanManager<'gc> {
+     /// behavior. This should not be called manually - `movie_clip` will
+     /// call it when necessary.
+     pub fn add_orphan_obj(&mut self, dobj: DisplayObject<'gc>) {
++        self.add_orphan(dobj, false);
++    }
++
++    /// MVS: an orphan that was taken off the stage (see `mvs_interp::freeze_orphans`).
++    pub fn add_removed_orphan_obj(&mut self, dobj: DisplayObject<'gc>) {
++        self.add_orphan(dobj, true);
++    }
++
++    fn add_orphan(&mut self, dobj: DisplayObject<'gc>, removed: bool) {
+         // Note: comparing pointers is correct because GcWeak keeps its allocation alive,
+         // so the pointers can't overlap by accident.
+-        if self
++        if let Some(i) = self
+             .orphans
+             .iter()
+-            .all(|d| !std::ptr::eq(d.as_ptr(), dobj.as_ptr()))
++            .position(|d| std::ptr::eq(d.as_ptr(), dobj.as_ptr()))
+         {
++            if removed && !self.removed[i] {
++                Rc::make_mut(&mut self.removed)[i] = true;
++            }
++        } else {
+             self.orphans_mut().push(dobj.downgrade());
++            Rc::make_mut(&mut self.removed).push(removed);
+         }
+     }
+ 
++    /// MVS: orphans kept, and how many of them were taken off the stage.
++    pub fn mvs_counts(&self) -> (usize, usize) {
++        (self.orphans.len(), self.removed.iter().filter(|r| **r).count())
++    }
++
+     pub fn each_orphan_obj(
+         context: &mut UpdateContext<'gc>,
+         mut f: impl FnMut(DisplayObject<'gc>, &mut UpdateContext<'gc>),
+@@ -51,8 +73,15 @@ impl<'gc> OrphanManager<'gc> {
+         // This ensures that any orphan additions/removals done by `f` will not affect
+         // the iteration in this method.
+         let orphan_objs: Rc<_> = context.orphan_manager.orphans.clone();
++        let removed: Rc<_> = context.orphan_manager.removed.clone();
++        // MVS: clips the game took off the stage are invisible; with the switch on they are left
++        // as they are instead of being animated every frame until memory is next cleaned up.
++        let skip_removed = crate::display_object::mvs_interp::freeze_orphans();
+ 
+-        for orphan in orphan_objs.iter() {
++        for (i, orphan) in orphan_objs.iter().enumerate() {
++            if skip_removed && removed.get(i).copied().unwrap_or(false) {
++                continue;
++            }
+             if let Some(dobj) = valid_orphan(*orphan, context.gc()) {
+                 f(dobj, context);
+             }
+@@ -63,7 +92,13 @@ impl<'gc> OrphanManager<'gc> {
+     /// that have been garbage collected, or are no longer orphans
+     /// (they've since acquired a parent).
+     pub fn cleanup_dead_orphans(&mut self, mc: &Mutation<'gc>) {
++        let mut keep = Vec::with_capacity(self.orphans.len());
++        let removed = self.removed.clone();
++        let mut i = 0;
+         self.orphans_mut().retain(|d| {
++            let was_removed = removed.get(i).copied().unwrap_or(false);
++            i += 1;
++            let alive = {
+             if let Some(dobj) = valid_orphan(*d, mc) {
+                 // All clips that become orphaned (have their parent removed, or start out with no parent)
+                 // get added to the orphan list. However, there's a distinction between clips
+@@ -89,7 +124,13 @@ impl<'gc> OrphanManager<'gc> {
+             } else {
+                 false
+             }
++            };
++            if alive {
++                keep.push(was_removed);
++            }
++            alive
+         });
++        self.removed = Rc::new(keep);
+     }
+ }
+ 
+@@ -97,6 +138,7 @@ impl<'gc> Default for OrphanManager<'gc> {
+     fn default() -> Self {
+         Self {
+             orphans: Rc::new(Vec::new()),
++            removed: Rc::new(Vec::new()),
+         }
+     }
+ }
+@@ -110,3 +152,106 @@ fn valid_orphan<'gc>(
+ ) -> Option<DisplayObject<'gc>> {
+     dobj.upgrade(mc).filter(|dobj| dobj.parent().is_none())
+ }
++
++/// MVS: up to three orphans taken off the stage (AQW avatars first), as (display object, AS3
++/// object) pointers with their class, for `Player::mvs_find_holders`.
++pub fn mvs_holder_targets<'gc>(context: &mut UpdateContext<'gc>) -> Vec<(*const (), *const (), String)> {
++    use crate::avm2::object::TObject;
++    let orphans = context.orphan_manager.orphans.clone();
++    let removed = context.orphan_manager.removed.clone();
++    let mut found: Vec<(*const (), *const (), String)> = Vec::new();
++    for pass in 0..2 {
++        for (i, weak) in orphans.iter().enumerate() {
++            if found.len() >= 3 || !removed.get(i).copied().unwrap_or(false) {
++                continue;
++            }
++            let Some(dobj) = valid_orphan(*weak, context.gc()) else {
++                continue;
++            };
++            let class = dobj
++                .object2()
++                .map(|o| o.instance_class().name().local_name().to_string())
++                .unwrap_or_else(|| "-".to_string());
++            if (pass == 0) != (class == "AvatarMC") {
++                continue;
++            }
++            let obj = dobj.object2().map(|o| o.as_ptr() as *const ()).unwrap_or(std::ptr::null());
++            found.push((dobj.as_ptr() as *const (), obj, class));
++        }
++    }
++    found
++}
++
++/// MVS: a census of what the frame loop visits each frame: display objects on the stage (shown
++/// and hidden) and orphans (removed from the stage but still run, like Flash), with the classes
++/// that hold the most of them. For finding where frame time goes when little is drawn.
++pub fn mvs_census<'gc>(context: &mut UpdateContext<'gc>) -> String {
++    use crate::avm2::object::TObject;
++    use crate::display_object::TDisplayObjectContainer;
++    use std::collections::HashMap;
++
++    fn class_of(d: DisplayObject<'_>) -> String {
++        d.object2()
++            .map(|o| o.instance_class().name().local_name().to_string())
++            .unwrap_or_else(|| "-".to_string())
++    }
++
++    // Returns the subtree size; records (instances, objects under them) per named class.
++    fn walk<'gc>(
++        d: DisplayObject<'gc>,
++        hidden: bool,
++        shown_hidden: &mut [u32; 2],
++        classes: &mut HashMap<String, (u32, u32)>,
++    ) -> u32 {
++        let hidden = hidden || !d.visible();
++        shown_hidden[hidden as usize] += 1;
++        let mut n = 1;
++        if let Some(c) = d.as_container() {
++            for child in c.iter_render_list() {
++                n += walk(child, hidden, shown_hidden, classes);
++            }
++        }
++        let name = class_of(d);
++        if !matches!(name.as_str(), "MovieClip" | "Sprite" | "Shape" | "-" | "TextField" | "SimpleButton") {
++            let e = classes.entry(name).or_insert((0, 0));
++            e.0 += 1;
++            e.1 += n;
++        }
++        n
++    }
++
++    fn top(classes: HashMap<String, (u32, u32)>) -> String {
++        let mut v: Vec<_> = classes.into_iter().collect();
++        v.sort_by(|a, b| b.1 .1.cmp(&a.1 .1));
++        v.iter()
++            .take(12)
++            .map(|(k, (n, sub))| format!("{k} x{n} ({sub})"))
++            .collect::<Vec<_>>()
++            .join(", ")
++    }
++
++    let mut stage_counts = [0u32; 2];
++    let mut stage_classes = HashMap::new();
++    walk(context.stage.into(), false, &mut stage_counts, &mut stage_classes);
++
++    let mut orphan_counts = [0u32; 2];
++    let mut orphan_classes = HashMap::new();
++    let mut orphans = 0;
++    let list = context.orphan_manager.orphans.clone();
++    for o in list.iter() {
++        if let Some(d) = valid_orphan(*o, context.gc()) {
++            orphans += 1;
++            walk(d, false, &mut orphan_counts, &mut orphan_classes);
++        }
++    }
++    format!(
++        "stage: {} shown, {} hidden | orphans: {} ({} objects in them, list {})\nstage classes: {}\norphan classes: {}",
++        stage_counts[0],
++        stage_counts[1],
++        orphans,
++        orphan_counts[0] + orphan_counts[1],
++        list.len(),
++        top(stage_classes),
++        top(orphan_classes)
++    )
++}
+diff --git a/core/src/player.rs b/core/src/player.rs
+index c3756621..4afafb03 100644
+--- a/core/src/player.rs
++++ b/core/src/player.rs
+@@ -305,6 +305,11 @@ impl<'gc> GcRootData<'gc> {
+ 
+ type GcArena = gc_arena::Arena<Rootable![GcRoot<'_>]>;
+ 
++/// MVS: collection statistics for the memory report (`Player::mvs_mem`).
++static MVS_GC_CYCLES: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
++static MVS_GC_PASSES: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
++static MVS_GC_MAX_MS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
++
+ #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+ enum RunState {
+     Playing,
+@@ -364,6 +369,9 @@ pub struct Player {
+     /// This is how we support custom SWF framerates
+     /// and compensate for small lags by "catching up" (up to MAX_FRAMES_PER_TICK).
+     frame_accumulator: FloatDuration,
++
++    /// MVS: game frames run so far.
++    mvs_frames_run: u32,
+     recent_run_frame_timings: VecDeque<f64>,
+ 
+     /// Faked time passage for fooling hand-written busy-loop FPS limiters.
+@@ -558,7 +566,10 @@ impl Player {
+         let max_frames_per_tick = self.max_frames_per_tick();
+         let mut frame = 0;
+ 
+-        while frame < max_frames_per_tick && self.frame_accumulator >= frame_duration {
++        let pacing_slack = FloatDuration::from_millis(
++            (dt.as_millis() * 0.5).min(frame_duration.as_millis() * 0.25).max(0.0),
++        );
++        while frame < max_frames_per_tick && self.frame_accumulator + pacing_slack >= frame_duration {
+             let timer = Instant::now();
+             self.run_frame();
+             let elapsed = timer.elapsed().as_millis() as f64;
+@@ -953,6 +964,158 @@ impl Player {
+         self.needs_render
+     }
+ 
++    /// MVS: what the frame loop visits (see `orphan_manager::mvs_census`).
++    pub fn mvs_census(&mut self) -> String {
++        self.mutate_with_update_context(|context| crate::orphan_manager::mvs_census(context))
++    }
++
++    /// MVS: collection cycles finished, finalization passes in the last one, and the longest
++    /// collection step (ms) since the last memory report.
++    /// MVS: where memory goes: live GC objects, kept movie libraries (and their size), orphans,
++    /// pending loaders.
++    pub fn mvs_mem(&mut self) -> String {
++        let gcs = self.gc_arena.borrow().metrics().total_gc_count();
++        let (libs, lib_bytes, orphans, removed, loaders) = self.mutate_with_update_context(|uc| {
++            let (libs, lib_bytes) = uc.library.mvs_stats();
++            let (orphans, removed) = uc.orphan_manager.mvs_counts();
++            (libs, lib_bytes, orphans, removed, uc.load_manager.mvs_len())
++        });
++        use std::sync::atomic::Ordering::Relaxed;
++        format!(
++            "gc {gcs}, cycles {} (last {} passes), longest gc step {} ms, libraries {libs} ({} MB), orphans {orphans} ({removed} removed), loaders {loaders}",
++            MVS_GC_CYCLES.load(Relaxed),
++            MVS_GC_PASSES.load(Relaxed),
++            MVS_GC_MAX_MS.swap(0, Relaxed),
++            lib_bytes / 1_048_576
++        )
++    }
++
++    /// MVS: what keeps orphans that were taken off the stage alive: for up to three of them (AQW
++    /// avatars first), the shortest chain of strong references from the GC root, as type names.
++    pub fn mvs_find_holders(&mut self) -> String {
++        use std::collections::{HashMap, VecDeque};
++        let targets = self.mutate_with_update_context(crate::orphan_manager::mvs_holder_targets);
++        if targets.is_empty() {
++            return "no removed orphans alive".to_string();
++        }
++        fn short(name: &str) -> String {
++            // Drop module paths: "a::b::Type<c::D>" -> "Type<D>".
++            let mut out = String::new();
++            let mut word = String::new();
++            let mut chars = name.chars().peekable();
++            while let Some(c) = chars.next() {
++                if c == ':' && chars.peek() == Some(&':') {
++                    chars.next();
++                    word.clear();
++                } else if c.is_alphanumeric() || c == '_' {
++                    word.push(c);
++                } else {
++                    out.push_str(&word);
++                    word.clear();
++                    out.push(c);
++                }
++            }
++            out.push_str(&word);
++            out
++        }
++        let arena = self.gc_arena.borrow();
++        arena.mutate(|_, root| {
++            let mut want: HashMap<*const (), usize> = HashMap::new();
++            for (i, (d, o, _)) in targets.iter().enumerate() {
++                want.insert(*d, i);
++                if !o.is_null() {
++                    want.insert(*o, i);
++                }
++            }
++            let mut parent: HashMap<*const (), *const ()> = HashMap::new();
++            let mut queue = VecDeque::new();
++            for e in gc_arena::mvs::root_edges(root) {
++                if parent.insert(e, std::ptr::null()).is_none() {
++                    queue.push_back(e);
++                }
++            }
++            let mut found: Vec<(usize, *const ())> = Vec::new();
++            let mut visited = 0usize;
++            while let Some(p) = queue.pop_front() {
++                visited += 1;
++                if let Some(i) = want.get(&p) {
++                    if !found.iter().any(|(j, _)| j == i) {
++                        found.push((*i, p));
++                        if found.len() == targets.len() {
++                            break;
++                        }
++                    }
++                    continue;
++                }
++                // SAFETY: reached through strong pointers from the root, outside collection.
++                for e in unsafe { gc_arena::mvs::edges(p) } {
++                    if let std::collections::hash_map::Entry::Vacant(v) = parent.entry(e) {
++                        v.insert(p);
++                        queue.push_back(e);
++                    }
++                }
++            }
++            let mut out = format!("visited {visited} objects; ");
++            for (i, (_, _, class)) in targets.iter().enumerate() {
++                match found.iter().find(|(j, _)| *j == i) {
++                    None => out.push_str(&format!("[{class}: not reachable from the root] ")),
++                    Some((_, hit)) => {
++                        let mut chain = Vec::new();
++                        let mut p = *hit;
++                        while !p.is_null() {
++                            // SAFETY: as above.
++                            chain.push(short(unsafe { gc_arena::mvs::type_name(p) }));
++                            p = parent.get(&p).copied().unwrap_or(std::ptr::null());
++                        }
++                        chain.reverse();
++                        out.push_str(&format!("[{class}: root > {}] ", chain.join(" > ")));
++                    }
++                }
++            }
++            out
++        })
++    }
++
++    /// MVS: the AS3 classes of the object the mouse is pressing and its ancestors, innermost
++    /// first, joined with ">" (empty when nothing is pressed). The game page reads it on touch-down
++    /// to decide whether a finger drag should scroll the list under it.
++    pub fn mvs_press_chain(&mut self) -> String {
++        use crate::avm2::object::TObject;
++        self.mutate_with_update_context(|uc| {
++            let mut names = Vec::new();
++            let mut d = uc.mouse_data.pressed.map(|i| i.as_displayobject());
++            while let Some(obj) = d {
++                if let Some(o) = obj.object2() {
++                    names.push(o.instance_class().name().local_name().to_string());
++                }
++                d = obj.parent();
++            }
++            names.join(">")
++        })
++    }
++
++    /// MVS: how many game frames have run (for frame-rate measuring).
++    pub fn mvs_frames_run(&self) -> u32 {
++        self.mvs_frames_run
++    }
++
++    /// MVS: draws an in-between picture (see `display_object::mvs_interp`), placed by how far the
++    /// player is into the current frame interval.
++    pub fn render_interpolated(&mut self) {
++        let duration = self.frame_duration().as_millis();
++        let alpha = if duration > 0.0 {
++            (self.frame_accumulator.as_millis() / duration) as f32
++        } else {
++            1.0
++        };
++        // needs_render: a game frame ran (or something else changed) since the last picture.
++        crate::display_object::mvs_interp::set_fresh(self.needs_render);
++        crate::display_object::mvs_interp::set_alpha(Some(alpha));
++        self.render();
++        crate::display_object::mvs_interp::set_alpha(None);
++        crate::display_object::mvs_interp::set_fresh(true);
++    }
++
+     pub fn background_color(&mut self) -> Option<Color> {
+         self.mutate_with_update_context(|context| context.stage.background_color())
+     }
+@@ -2059,6 +2222,8 @@ impl Player {
+ 
+     #[instrument(level = "debug", skip_all)]
+     pub fn run_frame(&mut self) {
++        crate::display_object::mvs_interp::next_frame();
++        self.mvs_frames_run = self.mvs_frames_run.wrapping_add(1);
+         let frame_time = self.frame_time(750_000_000.0);
+         let frame_time = Duration::from_nanos(frame_time as u64);
+         let (mut execution_limit, may_execute_while_streaming) = match self.load_behavior {
+@@ -2450,11 +2615,59 @@ impl Player {
+         self.update_mouse_state(EnumSet::empty(), false, &mut false);
+ 
+         // GC
+-        self.gc_arena.borrow_mut().collect_debt();
++        Self::mvs_collect(&mut self.gc_arena.borrow_mut());
+ 
+         rval
+     }
+ 
++    /// MVS: `collect_debt`, plus freeing the libraries of movies nothing uses any more (see
++    /// `Library::mvs_keep`). When marking finishes, every library and class symbol still in use is
++    /// kept, and what that keeps is marked right away (the game does not run in between, so held
++    /// libraries never need write barriers), until nothing new is kept. The rest are forgotten and
++    /// the sweep frees them.
++    fn mvs_collect(arena: &mut GcArena) {
++        let started = Instant::now();
++        if arena.mutate(|_, root| {
++            let data = root.data.borrow();
++            data.library.mvs_needs_prepare(data.root_swf)
++        }) {
++            arena.mutate(|mc, root| {
++                let mut data = root.data.borrow_mut(mc);
++                let root_swf = data.root_swf;
++                data.library.mvs_prepare(mc, root_swf)
++            });
++        }
++        let free = crate::display_object::mvs_interp::free_libraries();
++        if let Some(marked) = arena.mark_debt() {
++            let mut passes = 1;
++            let mut kept = marked.finalize(|fc, root| root.data.borrow().library.mvs_keep(fc, free));
++            while kept {
++                let Some(marked) = arena.finish_marking() else {
++                    break;
++                };
++                passes += 1;
++                kept = marked.finalize(|fc, root| root.data.borrow().library.mvs_keep(fc, free));
++            }
++            if free {
++                if let Some(marked) = arena.finish_marking() {
++                    marked.finalize(|fc, root| {
++                        if root.data.borrow().library.mvs_has_dead(fc) {
++                            root.data.borrow_mut(fc).library.mvs_drop_dead(fc);
++                        }
++                    });
++                }
++            }
++            MVS_GC_CYCLES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++            MVS_GC_PASSES.store(passes, std::sync::atomic::Ordering::Relaxed);
++            // Sweep; never starts the next cycle's marking (that must go through mark_debt).
++            arena.cycle_debt();
++        } else if arena.collection_phase() == gc_arena::arena::CollectionPhase::Sweeping {
++            arena.cycle_debt();
++        }
++        let ms = started.elapsed().as_micros() as u32 / 1000;
++        MVS_GC_MAX_MS.fetch_max(ms, std::sync::atomic::Ordering::Relaxed);
++    }
++
+     pub fn flush_shared_objects(&mut self) {
+         self.update(|context| {
+             if let Some(mut avm1_activation) =
+@@ -3094,6 +3307,7 @@ impl PlayerBuilder {
+                 forced_frame_rate,
+                 frame_phase: Default::default(),
+                 frame_accumulator: FloatDuration::ZERO,
++                mvs_frames_run: 0,
+                 recent_run_frame_timings: VecDeque::with_capacity(10),
+                 start_time: Instant::now(),
+                 time_offset: 0,
+diff --git a/render/webgl/shaders/blend.frag b/render/webgl/shaders/blend.frag
+new file mode 100644
+index 00000000..80a52fa8
+--- /dev/null
++++ b/render/webgl/shaders/blend.frag
+@@ -0,0 +1,45 @@
++// -*- glsl -*-
++#version 100
++
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++    precision highp float;
++#else
++    precision mediump float;
++#endif
++
++// Flash's complex blend modes, as the wgpu renderer's shaders/blend/*.wgsl compute them (premultiplied
++// alpha). u_parent is what was drawn behind the object, u_current the object drawn on its own.
++uniform sampler2D u_parent;
++uniform sampler2D u_current;
++uniform int u_mode; // 2 darken, 3 difference, 4 invert, 5 overlay, 6 hard light
++
++varying vec2 frag_uv;
++
++vec3 blend_func(vec3 s, vec3 d) {
++    if (u_mode == 2) {
++        return min(s, d);
++    }
++    if (u_mode == 3) {
++        return abs(d - s);
++    }
++    if (u_mode == 5) {
++        return mix(1.0 - 2.0 * (1.0 - d) * (1.0 - s), 2.0 * s * d, step(d, vec3(0.5)));
++    }
++    if (u_mode == 6) {
++        return mix(1.0 - 2.0 * (1.0 - d) * (1.0 - s), 2.0 * s * d, step(s, vec3(0.5)));
++    }
++    return s;
++}
++
++void main() {
++    vec4 dst = texture2D(u_parent, frag_uv);
++    vec4 src = texture2D(u_current, frag_uv);
++    if (src.a <= 0.0) {
++        // Leave the pixels behind untouched (keeps their anti-aliasing samples).
++        discard;
++    }
++    vec3 d = dst.a > 0.0 ? dst.rgb / dst.a : vec3(0.0);
++    vec3 mixed = u_mode == 4 ? (1.0 - d) : blend_func(src.rgb / src.a, d);
++    vec3 rgb = src.rgb * (1.0 - dst.a) + dst.rgb * (1.0 - src.a) + src.a * dst.a * mixed;
++    gl_FragColor = vec4(rgb, src.a + dst.a * (1.0 - src.a));
++}
+diff --git a/render/webgl/shaders/blend.vert b/render/webgl/shaders/blend.vert
+new file mode 100644
+index 00000000..d7baeb17
+--- /dev/null
++++ b/render/webgl/shaders/blend.vert
+@@ -0,0 +1,12 @@
++#version 100
++
++// A full-target quad for mixing a blend layer with what is behind it (position 0..1 = uv).
++attribute vec2 position;
++uniform vec2 u_uv_scale; // the part of the (pooled, larger) textures in use
++
++varying vec2 frag_uv;
++
++void main() {
++    frag_uv = position * u_uv_scale;
++    gl_Position = vec4(position * 2.0 - 1.0, 0.0, 1.0);
++}
+diff --git a/render/webgl/src/lib.rs b/render/webgl/src/lib.rs
+index 925bf8d6..18cb06af 100644
+--- a/render/webgl/src/lib.rs
++++ b/render/webgl/src/lib.rs
+@@ -81,6 +81,11 @@ const COLOR_FRAGMENT_GLSL: &str = include_str!("../shaders/color.frag");
+ const TEXTURE_VERTEX_GLSL: &str = include_str!("../shaders/texture.vert");
+ const GRADIENT_FRAGMENT_GLSL: &str = include_str!("../shaders/gradient.frag");
+ const BITMAP_FRAGMENT_GLSL: &str = include_str!("../shaders/bitmap.frag");
++const BLEND_VERTEX_GLSL: &str = include_str!("../shaders/blend.vert");
++const BLEND_FRAGMENT_GLSL: &str = include_str!("../shaders/blend.frag");
++
++/// How deep blend layers may nest before the rest draw as Normal.
++const MAX_BLEND_LAYERS: usize = 4;
+ const NUM_VERTEX_ATTRIBUTES: u32 = 2;
+ 
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+@@ -144,6 +149,11 @@ pub struct WebGlRenderBackend {
+     blend_modes: Vec<RenderBlendMode>,
+     mult_color: Option<[f32; 4]>,
+     add_color: Option<[f32; 4]>,
++    /// MVS: the world matrix and gradient last sent to the active program, so draws that repeat them
++    /// (a shape's several fills, the same art drawn again) skip the upload. Each upload is a call out of
++    /// WebAssembly into the browser; together they were over a tenth of the CPU time in busy scenes.
++    mvs_world: Option<[[f32; 4]; 4]>,
++    mvs_gradient: *const u8,
+ 
+     renderbuffer_width: i32,
+     renderbuffer_height: i32,
+@@ -152,14 +162,83 @@ pub struct WebGlRenderBackend {
+     // This is currently unused - we just hold on to it
+     // to expose via `get_viewport_dimensions`
+     viewport_scale_factor: f64,
++
++    // Complex blend modes (Overlay, Hard Light, Difference, Invert, Darken) draw the object into a layer
++    // that a shader then mixes with what is behind it, as the wgpu renderer does. Only inside offscreen
++    // targets (cacheAsBitmap images and BitmapData.draw), which are small: on the stage the same work
++    // per object costs whole-screen copies and drops the game to a few fps, so there they draw as
++    // Normal and the core caches their parent as a bitmap instead. Needs WebGL2.
++    blend_program: Option<BlendProgram>,
++    offscreen_depth: u32,
++    /// Offscreen render buffers kept between frames (sizes rounded up), so caching an object each frame
++    /// does not create and delete GL objects.
++    target_pool: Vec<PooledTarget>,
++    /// Where drawing goes now while rendering offscreen (innermost last).
++    targets: Vec<ActiveTarget>,
++}
++
++struct BlendProgram {
++    program: WebGlProgram,
++    position: u32,
++    parent: Option<WebGlUniformLocation>,
++    current: Option<WebGlUniformLocation>,
++    mode: Option<WebGlUniformLocation>,
++    uv_scale: Option<WebGlUniformLocation>,
++    quad: WebGlBuffer,
++}
++
++struct PooledTarget {
++    width: i32,
++    height: i32,
++    samples: u32,
++    color: WebGlRenderbuffer,
++    stencil: WebGlRenderbuffer,
++    framebuffer: WebGlFramebuffer,
++    /// Blend layers by nesting depth: their own colour buffer with this target's stencil.
++    layers: Vec<(WebGlRenderbuffer, WebGlFramebuffer)>,
++    /// Single-sample copies of a layer and of what is behind it, for the blend shader.
++    resolve: Option<[(WebGlTexture, WebGlFramebuffer); 2]>,
++    in_use: bool,
++    /// MVS: checkFramebufferStatus waits for the GPU (about 3 ms on a phone), so a pooled target
++    /// is checked once, the first time it is used.
++    checked: bool,
+ }
+ 
++#[derive(Clone)]
++struct ActiveTarget {
++    pool: usize,
++    framebuffer: WebGlFramebuffer,
++    width: i32,
++    height: i32,
++    depth: usize,
++}
++
++const TARGET_POOL_LIMIT: usize = 24;
++
+ #[derive(Debug)]
+ struct RegistryData {
+     gl: Gl,
+     width: u32,
+     height: u32,
+     texture: WebGlTexture,
++    /// MVS: the filter and wrap last set on this texture (u64::MAX: not yet), so a draw that binds
++    /// it with the same ones doesn't set four texture parameters again.
++    mvs_params: std::cell::Cell<u64>,
++}
++
++impl RegistryData {
++    /// MVS: sets the bound texture's filter and wrap modes unless they already are these.
++    fn mvs_set_params(&self, gl: &Gl, filter: i32, wrap: i32) {
++        let key = ((filter as u32 as u64) << 32) | wrap as u32 as u64;
++        if self.mvs_params.get() == key {
++            return;
++        }
++        self.mvs_params.set(key);
++        gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MAG_FILTER, filter);
++        gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MIN_FILTER, filter);
++        gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_WRAP_S, wrap);
++        gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_WRAP_T, wrap);
++    }
+ }
+ 
+ impl Drop for RegistryData {
+@@ -174,6 +253,15 @@ fn as_registry_data(handle: &BitmapHandle) -> &RegistryData {
+     <dyn Any>::downcast_ref(&*handle.0).expect("Bitmap handle must be webgl RegistryData")
+ }
+ 
++/// Pixels that `render_offscreen` drew into a bitmap's texture; read back only when the CPU needs them.
++#[derive(Debug)]
++struct WebGlSyncHandle {
++    bitmap: BitmapHandle,
++    bounds: PixelRegion,
++}
++
++impl SyncHandle for WebGlSyncHandle {}
++
+ const MAX_GRADIENT_COLORS: usize = 15;
+ 
+ impl WebGlRenderBackend {
+@@ -281,6 +369,17 @@ impl WebGlRenderBackend {
+         let bitmap_program = ShaderProgram::new(&gl, &texture_vertex, &bitmap_fragment)?;
+         let gradient_program = ShaderProgram::new(&gl, &texture_vertex, &gradient_fragment)?;
+ 
++        let blend_program = match &gl2 {
++            Some(gl2) => match Self::build_blend_program(&gl, gl2) {
++                Ok(program) => Some(program),
++                Err(e) => {
++                    log::warn!("Complex blend modes unavailable: {e}");
++                    None
++                }
++            },
++            None => None,
++        };
++
+         gl.enable(Gl::BLEND);
+ 
+         // Necessary to load RGB textures (alignment defaults to 4).
+@@ -313,8 +412,14 @@ impl WebGlRenderBackend {
+ 
+             active_program: std::ptr::null(),
+             blend_modes: vec![],
++            blend_program,
++            offscreen_depth: 0,
++            target_pool: vec![],
++            targets: vec![],
+             mult_color: None,
+             add_color: None,
++            mvs_world: None,
++            mvs_gradient: std::ptr::null(),
+ 
+             viewport_scale_factor: 1.0,
+         };
+@@ -773,6 +878,18 @@ impl WebGlRenderBackend {
+                 // dst - src
+                 (Gl::FUNC_REVERSE_SUBTRACT, Gl::ONE, Gl::ONE)
+             }
++            RenderBlendMode::Builtin(BlendMode::Screen) => {
++                // src + dst * (1 - src)
++                (Gl::FUNC_ADD, Gl::ONE, Gl::ONE_MINUS_SRC_COLOR)
++            }
++            RenderBlendMode::Builtin(BlendMode::Multiply) => {
++                // src * dst + dst * (1 - src.a): exact over an opaque backdrop, untouched where src is clear
++                (Gl::FUNC_ADD, Gl::DST_COLOR, Gl::ONE_MINUS_SRC_ALPHA)
++            }
++            RenderBlendMode::Builtin(BlendMode::Lighten) if self.gl2.is_some() => {
++                // max(src, dst); a clear src leaves dst as it was
++                (Gl2::MAX, Gl::ONE, Gl::ONE)
++            }
+             _ => {
+                 // TODO: Unsupported blend mode. Default to normal for now.
+                 (Gl::FUNC_ADD, Gl::ONE, Gl::ONE_MINUS_SRC_ALPHA)
+@@ -791,6 +908,8 @@ impl WebGlRenderBackend {
+ 
+         self.mult_color = None;
+         self.add_color = None;
++        self.mvs_world = None;
++        self.mvs_gradient = std::ptr::null();
+ 
+         // Bind to MSAA render buffer if using MSAA.
+         if let Some(msaa_buffers) = &self.msaa_buffers {
+@@ -903,6 +1022,340 @@ impl WebGlRenderBackend {
+         }
+     }
+ 
++    /// Draws `commands` over the current contents of a bitmap's texture (`BitmapData.draw`).
++    /// With MSAA, the texture is copied into a multisampled buffer first and resolved back after.
++    fn render_to_texture(
++        &mut self,
++        handle: &BitmapHandle,
++        commands: CommandList,
++        quality: StageQuality,
++        clear: Option<Color>,
++        framebuffers: &mut Vec<WebGlFramebuffer>,
++        renderbuffers: &mut Vec<WebGlRenderbuffer>,
++    ) -> Result<(), Error> {
++        let entry = as_registry_data(handle);
++        let (width, height) = (entry.width as i32, entry.height as i32);
++        let gl = self.gl.clone();
++
++        let texture_framebuffer = gl
++            .create_framebuffer()
++            .ok_or(Error::UnableToCreateFrameBuffer)?;
++        framebuffers.push(texture_framebuffer.clone());
++        gl.bind_framebuffer(Gl::FRAMEBUFFER, Some(&texture_framebuffer));
++        gl.framebuffer_texture_2d(
++            Gl::FRAMEBUFFER,
++            Gl::COLOR_ATTACHMENT0,
++            Gl::TEXTURE_2D,
++            Some(&entry.texture),
++            0,
++        );
++
++        // WebGL2: draw into a pooled buffer (MSAA when the quality asks for it), then copy into the
++        // texture. WebGL1: straight into the texture, with a stencil buffer for masks.
++        let pooled = match self.gl2.clone() {
++            Some(gl2) => {
++                let samples = quality.sample_count().min(self.msaa_sample_count).max(1);
++                let pool = self.acquire_target(&gl2, width, height, samples)?;
++                gl.bind_framebuffer(Gl::FRAMEBUFFER, Some(&self.target_pool[pool].framebuffer));
++                Some((gl2, pool))
++            }
++            None => {
++                let stencil = gl
++                    .create_renderbuffer()
++                    .ok_or(Error::UnableToCreateRenderBuffer)?;
++                renderbuffers.push(stencil.clone());
++                gl.bind_renderbuffer(Gl::RENDERBUFFER, Some(&stencil));
++                gl.renderbuffer_storage(Gl::RENDERBUFFER, Gl::STENCIL_INDEX8, width, height);
++                gl.framebuffer_renderbuffer(
++                    Gl::FRAMEBUFFER,
++                    Gl::STENCIL_ATTACHMENT,
++                    Gl::RENDERBUFFER,
++                    Some(&stencil),
++                );
++                None
++            }
++        };
++        let needs_check = match &pooled {
++            Some((_, pool)) => !std::mem::replace(&mut self.target_pool[*pool].checked, true),
++            None => true,
++        };
++        if needs_check && gl.check_framebuffer_status(Gl::FRAMEBUFFER) != Gl::FRAMEBUFFER_COMPLETE {
++            if let Some((_, pool)) = pooled {
++                self.target_pool[pool].in_use = false;
++            }
++            return Err(Error::UnableToCreateFrameBuffer);
++        }
++
++        // Frame state as in `begin_frame`, against the bitmap. Row 0 of a bitmap texture is its
++        // top row, so y is not flipped the way it is for the stage.
++        self.view_matrix = [
++            [2.0 / width as f32, 0.0, 0.0, 0.0],
++            [0.0, 2.0 / height as f32, 0.0, 0.0],
++            [0.0, 0.0, 1.0, 0.0],
++            [-1.0, -1.0, 0.0, 1.0],
++        ];
++        self.active_program = std::ptr::null();
++        self.mask_state = MaskState::NoMask;
++        self.num_masks = 0;
++        self.mask_state_dirty = true;
++        self.mult_color = None;
++        self.add_color = None;
++        self.mvs_world = None;
++        self.mvs_gradient = std::ptr::null();
++        self.apply_blend_mode(
++            self.blend_modes
++                .last()
++                .cloned()
++                .unwrap_or(RenderBlendMode::Builtin(BlendMode::Normal)),
++        );
++        gl.viewport(0, 0, width, height);
++        self.set_stencil_state();
++        gl.stencil_mask(0xff);
++        gl.color_mask(true, true, true, true);
++        match (clear, pooled.is_some()) {
++            (Some(c), _) => {
++                let a = c.a as f32 / 255.0;
++                gl.clear_color(
++                    c.r as f32 / 255.0 * a,
++                    c.g as f32 / 255.0 * a,
++                    c.b as f32 / 255.0 * a,
++                    a,
++                );
++                self.clear_region(width, height, Gl::COLOR_BUFFER_BIT | Gl::STENCIL_BUFFER_BIT);
++            }
++            (None, true) => {
++                // BitmapData.draw keeps what the bitmap already shows.
++                gl.clear_color(0.0, 0.0, 0.0, 0.0);
++                self.clear_region(width, height, Gl::COLOR_BUFFER_BIT | Gl::STENCIL_BUFFER_BIT);
++                self.render_bitmap(
++                    handle.clone(),
++                    Transform::default(),
++                    false,
++                    PixelSnapping::Never,
++                    PixelRegion::for_whole_size(entry.width, entry.height),
++                );
++            }
++            (None, false) => {
++                gl.clear(Gl::STENCIL_BUFFER_BIT);
++            }
++        }
++
++        if let Some((_, pool)) = &pooled {
++            self.targets.push(ActiveTarget {
++                pool: *pool,
++                framebuffer: self.target_pool[*pool].framebuffer.clone(),
++                width,
++                height,
++                depth: 0,
++            });
++        }
++        commands.execute(self);
++        if pooled.is_some() {
++            self.targets.pop();
++        }
++
++        if let Some((gl2, pool)) = pooled {
++            gl.disable(Gl::STENCIL_TEST);
++            gl.color_mask(true, true, true, true);
++            gl2.bind_framebuffer(Gl2::READ_FRAMEBUFFER, Some(&self.target_pool[pool].framebuffer));
++            gl2.bind_framebuffer(Gl2::DRAW_FRAMEBUFFER, Some(&texture_framebuffer));
++            gl2.blit_framebuffer(
++                0,
++                0,
++                width,
++                height,
++                0,
++                0,
++                width,
++                height,
++                Gl2::COLOR_BUFFER_BIT,
++                Gl2::NEAREST,
++            );
++            self.target_pool[pool].in_use = false;
++        }
++        Ok(())
++    }
++
++    /// Clears only the part of the bound buffer in use (pooled buffers can be bigger).
++    fn clear_region(&self, width: i32, height: i32, mask: u32) {
++        self.gl.enable(Gl::SCISSOR_TEST);
++        self.gl.scissor(0, 0, width, height);
++        self.gl.clear(mask);
++        self.gl.disable(Gl::SCISSOR_TEST);
++    }
++
++    fn renderbuffer(gl2: &Gl2, samples: u32, format: u32, width: i32, height: i32) -> Result<WebGlRenderbuffer, Error> {
++        let rb = gl2
++            .create_renderbuffer()
++            .ok_or(Error::UnableToCreateRenderBuffer)?;
++        gl2.bind_renderbuffer(Gl2::RENDERBUFFER, Some(&rb));
++        if samples > 1 {
++            gl2.renderbuffer_storage_multisample(Gl2::RENDERBUFFER, samples as i32, format, width, height);
++        } else {
++            gl2.renderbuffer_storage(Gl2::RENDERBUFFER, format, width, height);
++        }
++        gl2.bind_renderbuffer(Gl2::RENDERBUFFER, None);
++        Ok(rb)
++    }
++
++    /// A free pooled buffer at least `width` x `height` with `samples`, made (rounded up to 64) if needed.
++    fn acquire_target(&mut self, gl2: &Gl2, width: i32, height: i32, samples: u32) -> Result<usize, Error> {
++        let mut best: Option<usize> = None;
++        for (i, t) in self.target_pool.iter().enumerate() {
++            if !t.in_use && t.samples == samples && t.width >= width && t.height >= height {
++                let better = match best {
++                    Some(b) => {
++                        let o = &self.target_pool[b];
++                        (t.width * t.height) < (o.width * o.height)
++                    }
++                    None => true,
++                };
++                if better {
++                    best = Some(i);
++                }
++            }
++        }
++        if let Some(i) = best {
++            self.target_pool[i].in_use = true;
++            return Ok(i);
++        }
++        if self.target_pool.len() >= TARGET_POOL_LIMIT {
++            // Free the largest unused one before making another.
++            if let Some((i, _)) = self
++                .target_pool
++                .iter()
++                .enumerate()
++                .filter(|(_, t)| !t.in_use)
++                .max_by_key(|(_, t)| t.width * t.height)
++            {
++                let t = self.target_pool.remove(i);
++                self.delete_pooled(t);
++                for active in &mut self.targets {
++                    if active.pool > i {
++                        active.pool -= 1;
++                    }
++                }
++            }
++        }
++        let w = (width + 63) / 64 * 64;
++        let h = (height + 63) / 64 * 64;
++        let color = Self::renderbuffer(gl2, samples, Gl2::RGBA8, w, h)?;
++        let stencil = Self::renderbuffer(gl2, samples, Gl2::STENCIL_INDEX8, w, h)?;
++        let framebuffer = gl2
++            .create_framebuffer()
++            .ok_or(Error::UnableToCreateFrameBuffer)?;
++        gl2.bind_framebuffer(Gl2::FRAMEBUFFER, Some(&framebuffer));
++        gl2.framebuffer_renderbuffer(Gl2::FRAMEBUFFER, Gl2::COLOR_ATTACHMENT0, Gl2::RENDERBUFFER, Some(&color));
++        gl2.framebuffer_renderbuffer(Gl2::FRAMEBUFFER, Gl2::STENCIL_ATTACHMENT, Gl2::RENDERBUFFER, Some(&stencil));
++        self.target_pool.push(PooledTarget {
++            width: w,
++            height: h,
++            samples,
++            color,
++            stencil,
++            framebuffer,
++            layers: vec![],
++            resolve: None,
++            in_use: true,
++            checked: false,
++        });
++        Ok(self.target_pool.len() - 1)
++    }
++
++    fn delete_pooled(&self, t: PooledTarget) {
++        let gl = &self.gl;
++        gl.delete_renderbuffer(Some(&t.color));
++        gl.delete_renderbuffer(Some(&t.stencil));
++        gl.delete_framebuffer(Some(&t.framebuffer));
++        for (rb, fb) in t.layers {
++            gl.delete_renderbuffer(Some(&rb));
++            gl.delete_framebuffer(Some(&fb));
++        }
++        if let Some(resolve) = t.resolve {
++            for (tex, fb) in resolve {
++                gl.delete_texture(Some(&tex));
++                gl.delete_framebuffer(Some(&fb));
++            }
++        }
++    }
++
++    /// The blend layer at `depth` of pooled target `pool`, and its resolve textures, made if needed.
++    fn ensure_layer(&mut self, gl2: &Gl2, pool: usize, depth: usize) -> Result<(), Error> {
++        let (w, h, samples, stencil) = {
++            let t = &self.target_pool[pool];
++            (t.width, t.height, t.samples, t.stencil.clone())
++        };
++        while self.target_pool[pool].layers.len() <= depth {
++            let color = Self::renderbuffer(gl2, samples, Gl2::RGBA8, w, h)?;
++            let fb = gl2
++                .create_framebuffer()
++                .ok_or(Error::UnableToCreateFrameBuffer)?;
++            gl2.bind_framebuffer(Gl2::FRAMEBUFFER, Some(&fb));
++            gl2.framebuffer_renderbuffer(Gl2::FRAMEBUFFER, Gl2::COLOR_ATTACHMENT0, Gl2::RENDERBUFFER, Some(&color));
++            gl2.framebuffer_renderbuffer(Gl2::FRAMEBUFFER, Gl2::STENCIL_ATTACHMENT, Gl2::RENDERBUFFER, Some(&stencil));
++            self.target_pool[pool].layers.push((color, fb));
++        }
++        if self.target_pool[pool].resolve.is_none() {
++            let make = || -> Result<(WebGlTexture, WebGlFramebuffer), Error> {
++                let texture = gl2.create_texture().ok_or(Error::UnableToCreateTexture)?;
++                gl2.bind_texture(Gl2::TEXTURE_2D, Some(&texture));
++                gl2.tex_parameteri(Gl2::TEXTURE_2D, Gl2::TEXTURE_MAG_FILTER, Gl::NEAREST as i32);
++                gl2.tex_parameteri(Gl2::TEXTURE_2D, Gl2::TEXTURE_MIN_FILTER, Gl::NEAREST as i32);
++                gl2.tex_parameteri(Gl2::TEXTURE_2D, Gl2::TEXTURE_WRAP_S, Gl::CLAMP_TO_EDGE as i32);
++                gl2.tex_parameteri(Gl2::TEXTURE_2D, Gl2::TEXTURE_WRAP_T, Gl::CLAMP_TO_EDGE as i32);
++                gl2.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
++                    Gl2::TEXTURE_2D,
++                    0,
++                    Gl2::RGBA as i32,
++                    w,
++                    h,
++                    0,
++                    Gl2::RGBA,
++                    Gl2::UNSIGNED_BYTE,
++                    None,
++                )
++                .into_js_result()?;
++                gl2.bind_texture(Gl2::TEXTURE_2D, None);
++                let fb = gl2
++                    .create_framebuffer()
++                    .ok_or(Error::UnableToCreateFrameBuffer)?;
++                gl2.bind_framebuffer(Gl2::FRAMEBUFFER, Some(&fb));
++                gl2.framebuffer_texture_2d(Gl2::FRAMEBUFFER, Gl2::COLOR_ATTACHMENT0, Gl2::TEXTURE_2D, Some(&texture), 0);
++                Ok((texture, fb))
++            };
++            let first = make()?;
++            let second = make()?;
++            self.target_pool[pool].resolve = Some([first, second]);
++        }
++        Ok(())
++    }
++
++    /// Puts back the stage's frame state after rendering into a bitmap.
++    fn restore_stage_target(&mut self, view_matrix: [[f32; 4]; 4]) {
++        self.view_matrix = view_matrix;
++        self.active_program = std::ptr::null();
++        self.mask_state = MaskState::NoMask;
++        self.num_masks = 0;
++        self.mask_state_dirty = true;
++        self.mult_color = None;
++        self.add_color = None;
++        self.mvs_world = None;
++        self.mvs_gradient = std::ptr::null();
++        self.set_stencil_state();
++        self.bind_stage_framebuffer();
++        self.gl.bind_renderbuffer(Gl::RENDERBUFFER, None);
++        self.gl
++            .viewport(0, 0, self.renderbuffer_width, self.renderbuffer_height);
++    }
++
++    fn bind_stage_framebuffer(&self) {
++        let framebuffer = self
++            .msaa_buffers
++            .as_ref()
++            .map(|buffers| &buffers.render_framebuffer);
++        self.gl.bind_framebuffer(Gl::FRAMEBUFFER, framebuffer);
++    }
++
+     fn push_blend_mode(&mut self, blend: RenderBlendMode) {
+         if !same_blend_mode(self.blend_modes.last(), &blend) {
+             self.apply_blend_mode(blend.clone());
+@@ -957,10 +1410,13 @@ impl WebGlRenderBackend {
+ 
+             self.mult_color = None;
+             self.add_color = None;
++            self.mvs_world = None;
++            self.mvs_gradient = std::ptr::null();
+         };
+ 
+         self.color_program
+             .uniform_matrix4fv(&self.gl, ShaderUniform::WorldMatrix, &world_matrix);
++        self.mvs_world = None;
+         if Some(mult_color) != self.mult_color {
+             self.color_program
+                 .uniform4fv(&self.gl, ShaderUniform::MultColor, &mult_color);
+@@ -985,6 +1441,151 @@ impl WebGlRenderBackend {
+     }
+ }
+ 
++/// The blend shader's mode for blend modes that need the pixels behind them.
++fn complex_blend_code(mode: BlendMode) -> Option<i32> {
++    match mode {
++        BlendMode::Darken => Some(2),
++        BlendMode::Difference => Some(3),
++        BlendMode::Invert => Some(4),
++        BlendMode::Overlay => Some(5),
++        BlendMode::HardLight => Some(6),
++        _ => None,
++    }
++}
++
++impl WebGlRenderBackend {
++    fn build_blend_program(gl: &Gl, gl2: &Gl2) -> Result<BlendProgram, Error> {
++        let vertex = Self::compile_shader(gl, Gl::VERTEX_SHADER, BLEND_VERTEX_GLSL)?;
++        let fragment = Self::compile_shader(gl, Gl::FRAGMENT_SHADER, BLEND_FRAGMENT_GLSL)?;
++        let program = gl.create_program().ok_or(Error::UnableToCreateProgram)?;
++        gl.attach_shader(&program, &vertex);
++        gl.attach_shader(&program, &fragment);
++        gl.link_program(&program);
++        if !gl
++            .get_program_parameter(&program, Gl::LINK_STATUS)
++            .as_bool()
++            .unwrap_or(false)
++        {
++            let msg = format!("Error linking blend program: {:?}", gl.get_program_info_log(&program));
++            return Err(Error::LinkingShaderProgram(msg));
++        }
++        let quad = gl2.create_buffer().ok_or(Error::UnableToCreateBuffer)?;
++        gl2.bind_buffer(Gl2::ARRAY_BUFFER, Some(&quad));
++        let vertices: [f32; 8] = [0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
++        let bytes: Vec<u8> = vertices.iter().flat_map(|v| v.to_le_bytes()).collect();
++        gl2.buffer_data_with_u8_array(Gl2::ARRAY_BUFFER, &bytes, Gl2::STATIC_DRAW);
++        gl2.bind_buffer(Gl2::ARRAY_BUFFER, None);
++        Ok(BlendProgram {
++            position: gl.get_attrib_location(&program, "position") as u32,
++            parent: gl.get_uniform_location(&program, "u_parent"),
++            current: gl.get_uniform_location(&program, "u_current"),
++            mode: gl.get_uniform_location(&program, "u_mode"),
++            uv_scale: gl.get_uniform_location(&program, "u_uv_scale"),
++            program,
++            quad,
++        })
++    }
++
++    fn blend_layer_ready(&self) -> bool {
++        self.gl2.is_some()
++            && self.blend_program.is_some()
++            && self.targets.last().is_some_and(|t| t.depth < MAX_BLEND_LAYERS)
++    }
++
++    /// Draws `commands` into a layer of the current offscreen target, then mixes the layer with what is
++    /// behind it there.
++    fn blend_with_layer(&mut self, commands: CommandList, code: i32) {
++        let (Some(top), Some(gl2)) = (self.targets.last().cloned(), self.gl2.clone()) else {
++            commands.execute(self);
++            return;
++        };
++        if let Err(e) = self.ensure_layer(&gl2, top.pool, top.depth) {
++            log::error!("Blend layer unavailable: {e}");
++            gl2.bind_framebuffer(Gl2::FRAMEBUFFER, Some(&top.framebuffer));
++            self.push_blend_mode(RenderBlendMode::Builtin(BlendMode::Normal));
++            commands.execute(self);
++            self.pop_blend_mode();
++            return;
++        }
++        let (w, h) = (top.width, top.height);
++        let (cap_w, cap_h) = (self.target_pool[top.pool].width, self.target_pool[top.pool].height);
++        let layer_fb = self.target_pool[top.pool].layers[top.depth].1.clone();
++
++        // Draw the object on its own.
++        gl2.bind_framebuffer(Gl2::FRAMEBUFFER, Some(&layer_fb));
++        self.gl.color_mask(true, true, true, true);
++        self.gl.clear_color(0.0, 0.0, 0.0, 0.0);
++        self.clear_region(w, h, Gl::COLOR_BUFFER_BIT);
++        self.mask_state_dirty = true;
++        self.targets.push(ActiveTarget {
++            pool: top.pool,
++            framebuffer: layer_fb.clone(),
++            width: w,
++            height: h,
++            depth: top.depth + 1,
++        });
++        self.push_blend_mode(RenderBlendMode::Builtin(BlendMode::Normal));
++        commands.execute(self);
++        self.pop_blend_mode();
++        self.targets.pop();
++
++        // Single-sample copies of the layer and of what is behind it.
++        self.gl.disable(Gl::STENCIL_TEST);
++        self.gl.color_mask(true, true, true, true);
++        let Some([(layer_tex, layer_copy), (parent_tex, parent_copy)]) =
++            self.target_pool[top.pool].resolve.clone()
++        else {
++            return;
++        };
++        gl2.bind_framebuffer(Gl2::READ_FRAMEBUFFER, Some(&layer_fb));
++        gl2.bind_framebuffer(Gl2::DRAW_FRAMEBUFFER, Some(&layer_copy));
++        gl2.blit_framebuffer(0, 0, w, h, 0, 0, w, h, Gl2::COLOR_BUFFER_BIT, Gl2::NEAREST);
++        gl2.bind_framebuffer(Gl2::READ_FRAMEBUFFER, Some(&top.framebuffer));
++        gl2.bind_framebuffer(Gl2::DRAW_FRAMEBUFFER, Some(&parent_copy));
++        gl2.blit_framebuffer(0, 0, w, h, 0, 0, w, h, Gl2::COLOR_BUFFER_BIT, Gl2::NEAREST);
++        gl2.bind_framebuffer(Gl2::FRAMEBUFFER, Some(&top.framebuffer));
++
++        // Mix them back (masks still apply through the shared stencil).
++        self.mask_state_dirty = true;
++        self.set_stencil_state();
++        let gl = &self.gl;
++        gl.disable(Gl::BLEND);
++        if let Some(program) = &self.blend_program {
++            gl.use_program(Some(&program.program));
++            gl.active_texture(Gl::TEXTURE1);
++            gl.bind_texture(Gl::TEXTURE_2D, Some(&layer_tex));
++            gl.active_texture(Gl::TEXTURE0);
++            gl.bind_texture(Gl::TEXTURE_2D, Some(&parent_tex));
++            gl.uniform1i(program.parent.as_ref(), 0);
++            gl.uniform1i(program.current.as_ref(), 1);
++            gl.uniform1i(program.mode.as_ref(), code);
++            gl.uniform2f(program.uv_scale.as_ref(), w as f32 / cap_w as f32, h as f32 / cap_h as f32);
++            self.bind_vertex_array(None);
++            gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&program.quad));
++            gl.enable_vertex_attrib_array(program.position);
++            gl.vertex_attrib_pointer_with_i32(program.position, 2, Gl::FLOAT, false, 0, 0);
++            gl.draw_arrays(Gl::TRIANGLE_STRIP, 0, 4);
++            gl.disable_vertex_attrib_array(program.position);
++            gl.bind_buffer(Gl::ARRAY_BUFFER, None);
++            gl.active_texture(Gl::TEXTURE1);
++            gl.bind_texture(Gl::TEXTURE_2D, None);
++            gl.active_texture(Gl::TEXTURE0);
++        }
++        gl.enable(Gl::BLEND);
++        self.active_program = std::ptr::null();
++        self.mult_color = None;
++        self.add_color = None;
++        self.mvs_world = None;
++        self.mvs_gradient = std::ptr::null();
++        self.apply_blend_mode(
++            self.blend_modes
++                .last()
++                .cloned()
++                .unwrap_or(RenderBlendMode::Builtin(BlendMode::Normal)),
++        );
++    }
++}
++
+ fn same_blend_mode(first: Option<&RenderBlendMode>, second: &RenderBlendMode) -> bool {
+     match (first, second) {
+         (Some(RenderBlendMode::Builtin(old)), RenderBlendMode::Builtin(new)) => old == new,
+@@ -995,12 +1596,39 @@ fn same_blend_mode(first: Option<&RenderBlendMode>, second: &RenderBlendMode) ->
+ impl RenderBackend for WebGlRenderBackend {
+     fn render_offscreen(
+         &mut self,
+-        _handle: BitmapHandle,
+-        _commands: CommandList,
+-        _quality: StageQuality,
+-        _bounds: PixelRegion,
++        handle: BitmapHandle,
++        commands: CommandList,
++        quality: StageQuality,
++        bounds: PixelRegion,
+     ) -> Option<Box<dyn SyncHandle>> {
+-        None
++        let view_matrix = self.view_matrix;
++        let mut framebuffers = vec![];
++        let mut renderbuffers = vec![];
++        self.offscreen_depth += 1;
++        let result = self.render_to_texture(
++            &handle,
++            commands,
++            quality,
++            None,
++            &mut framebuffers,
++            &mut renderbuffers,
++        );
++        self.offscreen_depth -= 1;
++        if let Err(e) = result {
++            // Keep the bitmap as it was rather than failing the draw, which aborts the script.
++            log::error!("BitmapData.draw could not render: {e}");
++        }
++        self.restore_stage_target(view_matrix);
++        for framebuffer in &framebuffers {
++            self.gl.delete_framebuffer(Some(framebuffer));
++        }
++        for renderbuffer in &renderbuffers {
++            self.gl.delete_renderbuffer(Some(renderbuffer));
++        }
++        Some(Box::new(WebGlSyncHandle {
++            bitmap: handle,
++            bounds,
++        }))
+     }
+ 
+     fn viewport_dimensions(&self) -> ViewportDimensions {
+@@ -1068,6 +1696,11 @@ impl RenderBackend for WebGlRenderBackend {
+         ShapeHandle(Arc::new(mesh))
+     }
+ 
++    fn is_offscreen_supported(&self) -> bool {
++        // cacheAsBitmap images need WebGL2 here (pooled buffers, blits).
++        self.gl2.is_some()
++    }
++
+     fn submit_frame(
+         &mut self,
+         clear: Color,
+@@ -1075,7 +1708,32 @@ impl RenderBackend for WebGlRenderBackend {
+         cache_entries: Vec<BitmapCacheEntry>,
+     ) {
+         if !cache_entries.is_empty() {
+-            panic!("Bitmap caching is unavailable on the webgl backend");
++            // cacheAsBitmap images: drawn before the stage, so the stage buffers are not interrupted.
++            // Filters are not supported by this renderer and are left out, as on the stage.
++            let view_matrix = self.view_matrix;
++            let mut framebuffers = vec![];
++            let mut renderbuffers = vec![];
++            self.offscreen_depth += 1;
++            for entry in cache_entries {
++                if let Err(e) = self.render_to_texture(
++                    &entry.handle,
++                    entry.commands,
++                    StageQuality::High,
++                    Some(entry.clear),
++                    &mut framebuffers,
++                    &mut renderbuffers,
++                ) {
++                    log::error!("Could not draw a cached bitmap: {e}");
++                }
++            }
++            self.offscreen_depth -= 1;
++            self.restore_stage_target(view_matrix);
++            for framebuffer in &framebuffers {
++                self.gl.delete_framebuffer(Some(framebuffer));
++            }
++            for renderbuffer in &renderbuffers {
++                self.gl.delete_renderbuffer(Some(renderbuffer));
++            }
+         }
+         self.begin_frame(clear);
+         commands.execute(self);
+@@ -1119,6 +1777,7 @@ impl RenderBackend for WebGlRenderBackend {
+             .tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MAG_FILTER, Gl::LINEAR as i32);
+ 
+         Ok(BitmapHandle(Arc::new(RegistryData {
++            mvs_params: std::cell::Cell::new(u64::MAX),
+             gl: self.gl.clone(),
+             width: bitmap.width(),
+             height: bitmap.height(),
+@@ -1201,7 +1860,36 @@ impl RenderBackend for WebGlRenderBackend {
+         "webgl"
+     }
+ 
+-    fn set_quality(&mut self, _quality: StageQuality) {}
++    fn set_quality(&mut self, quality: StageQuality) {
++        // MSAA needs WebGL2; WebGL1 relies on the context's own antialiasing.
++        let Some(gl2) = self.gl2.clone() else {
++            return;
++        };
++        let mut sample_count = quality.sample_count().min(4);
++        if let Ok(max_samples) = gl2.get_parameter(Gl2::MAX_SAMPLES) {
++            let max_samples = max_samples.as_f64().unwrap_or(0.0) as u32;
++            if max_samples > 0 {
++                sample_count = sample_count.min(max_samples);
++            }
++        }
++        if sample_count == self.msaa_sample_count {
++            return;
++        }
++        self.msaa_sample_count = sample_count;
++        // `build_msaa_buffers` leaves old buffers bound when MSAA is turned off, so drop them here.
++        if sample_count <= 1 {
++            if let Some(msaa_buffers) = self.msaa_buffers.take() {
++                gl2.delete_renderbuffer(Some(&msaa_buffers.color_renderbuffer));
++                gl2.delete_renderbuffer(Some(&msaa_buffers.stencil_renderbuffer));
++                gl2.delete_framebuffer(Some(&msaa_buffers.render_framebuffer));
++                gl2.delete_framebuffer(Some(&msaa_buffers.color_framebuffer));
++                gl2.delete_texture(Some(&msaa_buffers.framebuffer_texture));
++            }
++        }
++        if let Err(e) = self.build_msaa_buffers() {
++            log::error!("Couldn't rebuild MSAA buffers for quality {quality:?}: {e}");
++        }
++    }
+ 
+     fn compile_pixelbender_shader(
+         &mut self,
+@@ -1214,12 +1902,41 @@ impl RenderBackend for WebGlRenderBackend {
+ 
+     fn resolve_sync_handle(
+         &mut self,
+-        _handle: Box<dyn SyncHandle>,
+-        _with_rgba: RgbaBufRead,
++        handle: Box<dyn SyncHandle>,
++        with_rgba: RgbaBufRead,
+     ) -> Result<(), ruffle_render::error::Error> {
+-        Err(ruffle_render::error::Error::Unimplemented(
+-            "Sync handle resolution".into(),
+-        ))
++        let handle = Box::<dyn Any>::downcast::<WebGlSyncHandle>(handle).map_err(|_| {
++            ruffle_render::error::Error::Unimplemented("Sync handle from another backend".into())
++        })?;
++        let entry = as_registry_data(&handle.bitmap);
++        let bounds = handle.bounds;
++        let framebuffer = self.gl.create_framebuffer().ok_or_else(|| {
++            ruffle_render::error::Error::Unimplemented("Unable to create framebuffer".into())
++        })?;
++        self.gl
++            .bind_framebuffer(Gl::FRAMEBUFFER, Some(&framebuffer));
++        self.gl.framebuffer_texture_2d(
++            Gl::FRAMEBUFFER,
++            Gl::COLOR_ATTACHMENT0,
++            Gl::TEXTURE_2D,
++            Some(&entry.texture),
++            0,
++        );
++        let mut buffer = vec![0u8; bounds.width() as usize * bounds.height() as usize * 4];
++        let read = self.gl.read_pixels_with_opt_u8_array(
++            bounds.x_min as i32,
++            bounds.y_min as i32,
++            bounds.width() as i32,
++            bounds.height() as i32,
++            Gl::RGBA,
++            Gl::UNSIGNED_BYTE,
++            Some(&mut buffer),
++        );
++        self.bind_stage_framebuffer();
++        self.gl.delete_framebuffer(Some(&framebuffer));
++        read.map_err(ruffle_render::error::Error::JavascriptError)?;
++        with_rgba(&buffer, bounds.width() * 4);
++        Ok(())
+     }
+ 
+     fn run_pixelbender_shader(
+@@ -1251,8 +1968,24 @@ impl RenderBackend for WebGlRenderBackend {
+             .tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MIN_FILTER, Gl::LINEAR as i32);
+         self.gl
+             .tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MAG_FILTER, Gl::LINEAR as i32);
++        // Storage up front: cacheAsBitmap images are drawn into these through a framebuffer, which
++        // needs an allocated texture to be complete.
++        self.gl
++            .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
++                Gl::TEXTURE_2D,
++                0,
++                Gl::RGBA as i32,
++                width.get() as i32,
++                height.get() as i32,
++                0,
++                Gl::RGBA,
++                Gl::UNSIGNED_BYTE,
++                None,
++            )
++            .map_err(|e| BitmapError::JavascriptError(e.into()))?;
+ 
+         Ok(BitmapHandle(Arc::new(RegistryData {
++            mvs_params: std::cell::Cell::new(u64::MAX),
+             gl: self.gl.clone(),
+             width: width.get(),
+             height: height.get(),
+@@ -1325,9 +2058,12 @@ impl CommandHandler for WebGlRenderBackend {
+ 
+             self.mult_color = None;
+             self.add_color = None;
++            self.mvs_world = None;
++            self.mvs_gradient = std::ptr::null();
+         }
+ 
+         program.uniform_matrix4fv(&self.gl, ShaderUniform::WorldMatrix, &world_matrix);
++        self.mvs_world = None;
+         if Some(mult_color) != self.mult_color {
+             program.uniform4fv(&self.gl, ShaderUniform::MultColor, &mult_color);
+             self.mult_color = Some(mult_color);
+@@ -1344,22 +2080,14 @@ impl CommandHandler for WebGlRenderBackend {
+         self.gl.bind_texture(Gl::TEXTURE_2D, Some(&entry.texture));
+         program.uniform1i(&self.gl, ShaderUniform::BitmapTexture, 0);
+ 
+-        // Set texture parameters.
++        // Set texture parameters (MVS: only when they change for this texture).
+         let filter = if smoothing {
+             Gl::LINEAR as i32
+         } else {
+             Gl::NEAREST as i32
+         };
+-        self.gl
+-            .tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MAG_FILTER, filter);
+-        self.gl
+-            .tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MIN_FILTER, filter);
+-
+         let wrap = Gl::CLAMP_TO_EDGE as i32;
+-        self.gl
+-            .tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_WRAP_S, wrap);
+-        self.gl
+-            .tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_WRAP_T, wrap);
++        entry.mvs_set_params(&self.gl, filter, wrap);
+ 
+         // Draw the triangles.
+         self.gl
+@@ -1417,9 +2145,14 @@ impl CommandHandler for WebGlRenderBackend {
+ 
+                 self.mult_color = None;
+                 self.add_color = None;
++                self.mvs_world = None;
++                self.mvs_gradient = std::ptr::null();
+             }
+ 
+-            program.uniform_matrix4fv(&self.gl, ShaderUniform::WorldMatrix, &world_matrix);
++            if self.mvs_world != Some(world_matrix) {
++                program.uniform_matrix4fv(&self.gl, ShaderUniform::WorldMatrix, &world_matrix);
++                self.mvs_world = Some(world_matrix);
++            }
+             if Some(mult_color) != self.mult_color {
+                 program.uniform4fv(&self.gl, ShaderUniform::MultColor, &mult_color);
+                 self.mult_color = Some(mult_color);
+@@ -1433,6 +2166,11 @@ impl CommandHandler for WebGlRenderBackend {
+             match &draw.draw_type {
+                 DrawType::Color => (),
+                 DrawType::Gradient(gradient) => {
++                    let key = &**gradient as *const _ as *const u8;
++                    if key == self.mvs_gradient {
++                        // Same gradient as the last draw with this program: its uniforms are set.
++                    } else {
++                    self.mvs_gradient = key;
+                     program.uniform_matrix3fv(
+                         &self.gl,
+                         ShaderUniform::TextureMatrix,
+@@ -1464,10 +2202,11 @@ impl CommandHandler for WebGlRenderBackend {
+                         ShaderUniform::GradientInterpolation,
+                         (gradient.interpolation == swf::GradientInterpolation::LinearRgb) as i32,
+                     );
++                    }
+                 }
+                 DrawType::Bitmap(bitmap) => {
+-                    let texture = match &bitmap.handle {
+-                        Some(handle) => &as_registry_data(handle).texture,
++                    let entry = match &bitmap.handle {
++                        Some(handle) => as_registry_data(handle),
+                         None => {
+                             log::warn!("Tried to render a handleless bitmap");
+                             continue;
+@@ -1482,29 +2221,22 @@ impl CommandHandler for WebGlRenderBackend {
+ 
+                     // Bind texture.
+                     self.gl.active_texture(Gl::TEXTURE0);
+-                    self.gl.bind_texture(Gl::TEXTURE_2D, Some(texture));
++                    self.gl.bind_texture(Gl::TEXTURE_2D, Some(&entry.texture));
+                     program.uniform1i(&self.gl, ShaderUniform::BitmapTexture, 0);
+ 
+-                    // Set texture parameters.
++                    // Set texture parameters (MVS: only when they change for this texture).
+                     let filter = if bitmap.is_smoothed {
+                         Gl::LINEAR as i32
+                     } else {
+                         Gl::NEAREST as i32
+                     };
+-                    self.gl
+-                        .tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MAG_FILTER, filter);
+-                    self.gl
+-                        .tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MIN_FILTER, filter);
+                     // On WebGL1, you are unable to change the wrapping parameter of non-power-of-2 textures.
+                     let wrap = if self.gl2.is_some() && bitmap.is_repeating {
+                         Gl::REPEAT as i32
+                     } else {
+                         Gl::CLAMP_TO_EDGE as i32
+                     };
+-                    self.gl
+-                        .tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_WRAP_S, wrap);
+-                    self.gl
+-                        .tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_WRAP_T, wrap);
++                    entry.mvs_set_params(&self.gl, filter, wrap);
+                 }
+             }
+ 
+@@ -1567,6 +2299,14 @@ impl CommandHandler for WebGlRenderBackend {
+     }
+ 
+     fn blend(&mut self, commands: CommandList, blend: RenderBlendMode) {
++        if let RenderBlendMode::Builtin(mode) = &blend {
++            if let Some(code) = complex_blend_code(*mode) {
++                if self.blend_layer_ready() {
++                    self.blend_with_layer(commands, code);
++                    return;
++                }
++            }
++        }
+         self.push_blend_mode(blend);
+         commands.execute(self);
+         self.pop_blend_mode();
+@@ -1718,6 +2458,11 @@ struct MsaaBuffers {
+ struct ShaderProgram {
+     program: WebGlProgram,
+     uniforms: [Option<WebGlUniformLocation>; NUM_UNIFORMS],
++    /// MVS: the last value uploaded to each uniform (as f32 bits). A program keeps its uniforms
++    /// between uses, and AQW's art switches programs on almost every shape (colour, gradient and
++    /// bitmap fills), so re-sending unchanged values was most of the drawing time on phones (every
++    /// upload is a call out of WebAssembly into WebGL).
++    mvs_last: [std::cell::RefCell<Vec<u32>>; NUM_UNIFORMS],
+     vertex_position_location: u32,
+     vertex_color_location: u32,
+     num_vertex_attributes: u32,
+@@ -1740,6 +2485,7 @@ const UNIFORM_NAMES: [&str; NUM_UNIFORMS] = [
+     "u_texture",
+ ];
+ 
++#[derive(Clone, Copy)]
+ enum ShaderUniform {
+     WorldMatrix = 0,
+     ViewMatrix,
+@@ -1800,42 +2546,70 @@ impl ShaderProgram {
+         Ok(ShaderProgram {
+             program,
+             uniforms,
++            mvs_last: Default::default(),
+             vertex_position_location,
+             vertex_color_location,
+             num_vertex_attributes,
+         })
+     }
+ 
++    /// MVS: whether `values` differ from what this uniform holds (and remembers them if so).
++    /// Uniforms the program doesn't have are never sent.
++    fn mvs_changed(&self, uniform: usize, values: &[f32]) -> bool {
++        if self.uniforms[uniform].is_none() {
++            return false;
++        }
++        let mut last = self.mvs_last[uniform].borrow_mut();
++        if last.len() == values.len() && last.iter().zip(values).all(|(a, b)| *a == b.to_bits()) {
++            return false;
++        }
++        last.clear();
++        last.extend(values.iter().map(|v| v.to_bits()));
++        true
++    }
++
+     fn uniform1f(&self, gl: &Gl, uniform: ShaderUniform, value: f32) {
+-        gl.uniform1f(self.uniforms[uniform as usize].as_ref(), value);
++        if self.mvs_changed(uniform as usize, &[value]) {
++            gl.uniform1f(self.uniforms[uniform as usize].as_ref(), value);
++        }
+     }
+ 
+     fn uniform1fv(&self, gl: &Gl, uniform: ShaderUniform, values: &[f32]) {
+-        gl.uniform1fv_with_f32_array(self.uniforms[uniform as usize].as_ref(), values);
++        if self.mvs_changed(uniform as usize, values) {
++            gl.uniform1fv_with_f32_array(self.uniforms[uniform as usize].as_ref(), values);
++        }
+     }
+ 
+     fn uniform1i(&self, gl: &Gl, uniform: ShaderUniform, value: i32) {
+-        gl.uniform1i(self.uniforms[uniform as usize].as_ref(), value);
++        if self.mvs_changed(uniform as usize, &[f32::from_bits(value as u32)]) {
++            gl.uniform1i(self.uniforms[uniform as usize].as_ref(), value);
++        }
+     }
+ 
+     fn uniform4fv(&self, gl: &Gl, uniform: ShaderUniform, values: &[f32]) {
+-        gl.uniform4fv_with_f32_array(self.uniforms[uniform as usize].as_ref(), values);
++        if self.mvs_changed(uniform as usize, values) {
++            gl.uniform4fv_with_f32_array(self.uniforms[uniform as usize].as_ref(), values);
++        }
+     }
+ 
+     fn uniform_matrix3fv(&self, gl: &Gl, uniform: ShaderUniform, values: &[[f32; 3]; 3]) {
+-        gl.uniform_matrix3fv_with_f32_array(
+-            self.uniforms[uniform as usize].as_ref(),
+-            false,
+-            bytemuck::cast_slice(values),
+-        );
++        if self.mvs_changed(uniform as usize, bytemuck::cast_slice(values)) {
++            gl.uniform_matrix3fv_with_f32_array(
++                self.uniforms[uniform as usize].as_ref(),
++                false,
++                bytemuck::cast_slice(values),
++            );
++        }
+     }
+ 
+     fn uniform_matrix4fv(&self, gl: &Gl, uniform: ShaderUniform, values: &[[f32; 4]; 4]) {
+-        gl.uniform_matrix4fv_with_f32_array(
+-            self.uniforms[uniform as usize].as_ref(),
+-            false,
+-            bytemuck::cast_slice(values),
+-        );
++        if self.mvs_changed(uniform as usize, bytemuck::cast_slice(values)) {
++            gl.uniform_matrix4fv_with_f32_array(
++                self.uniforms[uniform as usize].as_ref(),
++                false,
++                bytemuck::cast_slice(values),
++            );
++        }
+     }
+ }
+ 
+diff --git a/web/src/lib.rs b/web/src/lib.rs
+index df64fd83..aedb0d6c 100644
+--- a/web/src/lib.rs
++++ b/web/src/lib.rs
+@@ -123,6 +123,8 @@ struct RuffleInstance {
+     device_pixel_ratio: f64,
+     window: Window,
+     timestamp: Option<f64>,
++    /// MVS: when the last picture was drawn (for in-betweening, see `tick`).
++    mvs_last_render: f64,
+     animation_handler: Option<AnimationHandler>, // requestAnimationFrame callback
+     animation_handler_id: Option<NonZeroI32>,    // requestAnimationFrame id
+     background_tick_mode: bool,
+@@ -569,6 +571,7 @@ impl RuffleHandle {
+             focus_on_press_callback: None,
+             webglcontextlost_callback: None,
+             timestamp: None,
++            mvs_last_render: 0.0,
+             has_focus: false,
+             trace_observer: player.trace_observer,
+             log_subscriber,
+@@ -678,6 +681,14 @@ impl RuffleHandle {
+                         let handled = instance
+                             .with_core_mut(|core| core.handle_event(event))
+                             .unwrap_or_default();
++                        // MVS: what was pressed, for the page's finger-swipe scrolling (bridge.js).
++                        if let Ok(chain) = instance.with_core_mut(|core| core.mvs_press_chain()) {
++                            let _ = js_sys::Reflect::set(
++                                instance.window.as_ref(),
++                                &JsValue::from_str("__mvsPressChain"),
++                                &JsValue::from_str(&chain),
++                            );
++                        }
+ 
+                         if handled && matches!(button, MouseButton::Right) {
+                             js_player_callback.suppress_context_menu();
+@@ -1123,7 +1134,53 @@ impl RuffleHandle {
+         let mut dt = 0.0;
+         let mut new_dimensions = None;
+         let mut gamepad_button_events = Vec::new();
++        let mut in_background = false;
++        // MVS: the page sets window.__mvsInterp to the most pictures a second to draw (0 = off) and
++        // reads window.__mvsFrames, the game frames run so far.
++        let mut mvs_interp_hz = 0.0;
++        let mut mvs_since_render = f64::INFINITY;
++        let mut mvs_window = None;
++        let mut mvs_no_draw = false;
+         let _ = self.with_instance_mut(|instance| {
++            in_background = instance.background_tick_mode;
++            mvs_interp_hz = js_sys::Reflect::get(instance.window.as_ref(), &JsValue::from_str("__mvsInterp"))
++                .ok()
++                .and_then(|v| v.as_f64())
++                .unwrap_or(0.0);
++            mvs_since_render = timestamp - instance.mvs_last_render;
++            let flag = |name: &str| {
++                js_sys::Reflect::get(instance.window.as_ref(), &JsValue::from_str(name))
++                    .ok()
++                    .is_some_and(|v| v.is_truthy())
++            };
++            ruffle_core::mvs_set_freeze(flag("__mvsFreezeHidden"), flag("__mvsFreezeOrphans"));
++            // MVS: window.__mvsKeepLibraries keeps every loaded movie's library forever (upstream).
++            ruffle_core::mvs_set_free_libraries(!flag("__mvsKeepLibraries"));
++            // MVS: window.__mvsAs3Consts ({"Class.NAME": number}) replaces class constants; read once,
++            // before the game's classes load.
++            static MVS_CONSTS_READ: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
++            if !MVS_CONSTS_READ.load(std::sync::atomic::Ordering::Relaxed)
++                && let Ok(consts) = js_sys::Reflect::get(instance.window.as_ref(), &JsValue::from_str("__mvsAs3Consts"))
++                && consts.is_object()
++            {
++                MVS_CONSTS_READ.store(true, std::sync::atomic::Ordering::Relaxed);
++                let mut list = Vec::new();
++                if let Ok(keys) = js_sys::Reflect::own_keys(&consts) {
++                    for key in keys.iter() {
++                        if let (Some(k), Some(v)) = (
++                            key.as_string(),
++                            js_sys::Reflect::get(&consts, &key).ok().and_then(|v| v.as_f64()),
++                        ) {
++                            list.push((k, v));
++                        }
++                    }
++                }
++                ruffle_core::mvs_set_const_overrides(list);
++            }
++            // MVS bot-only mode: the game keeps running at full speed but nothing is drawn.
++            mvs_no_draw = flag("__mvsNoDraw");
++            mvs_window = Some(instance.window.clone());
++
+             // Check for canvas resize.
+             let canvas_width = instance.canvas.client_width();
+             let canvas_height = instance.canvas.client_height();
+@@ -1225,6 +1282,7 @@ impl RuffleHandle {
+         });
+ 
+         // Tick the Ruffle core.
++        let mut mvs_rendered = false;
+         let _ = self.with_core_mut(|core| {
+             for event in gamepad_button_events {
+                 core.handle_event(event);
+@@ -1243,13 +1301,84 @@ impl RuffleHandle {
+                 });
+             }
+ 
++            let frames_before = core.mvs_frames_run();
+             core.tick(FloatDuration::from_millis(dt));
++            // MVS: window.__mvsCensus = true asks once for a count of what the frame loop visits.
++            if let Some(window) = &mvs_window
++                && js_sys::Reflect::get(window.as_ref(), &JsValue::from_str("__mvsCensus"))
++                    .ok()
++                    .is_some_and(|v| v.is_truthy())
++            {
++                let census = core.mvs_census();
++                let _ = js_sys::Reflect::set(window.as_ref(), &JsValue::from_str("__mvsCensus"), &JsValue::FALSE);
++                let _ = js_sys::Reflect::set(
++                    window.as_ref(),
++                    &JsValue::from_str("__mvsCensusResult"),
++                    &JsValue::from_str(&census),
++                );
++            }
++            // MVS: window.__mvsFindHolder = true asks once what keeps removed orphans alive.
++            if let Some(window) = &mvs_window
++                && js_sys::Reflect::get(window.as_ref(), &JsValue::from_str("__mvsFindHolder"))
++                    .ok()
++                    .is_some_and(|v| v.is_truthy())
++            {
++                let _ = js_sys::Reflect::set(window.as_ref(), &JsValue::from_str("__mvsFindHolder"), &JsValue::FALSE);
++                let result = core.mvs_find_holders();
++                let _ = js_sys::Reflect::set(
++                    window.as_ref(),
++                    &JsValue::from_str("__mvsHolderResult"),
++                    &JsValue::from_str(&result),
++                );
++            }
++            // MVS: every 150 game frames (about 5 s), a memory report in window.__mvsMem.
++            if core.mvs_frames_run() / 150 != frames_before / 150
++                && let Some(window) = &mvs_window
++            {
++                let wasm_mb = core::arch::wasm32::memory_size(0) * 65536 / 1_048_576;
++                let report = format!("wasm {wasm_mb} MB, {}", core.mvs_mem());
++                let _ = js_sys::Reflect::set(window.as_ref(), &JsValue::from_str("__mvsMem"), &JsValue::from_str(&report));
++            }
++            if core.mvs_frames_run() != frames_before
++                && let Some(window) = &mvs_window
++            {
++                let _ = js_sys::Reflect::set(
++                    window.as_ref(),
++                    &JsValue::from_str("__mvsFrames"),
++                    &JsValue::from_f64(core.mvs_frames_run() as f64),
++                );
++            }
+ 
+-            // Render if the core signals a new frame, or if we resized.
+-            if core.needs_render() || new_dimensions.is_some() {
++            // Render if the core signals a new frame, or if we resized. A hidden page keeps
++            // running the movie but draws nothing: the pending frame stays flagged and is
++            // drawn by the first tick after the page is shown again.
++            if in_background || mvs_no_draw {
++                return;
++            }
++            if mvs_interp_hz > 0.0 && new_dimensions.is_none() {
++                // MVS in-betweening: also draw between game frames, at most mvs_interp_hz a second.
++                if core.needs_render() || mvs_since_render >= 1000.0 / mvs_interp_hz - 2.0 {
++                    core.render_interpolated();
++                    mvs_rendered = true;
++                }
++            } else if core.needs_render() || new_dimensions.is_some() {
+                 core.render();
++                mvs_rendered = true;
+             }
+         });
++        if mvs_rendered {
++            let _ = self.with_instance_mut(|instance| instance.mvs_last_render = timestamp);
++            // MVS: pictures drawn so far (window.__mvsDrawn), for the page's FPS meter and Auto smooth.
++            static MVS_DRAWN: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
++            let drawn = MVS_DRAWN.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
++            if let Some(window) = &mvs_window {
++                let _ = js_sys::Reflect::set(
++                    window.as_ref(),
++                    &JsValue::from_str("__mvsDrawn"),
++                    &JsValue::from_f64(drawn as f64),
++                );
++            }
++        }
+     }
+ 
+     fn on_metadata(self, swf_header: &ruffle_core::swf::HeaderExt) {

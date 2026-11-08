@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using System.Xml.Linq;
 
 namespace Skua.Core.Interfaces;
@@ -223,6 +223,14 @@ public interface IFlashUtil : IDisposable
             return def;
         }
     }
+
+    /// <summary>
+    /// Marks the start of one pass of a loop that reads the game over and over (the skill loop).
+    /// Where game calls are slow round trips, the reads the last pass made are fetched in one go, so
+    /// the pass that follows finds them ready. Desktop Flash answers at once and does nothing here.
+    /// </summary>
+    /// <param name="name">Which loop this is.</param>
+    void BeginReadCycle(string name) { }
 
     /// <summary>
     /// Selects the members of each object in the array at the given path and puts them into a new array and returns them.

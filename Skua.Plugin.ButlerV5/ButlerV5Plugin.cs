@@ -10,13 +10,14 @@ namespace ButlerV5;
 
 public class ButlerV5Plugin : ISkuaPlugin
 {
-    private const string MenuButtonText = "ButlerV5 Avalonia";
+    private const string MenuButtonText = "Butler";
 
-    public string Name => "ButlerV5 Avalonia";
+    public string Name => "Butler";
+    // Keeps the options file from when the plugin was named ButlerV5 Avalonia (Author_Name).
+    public string OptionsStorage => "l0newolf12_ButlerV5_Avalonia";
     public string Author => "l0newolf12";
     public string Description =>
-        "Avalonia edition of ButlerV5. Every account with this plugin broadcasts its location " +
-        "to a shared file so you can follow someone or order your alts to follow you.";
+        "Lets your accounts follow and fight alongside each other, so you can follow someone or have your other accounts follow you.";
 
     public List<IOption>? Options { get; } = new()
     {
@@ -31,11 +32,11 @@ public class ButlerV5Plugin : ISkuaPlugin
             true),
         new Option<bool>("debugLogs", "Enable debug logs",
             "Record diagnostics into the in-plugin log viewer (Settings window). Turn off\n" +
-            "to stop all logging entirely. Default: On.", true),
+            "to stop all logging entirely. Default: Off.", false),
         new Option<bool>("autoSaveLog", "Auto-save logs to file",
-            "Also write every log line to a file in %APPDATA%\\Skua\\butlerv5_logs as it\n" +
-            "happens (one file per account). Off = logs live only in the viewer until you\n" +
-            "click Save. This is a global option - applies to all accounts. Default: Off.", false),
+            "Saves Butler's log to a file on this device.\n" +
+            "One file per account. Off = logs stay in the viewer until you click Save.\n" +
+            "This is a global option - applies to all accounts. Default: Off.", false),
         new Option<int>("gotoDelay", "Goto delay (milliseconds)",
             "Milliseconds between goto attempts while chasing the master. Default: 500,\n" +
             "the same cadence Butler v3 used. Lower it (down to ~250, the loop tick) to\n" +
@@ -81,7 +82,7 @@ public class ButlerV5Plugin : ISkuaPlugin
             "lag; don't set it too high or it will wait forever before rescuing itself.",
             3),
         new Option<int>("rosterRefresh", "Butler window refresh (seconds)",
-            "How often the Butler V5 window re-reads everyone's status files. Default: 2.\n" +
+            "How often the Butler window re-reads everyone's status files. Default: 2.\n" +
             "Lower feels snappier but reads the disk more; don't set it too high\n" +
             "or the list and incoming Summon orders will feel laggy.",
             2),
@@ -125,9 +126,9 @@ public class ButlerV5Plugin : ISkuaPlugin
             "Same as 'AntiLag while summoned', but only while MANUALLY following someone\n" +
             "(you clicked Follow in this client's window), not when summoned. Default: Off.",
             false),
-        new Option<bool>("enabled", "Enable ButlerV5",
+        new Option<bool>("enabled", "Enable Butler",
             "Master switch for the ENTIRE plugin. This is a GLOBAL setting - it affects\n" +
-            "every account at once. Turn it OFF to completely stop ButlerV5: no\n" +
+            "every account at once. Turn it OFF to completely stop Butler: no\n" +
             "broadcasting, following, summoning, or quest/skill actions anywhere until you\n" +
             "turn it back on. Turning it off stops any active butler in place (no parking).\n" +
             "Default: On.",
@@ -197,7 +198,7 @@ public class ButlerV5Plugin : ISkuaPlugin
         _dispatcher = provider.GetService(typeof(IDispatcherService)) as IDispatcherService;
         _dialogs = provider.GetService(typeof(IDialogService)) as IDialogService;
 
-        DebugLog.EnabledProvider = () => GetOption("debugLogs", true);
+        DebugLog.EnabledProvider = () => GetOption("debugLogs", false);
         DebugLog.AutoSaveProvider = () => GetOption("autoSaveLog", false);
         DebugLog.Log("Plugin", $"Load: pid={Environment.ProcessId} container={( _container != null ? "ok" : "NULL")} bot={( _bot != null ? "ok" : "NULL")}");
 
@@ -256,7 +257,7 @@ public class ButlerV5Plugin : ISkuaPlugin
         AppDomain.CurrentDomain.ProcessExit += _processExitHandler;
 
         RegisterMenuButton(provider, helper);
-        Log("ButlerV5 plugin loaded.");
+        Log("Butler plugin loaded.");
     }
 
     public void Unload()
@@ -327,7 +328,7 @@ public class ButlerV5Plugin : ISkuaPlugin
                     "Following is now SUSPENDED and will resume automatically when the script stops.\n\n" +
                     "Yes - keep it suspended (resume after the script)\n" +
                     "No - stop following entirely",
-                    "ButlerV5 Avalonia",
+                    "Butler",
                     yesAndNo: true);
 
                 if (keepSuspended == false)
@@ -345,8 +346,8 @@ public class ButlerV5Plugin : ISkuaPlugin
 
         if (!PluginEnabled)
         {
-            Log($"Can't follow {master} - ButlerV5 is disabled ('Enable ButlerV5' is off). Turn it on first.",
-                "Can't follow the master - ButlerV5 is disabled ('Enable ButlerV5' is off). Turn it on first.");
+            Log($"Can't follow {master} - Butler is disabled ('Enable Butler' is off). Turn it on first.",
+                "Can't follow the master - Butler is disabled ('Enable Butler' is off). Turn it on first.");
             return;
         }
 
@@ -414,8 +415,8 @@ public class ButlerV5Plugin : ISkuaPlugin
             // Master switch off = the whole plugin is inert; summoning would do nothing.
             if (!PluginEnabled)
             {
-                Log($"Can't summon {username} - ButlerV5 is disabled ('Enable ButlerV5' is off). Turn it on first.",
-                    "Can't summon a butler - ButlerV5 is disabled ('Enable ButlerV5' is off). Turn it on first.");
+                Log($"Can't summon {username} - Butler is disabled ('Enable Butler' is off). Turn it on first.",
+                    "Can't summon a butler - Butler is disabled ('Enable Butler' is off). Turn it on first.");
                 return;
             }
             current.Add(username);
@@ -443,7 +444,7 @@ public class ButlerV5Plugin : ISkuaPlugin
         // Master switch off = the whole plugin is inert; summoning would do nothing.
         if (!PluginEnabled)
         {
-            Log("Can't summon - ButlerV5 is disabled ('Enable ButlerV5' is off). Turn it on first.");
+            Log("Can't summon - Butler is disabled ('Enable Butler' is off). Turn it on first.");
             return;
         }
 
@@ -525,7 +526,7 @@ public class ButlerV5Plugin : ISkuaPlugin
         catch (Exception ex)
         {
             Log($"Could not save setting {name}: {ex.Message}",
-                "Could not save a setting. See ButlerV5's debug log for details.");
+                "Could not save a setting. Turn on Butler's logs in its settings to see what happened.");
         }
     }
 
@@ -540,7 +541,7 @@ public class ButlerV5Plugin : ISkuaPlugin
                 if (_settingsWindow == null)
                 {
                     SettingsWindow view = new(this);
-                    _settingsWindow = PluginWindow.Show(view, "ButlerV5 Avalonia - Settings", 900, 630, 720, 440);
+                    _settingsWindow = PluginWindow.Show(view, "Butler - Settings", 900, 630, 720, 440);
                     _settingsWindow.Closed += (_, _) =>
                     {
                         view.OnClosed();
@@ -556,7 +557,7 @@ public class ButlerV5Plugin : ISkuaPlugin
         catch (Exception ex)
         {
             Log($"Could not open settings: {ex.Message}",
-                "Could not open settings. See ButlerV5's debug log for details.");
+                "Could not open settings. Turn on Butler's logs in its settings to see what happened.");
         }
     }
 
@@ -569,7 +570,7 @@ public class ButlerV5Plugin : ISkuaPlugin
                 if (_window == null)
                 {
                     RosterWindow view = _roster = new(this);
-                    _window = PluginWindow.Show(view, "ButlerV5 Avalonia", 560, 490, 450, 320);
+                    _window = PluginWindow.Show(view, "Butler", 560, 490, 450, 320);
                     _window.Closed += (_, _) =>
                     {
                         view.OnClosed();
@@ -587,20 +588,20 @@ public class ButlerV5Plugin : ISkuaPlugin
         catch (Exception ex)
         {
             Log($"Could not open window: {ex.Message}",
-                "Could not open window. See ButlerV5's debug log for details.");
+                "Could not open window. Turn on Butler's logs in its settings to see what happened.");
         }
     }
 
     /// <summary>Shows an informational message through Avalonia Skua's public dialog service.</summary>
     public void ShowMessage(string message) =>
-        _dialogs?.ShowMessageBox(message, "ButlerV5 Avalonia");
+        _dialogs?.ShowMessageBox(message, "Butler");
 
     /// <summary>Confirms the global master-switch change.</summary>
     public bool ConfirmDisablePlugin() =>
         _dialogs?.ShowMessageBox(
-            "Turning this off stops ButlerV5 from working on ALL accounts - no following, " +
-            "summoning, or broadcasting until you turn it back on.\n\nDisable ButlerV5?",
-            "ButlerV5 Avalonia",
+            "Turning this off stops Butler from working on ALL accounts - no following, " +
+            "summoning, or broadcasting until you turn it back on.\n\nDisable Butler?",
+            "Butler",
             yesAndNo: true) == true;
 
     private void RunOnUi(Action action)
@@ -734,13 +735,13 @@ public class ButlerV5Plugin : ISkuaPlugin
                         if (!enabled)
                         {
                             DebugLog.Log("OrderWatcher", "ButlerV5 disabled - ceasing all activity (stop in place)");
-                            Log("ButlerV5 disabled - stopped. Turn 'Enable ButlerV5' back on to resume.");
+                            Log("Butler disabled - stopped. Turn 'Enable Butler' back on to resume.");
                             _follower?.Stop(); // cease in place, no park
                         }
                         else
                         {
                             DebugLog.Log("OrderWatcher", "ButlerV5 enabled - resuming");
-                            Log("ButlerV5 enabled - resuming.");
+                            Log("Butler enabled - resuming.");
                         }
                     }
                     if (!enabled)
@@ -1047,7 +1048,7 @@ public class ButlerV5Plugin : ISkuaPlugin
         DebugLog.Log("ButlerV5", message);
         try
         {
-            _bot?.Log($"[ButlerV5] {scriptMessage}");
+            _bot?.Log($"[Butler] {scriptMessage}");
         }
         catch
         {

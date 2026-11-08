@@ -16,7 +16,17 @@
         <DataTemplate x:DataType="vm:RailAction">
             <Button Classes="mobile-rail" Classes.active="{Binding IsActive}" Command="{Binding Command}">
                 <StackPanel Spacing="1">
-                    <materialIcons:MaterialIcon Kind="{Binding Icon}" Width="22" Height="22" />
+                    <Panel Height="30" HorizontalAlignment="Center">
+                        <Image Source="{Binding Image}" Width="30" Height="30" IsVisible="{Binding HasImage}" RenderOptions.BitmapInterpolationMode="HighQuality" />
+                        <materialIcons:MaterialIcon Kind="{Binding Icon}" Width="22" Height="22" VerticalAlignment="Center" IsVisible="{Binding !HasImage}" />
+                        <!-- Count (Drops waiting), on the icon's top-right corner. -->
+                        <Border IsVisible="{Binding HasBadge}" Background="#C42820" BorderBrush="#FFD678" BorderThickness="1"
+                                CornerRadius="8" MinWidth="16" Height="16" Padding="3,0"
+                                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-4,-10,0">
+                            <TextBlock Text="{Binding Badge}" FontSize="10" FontWeight="Bold" Foreground="White"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </Panel>
                     <TextBlock Text="{Binding Label}" Classes="mobile-rail-label" />
                 </StackPanel>
             </Button>
@@ -67,6 +77,8 @@
         <!-- Landscape left rail: the game's buttons by default; in bot mode navigation and the script
              button within thumb reach. -->
         <Border x:Name="LeftRailFrame" Classes="mobile-railframe left">
+            <!-- Scaled up to fill the space the game's letterbox leaves (see UpdateRailScale). -->
+            <LayoutTransformControl x:Name="LeftRailScale">
             <Grid RowDefinitions="Auto,*,Auto">
                 <Button Grid.Row="0" Classes="mobile-rail" Command="{Binding ToggleMenuCommand}" IsVisible="{Binding IsBotMode}">
                     <StackPanel Spacing="1">
@@ -87,10 +99,12 @@
                     </StackPanel>
                 </Button>
             </Grid>
+            </LayoutTransformControl>
         </Border>
 
         <!-- Right rail in landscape, bottom bar in portrait: quick tools. -->
         <Border x:Name="RightRailFrame" Classes="mobile-railframe right">
+            <LayoutTransformControl x:Name="RightRailScale">
             <Grid x:Name="RightRailGrid" RowDefinitions="*,Auto,Auto">
                 <ScrollViewer x:Name="RightRailScroll" Grid.Row="0" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Hidden">
                     <ItemsControl x:Name="RightRailItems" />
@@ -110,6 +124,7 @@
                     <Image Source="avares://MoVibeSkua/Images/mvs-crest.png" Width="50" Height="50" RenderOptions.BitmapInterpolationMode="HighQuality" />
                 </Button>
             </Grid>
+            </LayoutTransformControl>
         </Border>
 
         <SplitView x:Name="Split"

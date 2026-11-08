@@ -213,6 +213,12 @@ public partial class ScriptMap : IScriptMap
         if (!Directory.Exists(_cachePath))
             Directory.CreateDirectory(_cachePath);
 
+        if (OperatingSystem.IsAndroid())
+        {
+            _dialogService.ShowMessageBox("Map file tools are not available on mobile.", "Not available");
+            return null;
+        }
+
         if (!Directory.Exists(Path.Combine(AppContext.BaseDirectory, "FFDec")))
         {
             _dialogService.ShowMessageBox("FFDec folder not found.", "FFDec");
@@ -338,13 +344,15 @@ public partial class ScriptMap : IScriptMap
                         _dialogService.ShowMessageBox("Could not find one or more files to read.", "Get Map Item");
                         break;
                     case PathTooLongException:
-                        _dialogService.ShowMessageBox($"The path for the file is too long.\r\n{_cachePath}\\tmp\\scripts\\*_fla\\MainTimeline.as", "Get Map Item");
+                        Trace.WriteLine($"Map file path too long: {_cachePath}\\tmp\\scripts\\*_fla\\MainTimeline.as\r\n{ex}");
+                        _dialogService.ShowMessageBox("Couldn't decompile the map file.", "Get Map Item");
                         break;
                     case UnauthorizedAccessException:
                         _dialogService.ShowMessageBox("The program don't have permission to access the file", "Get Map Item");
                         break;
                     default:
-                        _dialogService.ShowMessageBox($"An error occurred.\r\nMessage: {ex.Message}\r\nStackTrace:{ex.StackTrace}", "Get Map Item");
+                        Trace.WriteLine($"Error parsing map file: {ex}");
+                        _dialogService.ShowMessageBox("Couldn't decompile the map file.", "Get Map Item");
                         break;
                 }
             }
@@ -392,7 +400,7 @@ public partial class ScriptMap : IScriptMap
             {
                 string errorMsg = $"Error while decompiling the SWF: {error}";
                 Trace.WriteLine(errorMsg);
-                _dialogService.ShowMessageBox(errorMsg, "SWF Decompile Error");
+                _dialogService.ShowMessageBox("Couldn't decompile the map file.", "SWF Decompile Error");
             }
             else
                 Trace.WriteLine($"Decompilation of \"{fileName}\" took {sw.Elapsed:s\\.ff}s");

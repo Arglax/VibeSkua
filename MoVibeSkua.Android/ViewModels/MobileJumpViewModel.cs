@@ -110,6 +110,7 @@ public sealed partial class MobileJumpViewModel : ObservableRecipient
             catch (Exception ex)
             {
                 System.Diagnostics.Trace.WriteLine($"[Jump] join {map} failed: {ex.Message}");
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => Status = $"Couldn't join {map}. Try again.");
             }
         });
     }

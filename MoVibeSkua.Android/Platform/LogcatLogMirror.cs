@@ -23,6 +23,10 @@ public sealed class LogcatLogMirror : IRecipient<AddLogMessage>
     {
         // Debug lines come from Trace, which LogcatTraceListener already sends.
         if (message.LogType != LogType.Debug && !string.IsNullOrEmpty(message.Text))
+        {
             global::Android.Util.Log.Info(Tag, $"[{message.LogType}] {message.Text}");
+            // Script and Flash lines go into the app log too, as context for problem reports.
+            Diagnostics.AppLog.Add($"[{message.LogType}] {message.Text}");
+        }
     }
 }

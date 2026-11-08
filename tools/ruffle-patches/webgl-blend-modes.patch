@@ -1,0 +1,844 @@
+diff --git a/core/src/display_object.rs b/core/src/display_object.rs
+index 0a6fde5..99a91db 100644
+--- a/core/src/display_object.rs
++++ b/core/src/display_object.rs
+@@ -329,6 +329,9 @@ struct DisplayObjectBaseMut {
+     /// If this Display Object should cacheAsBitmap - and if so, the cache itself.
+     /// None means not cached, Some means cached.
+     cache: Option<BitmapCache>,
++
++    /// MVS: cached as a bitmap because a child needs the pixels behind it for its blend mode.
++    blend_cache: bool,
+ }
+ 
+ impl Default for DisplayObjectBase<'_> {
+@@ -338,6 +341,7 @@ impl Default for DisplayObjectBase<'_> {
+                 filters: Default::default(),
+                 blend_shader: None,
+                 cache: None,
++                blend_cache: false,
+             }),
+             parent: Default::default(),
+             place_frame: Default::default(),
+@@ -838,6 +842,20 @@ impl<'gc> DisplayObjectBase<'gc> {
+         self.recheck_cache_as_bitmap();
+     }
+ 
++    /// MVS: caches this object as a bitmap while one of its children uses a blend mode that needs the
++    /// pixels behind it, so the renderer mixes it inside that small image (see `render_base`).
++    fn set_blend_cache(&self, wanted: bool) {
++        let changed = {
++            let mut write = self.cell.borrow_mut();
++            let changed = write.blend_cache != wanted;
++            write.blend_cache = wanted;
++            changed
++        };
++        if changed {
++            self.recheck_cache_as_bitmap();
++        }
++    }
++
+     fn bitmap_cache_mut(&self) -> RefMut<'_, Option<BitmapCache>> {
+         RefMut::map(self.cell.borrow_mut(), |c| &mut c.cache)
+     }
+@@ -864,7 +882,9 @@ impl<'gc> DisplayObjectBase<'gc> {
+ 
+     fn recheck_cache_as_bitmap(&self) {
+         let mut write = self.cell.borrow_mut();
+-        let should_cache = self.is_bitmap_cached_preference() || !write.filters.is_empty();
++        // MVS: the WebGL renderer cannot draw filters, so a filter alone does not make the object a
++        // cached bitmap (that would only cost a redraw per change); cacheAsBitmap still does.
++        let should_cache = self.is_bitmap_cached_preference() || write.blend_cache;
+         if should_cache {
+             write.cache.get_or_insert_default();
+         } else {
+@@ -965,6 +985,38 @@ struct DrawCacheInfo {
+     filters: Vec<Filter>,
+ }
+ 
++/// Blend modes the WebGL renderer can only draw inside an offscreen image (they need the pixels behind).
++fn needs_backdrop(mode: ExtendedBlendMode) -> bool {
++    matches!(
++        mode,
++        ExtendedBlendMode::Darken
++            | ExtendedBlendMode::Difference
++            | ExtendedBlendMode::Invert
++            | ExtendedBlendMode::Overlay
++            | ExtendedBlendMode::HardLight
++    )
++}
++
++/// Largest object (in stage pixels) cached for its children's blend modes; anything bigger draws them
++/// as Normal, since redrawing a big image each change costs more than it is worth.
++const MAX_BLEND_CACHE_AREA: f64 = 1024.0 * 1024.0;
++
++fn update_blend_cache<'gc>(this: DisplayObject<'gc>, context: &mut RenderContext<'_, 'gc>) {
++    let mut wanted = match this.as_container() {
++        Some(container) => container
++            .iter_render_list()
++            .any(|child| child.visible() && needs_backdrop(child.blend_mode())),
++        None => false,
++    };
++    if wanted {
++        let matrix = context.transform_stack.transform().matrix;
++        let bounds = this.render_bounds_with_transform(&matrix, false, &context.stage.view_matrix());
++        let area = bounds.width().to_pixels() * bounds.height().to_pixels();
++        wanted = area > 0.0 && area <= MAX_BLEND_CACHE_AREA;
++    }
++    this.base().set_blend_cache(wanted);
++}
++
+ pub fn render_base<'gc>(
+     this: DisplayObject<'gc>,
+     context: &mut RenderContext<'_, 'gc>,
+@@ -987,6 +1039,10 @@ pub fn render_base<'gc>(
+         None
+     };
+ 
++    if context.use_bitmap_cache && !context.is_offscreen && context.renderer.is_offscreen_supported() {
++        update_blend_cache(this, context);
++    }
++
+     let cache_info = if context.use_bitmap_cache && this.is_bitmap_cached() {
+         let mut cache_info: Option<DrawCacheInfo> = None;
+         let base_transform = context.transform_stack.transform();
+diff --git a/render/webgl/shaders/blend.frag b/render/webgl/shaders/blend.frag
+new file mode 100644
+index 0000000..80a52fa
+--- /dev/null
++++ b/render/webgl/shaders/blend.frag
+@@ -0,0 +1,45 @@
++// -*- glsl -*-
++#version 100
++
++#ifdef GL_FRAGMENT_PRECISION_HIGH
++    precision highp float;
++#else
++    precision mediump float;
++#endif
++
++// Flash's complex blend modes, as the wgpu renderer's shaders/blend/*.wgsl compute them (premultiplied
++// alpha). u_parent is what was drawn behind the object, u_current the object drawn on its own.
++uniform sampler2D u_parent;
++uniform sampler2D u_current;
++uniform int u_mode; // 2 darken, 3 difference, 4 invert, 5 overlay, 6 hard light
++
++varying vec2 frag_uv;
++
++vec3 blend_func(vec3 s, vec3 d) {
++    if (u_mode == 2) {
++        return min(s, d);
++    }
++    if (u_mode == 3) {
++        return abs(d - s);
++    }
++    if (u_mode == 5) {
++        return mix(1.0 - 2.0 * (1.0 - d) * (1.0 - s), 2.0 * s * d, step(d, vec3(0.5)));
++    }
++    if (u_mode == 6) {
++        return mix(1.0 - 2.0 * (1.0 - d) * (1.0 - s), 2.0 * s * d, step(s, vec3(0.5)));
++    }
++    return s;
++}
++
++void main() {
++    vec4 dst = texture2D(u_parent, frag_uv);
++    vec4 src = texture2D(u_current, frag_uv);
++    if (src.a <= 0.0) {
++        // Leave the pixels behind untouched (keeps their anti-aliasing samples).
++        discard;
++    }
++    vec3 d = dst.a > 0.0 ? dst.rgb / dst.a : vec3(0.0);
++    vec3 mixed = u_mode == 4 ? (1.0 - d) : blend_func(src.rgb / src.a, d);
++    vec3 rgb = src.rgb * (1.0 - dst.a) + dst.rgb * (1.0 - src.a) + src.a * dst.a * mixed;
++    gl_FragColor = vec4(rgb, src.a + dst.a * (1.0 - src.a));
++}
+diff --git a/render/webgl/shaders/blend.vert b/render/webgl/shaders/blend.vert
+new file mode 100644
+index 0000000..d7baeb1
+--- /dev/null
++++ b/render/webgl/shaders/blend.vert
+@@ -0,0 +1,12 @@
++#version 100
++
++// A full-target quad for mixing a blend layer with what is behind it (position 0..1 = uv).
++attribute vec2 position;
++uniform vec2 u_uv_scale; // the part of the (pooled, larger) textures in use
++
++varying vec2 frag_uv;
++
++void main() {
++    frag_uv = position * u_uv_scale;
++    gl_Position = vec4(position * 2.0 - 1.0, 0.0, 1.0);
++}
+diff --git a/render/webgl/src/lib.rs b/render/webgl/src/lib.rs
+index 45c5ab8..aa34187 100644
+--- a/render/webgl/src/lib.rs
++++ b/render/webgl/src/lib.rs
+@@ -81,6 +81,11 @@ const COLOR_FRAGMENT_GLSL: &str = include_str!("../shaders/color.frag");
+ const TEXTURE_VERTEX_GLSL: &str = include_str!("../shaders/texture.vert");
+ const GRADIENT_FRAGMENT_GLSL: &str = include_str!("../shaders/gradient.frag");
+ const BITMAP_FRAGMENT_GLSL: &str = include_str!("../shaders/bitmap.frag");
++const BLEND_VERTEX_GLSL: &str = include_str!("../shaders/blend.vert");
++const BLEND_FRAGMENT_GLSL: &str = include_str!("../shaders/blend.frag");
++
++/// How deep blend layers may nest before the rest draw as Normal.
++const MAX_BLEND_LAYERS: usize = 4;
+ const NUM_VERTEX_ATTRIBUTES: u32 = 2;
+ 
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+@@ -152,8 +157,56 @@ pub struct WebGlRenderBackend {
+     // This is currently unused - we just hold on to it
+     // to expose via `get_viewport_dimensions`
+     viewport_scale_factor: f64,
++
++    // Complex blend modes (Overlay, Hard Light, Difference, Invert, Darken) draw the object into a layer
++    // that a shader then mixes with what is behind it, as the wgpu renderer does. Only inside offscreen
++    // targets (cacheAsBitmap images and BitmapData.draw), which are small: on the stage the same work
++    // per object costs whole-screen copies and drops the game to a few fps, so there they draw as
++    // Normal and the core caches their parent as a bitmap instead. Needs WebGL2.
++    blend_program: Option<BlendProgram>,
++    offscreen_depth: u32,
++    /// Offscreen render buffers kept between frames (sizes rounded up), so caching an object each frame
++    /// does not create and delete GL objects.
++    target_pool: Vec<PooledTarget>,
++    /// Where drawing goes now while rendering offscreen (innermost last).
++    targets: Vec<ActiveTarget>,
++}
++
++struct BlendProgram {
++    program: WebGlProgram,
++    position: u32,
++    parent: Option<WebGlUniformLocation>,
++    current: Option<WebGlUniformLocation>,
++    mode: Option<WebGlUniformLocation>,
++    uv_scale: Option<WebGlUniformLocation>,
++    quad: WebGlBuffer,
++}
++
++struct PooledTarget {
++    width: i32,
++    height: i32,
++    samples: u32,
++    color: WebGlRenderbuffer,
++    stencil: WebGlRenderbuffer,
++    framebuffer: WebGlFramebuffer,
++    /// Blend layers by nesting depth: their own colour buffer with this target's stencil.
++    layers: Vec<(WebGlRenderbuffer, WebGlFramebuffer)>,
++    /// Single-sample copies of a layer and of what is behind it, for the blend shader.
++    resolve: Option<[(WebGlTexture, WebGlFramebuffer); 2]>,
++    in_use: bool,
++}
++
++#[derive(Clone)]
++struct ActiveTarget {
++    pool: usize,
++    framebuffer: WebGlFramebuffer,
++    width: i32,
++    height: i32,
++    depth: usize,
+ }
+ 
++const TARGET_POOL_LIMIT: usize = 24;
++
+ #[derive(Debug)]
+ struct RegistryData {
+     gl: Gl,
+@@ -290,6 +343,17 @@ impl WebGlRenderBackend {
+         let bitmap_program = ShaderProgram::new(&gl, &texture_vertex, &bitmap_fragment)?;
+         let gradient_program = ShaderProgram::new(&gl, &texture_vertex, &gradient_fragment)?;
+ 
++        let blend_program = match &gl2 {
++            Some(gl2) => match Self::build_blend_program(&gl, gl2) {
++                Ok(program) => Some(program),
++                Err(e) => {
++                    log::warn!("Complex blend modes unavailable: {e}");
++                    None
++                }
++            },
++            None => None,
++        };
++
+         gl.enable(Gl::BLEND);
+ 
+         // Necessary to load RGB textures (alignment defaults to 4).
+@@ -322,6 +386,10 @@ impl WebGlRenderBackend {
+ 
+             active_program: std::ptr::null(),
+             blend_modes: vec![],
++            blend_program,
++            offscreen_depth: 0,
++            target_pool: vec![],
++            targets: vec![],
+             mult_color: None,
+             add_color: None,
+ 
+@@ -782,6 +850,18 @@ impl WebGlRenderBackend {
+                 // dst - src
+                 (Gl::FUNC_REVERSE_SUBTRACT, Gl::ONE, Gl::ONE)
+             }
++            RenderBlendMode::Builtin(BlendMode::Screen) => {
++                // src + dst * (1 - src)
++                (Gl::FUNC_ADD, Gl::ONE, Gl::ONE_MINUS_SRC_COLOR)
++            }
++            RenderBlendMode::Builtin(BlendMode::Multiply) => {
++                // src * dst + dst * (1 - src.a): exact over an opaque backdrop, untouched where src is clear
++                (Gl::FUNC_ADD, Gl::DST_COLOR, Gl::ONE_MINUS_SRC_ALPHA)
++            }
++            RenderBlendMode::Builtin(BlendMode::Lighten) if self.gl2.is_some() => {
++                // max(src, dst); a clear src leaves dst as it was
++                (Gl2::MAX, Gl::ONE, Gl::ONE)
++            }
+             _ => {
+                 // TODO: Unsupported blend mode. Default to normal for now.
+                 (Gl::FUNC_ADD, Gl::ONE, Gl::ONE_MINUS_SRC_ALPHA)
+@@ -919,6 +999,7 @@ impl WebGlRenderBackend {
+         handle: &BitmapHandle,
+         commands: CommandList,
+         quality: StageQuality,
++        clear: Option<Color>,
+         framebuffers: &mut Vec<WebGlFramebuffer>,
+         renderbuffers: &mut Vec<WebGlRenderbuffer>,
+     ) -> Result<(), Error> {
+@@ -939,40 +1020,16 @@ impl WebGlRenderBackend {
+             0,
+         );
+ 
+-        let sample_count = quality.sample_count().min(self.msaa_sample_count);
+-        let msaa = match &self.gl2 {
+-            Some(gl2) if sample_count > 1 => {
+-                let render_framebuffer = gl
+-                    .create_framebuffer()
+-                    .ok_or(Error::UnableToCreateFrameBuffer)?;
+-                framebuffers.push(render_framebuffer.clone());
+-                gl.bind_framebuffer(Gl::FRAMEBUFFER, Some(&render_framebuffer));
+-                for (format, attachment) in [
+-                    (Gl2::RGBA8, Gl::COLOR_ATTACHMENT0),
+-                    (Gl2::STENCIL_INDEX8, Gl::STENCIL_ATTACHMENT),
+-                ] {
+-                    let renderbuffer = gl
+-                        .create_renderbuffer()
+-                        .ok_or(Error::UnableToCreateRenderBuffer)?;
+-                    renderbuffers.push(renderbuffer.clone());
+-                    gl.bind_renderbuffer(Gl::RENDERBUFFER, Some(&renderbuffer));
+-                    gl2.renderbuffer_storage_multisample(
+-                        Gl::RENDERBUFFER,
+-                        sample_count as i32,
+-                        format,
+-                        width,
+-                        height,
+-                    );
+-                    gl.framebuffer_renderbuffer(
+-                        Gl::FRAMEBUFFER,
+-                        attachment,
+-                        Gl::RENDERBUFFER,
+-                        Some(&renderbuffer),
+-                    );
+-                }
+-                Some((gl2.clone(), render_framebuffer))
++        // WebGL2: draw into a pooled buffer (MSAA when the quality asks for it), then copy into the
++        // texture. WebGL1: straight into the texture, with a stencil buffer for masks.
++        let pooled = match self.gl2.clone() {
++            Some(gl2) => {
++                let samples = quality.sample_count().min(self.msaa_sample_count).max(1);
++                let pool = self.acquire_target(&gl2, width, height, samples)?;
++                gl.bind_framebuffer(Gl::FRAMEBUFFER, Some(&self.target_pool[pool].framebuffer));
++                Some((gl2, pool))
+             }
+-            _ => {
++            None => {
+                 let stencil = gl
+                     .create_renderbuffer()
+                     .ok_or(Error::UnableToCreateRenderBuffer)?;
+@@ -989,6 +1046,9 @@ impl WebGlRenderBackend {
+             }
+         };
+         if gl.check_framebuffer_status(Gl::FRAMEBUFFER) != Gl::FRAMEBUFFER_COMPLETE {
++            if let Some((_, pool)) = pooled {
++                self.target_pool[pool].in_use = false;
++            }
+             return Err(Error::UnableToCreateFrameBuffer);
+         }
+ 
+@@ -1015,26 +1075,53 @@ impl WebGlRenderBackend {
+         gl.viewport(0, 0, width, height);
+         self.set_stencil_state();
+         gl.stencil_mask(0xff);
+-        gl.clear_color(0.0, 0.0, 0.0, 0.0);
+-        if msaa.is_some() {
+-            gl.clear(Gl::COLOR_BUFFER_BIT | Gl::STENCIL_BUFFER_BIT);
+-            self.render_bitmap(
+-                handle.clone(),
+-                Transform::default(),
+-                false,
+-                PixelSnapping::Never,
+-                PixelRegion::for_whole_size(entry.width, entry.height),
+-            );
+-        } else {
+-            gl.clear(Gl::STENCIL_BUFFER_BIT);
++        gl.color_mask(true, true, true, true);
++        match (clear, pooled.is_some()) {
++            (Some(c), _) => {
++                let a = c.a as f32 / 255.0;
++                gl.clear_color(
++                    c.r as f32 / 255.0 * a,
++                    c.g as f32 / 255.0 * a,
++                    c.b as f32 / 255.0 * a,
++                    a,
++                );
++                self.clear_region(width, height, Gl::COLOR_BUFFER_BIT | Gl::STENCIL_BUFFER_BIT);
++            }
++            (None, true) => {
++                // BitmapData.draw keeps what the bitmap already shows.
++                gl.clear_color(0.0, 0.0, 0.0, 0.0);
++                self.clear_region(width, height, Gl::COLOR_BUFFER_BIT | Gl::STENCIL_BUFFER_BIT);
++                self.render_bitmap(
++                    handle.clone(),
++                    Transform::default(),
++                    false,
++                    PixelSnapping::Never,
++                    PixelRegion::for_whole_size(entry.width, entry.height),
++                );
++            }
++            (None, false) => {
++                gl.clear(Gl::STENCIL_BUFFER_BIT);
++            }
+         }
+ 
++        if let Some((_, pool)) = &pooled {
++            self.targets.push(ActiveTarget {
++                pool: *pool,
++                framebuffer: self.target_pool[*pool].framebuffer.clone(),
++                width,
++                height,
++                depth: 0,
++            });
++        }
+         commands.execute(self);
++        if pooled.is_some() {
++            self.targets.pop();
++        }
+ 
+-        if let Some((gl2, render_framebuffer)) = msaa {
++        if let Some((gl2, pool)) = pooled {
+             gl.disable(Gl::STENCIL_TEST);
+             gl.color_mask(true, true, true, true);
+-            gl2.bind_framebuffer(Gl2::READ_FRAMEBUFFER, Some(&render_framebuffer));
++            gl2.bind_framebuffer(Gl2::READ_FRAMEBUFFER, Some(&self.target_pool[pool].framebuffer));
+             gl2.bind_framebuffer(Gl2::DRAW_FRAMEBUFFER, Some(&texture_framebuffer));
+             gl2.blit_framebuffer(
+                 0,
+@@ -1048,6 +1135,160 @@ impl WebGlRenderBackend {
+                 Gl2::COLOR_BUFFER_BIT,
+                 Gl2::NEAREST,
+             );
++            self.target_pool[pool].in_use = false;
++        }
++        Ok(())
++    }
++
++    /// Clears only the part of the bound buffer in use (pooled buffers can be bigger).
++    fn clear_region(&self, width: i32, height: i32, mask: u32) {
++        self.gl.enable(Gl::SCISSOR_TEST);
++        self.gl.scissor(0, 0, width, height);
++        self.gl.clear(mask);
++        self.gl.disable(Gl::SCISSOR_TEST);
++    }
++
++    fn renderbuffer(gl2: &Gl2, samples: u32, format: u32, width: i32, height: i32) -> Result<WebGlRenderbuffer, Error> {
++        let rb = gl2
++            .create_renderbuffer()
++            .ok_or(Error::UnableToCreateRenderBuffer)?;
++        gl2.bind_renderbuffer(Gl2::RENDERBUFFER, Some(&rb));
++        if samples > 1 {
++            gl2.renderbuffer_storage_multisample(Gl2::RENDERBUFFER, samples as i32, format, width, height);
++        } else {
++            gl2.renderbuffer_storage(Gl2::RENDERBUFFER, format, width, height);
++        }
++        gl2.bind_renderbuffer(Gl2::RENDERBUFFER, None);
++        Ok(rb)
++    }
++
++    /// A free pooled buffer at least `width` x `height` with `samples`, made (rounded up to 64) if needed.
++    fn acquire_target(&mut self, gl2: &Gl2, width: i32, height: i32, samples: u32) -> Result<usize, Error> {
++        let mut best: Option<usize> = None;
++        for (i, t) in self.target_pool.iter().enumerate() {
++            if !t.in_use && t.samples == samples && t.width >= width && t.height >= height {
++                let better = match best {
++                    Some(b) => {
++                        let o = &self.target_pool[b];
++                        (t.width * t.height) < (o.width * o.height)
++                    }
++                    None => true,
++                };
++                if better {
++                    best = Some(i);
++                }
++            }
++        }
++        if let Some(i) = best {
++            self.target_pool[i].in_use = true;
++            return Ok(i);
++        }
++        if self.target_pool.len() >= TARGET_POOL_LIMIT {
++            // Free the largest unused one before making another.
++            if let Some((i, _)) = self
++                .target_pool
++                .iter()
++                .enumerate()
++                .filter(|(_, t)| !t.in_use)
++                .max_by_key(|(_, t)| t.width * t.height)
++            {
++                let t = self.target_pool.remove(i);
++                self.delete_pooled(t);
++                for active in &mut self.targets {
++                    if active.pool > i {
++                        active.pool -= 1;
++                    }
++                }
++            }
++        }
++        let w = (width + 63) / 64 * 64;
++        let h = (height + 63) / 64 * 64;
++        let color = Self::renderbuffer(gl2, samples, Gl2::RGBA8, w, h)?;
++        let stencil = Self::renderbuffer(gl2, samples, Gl2::STENCIL_INDEX8, w, h)?;
++        let framebuffer = gl2
++            .create_framebuffer()
++            .ok_or(Error::UnableToCreateFrameBuffer)?;
++        gl2.bind_framebuffer(Gl2::FRAMEBUFFER, Some(&framebuffer));
++        gl2.framebuffer_renderbuffer(Gl2::FRAMEBUFFER, Gl2::COLOR_ATTACHMENT0, Gl2::RENDERBUFFER, Some(&color));
++        gl2.framebuffer_renderbuffer(Gl2::FRAMEBUFFER, Gl2::STENCIL_ATTACHMENT, Gl2::RENDERBUFFER, Some(&stencil));
++        self.target_pool.push(PooledTarget {
++            width: w,
++            height: h,
++            samples,
++            color,
++            stencil,
++            framebuffer,
++            layers: vec![],
++            resolve: None,
++            in_use: true,
++        });
++        Ok(self.target_pool.len() - 1)
++    }
++
++    fn delete_pooled(&self, t: PooledTarget) {
++        let gl = &self.gl;
++        gl.delete_renderbuffer(Some(&t.color));
++        gl.delete_renderbuffer(Some(&t.stencil));
++        gl.delete_framebuffer(Some(&t.framebuffer));
++        for (rb, fb) in t.layers {
++            gl.delete_renderbuffer(Some(&rb));
++            gl.delete_framebuffer(Some(&fb));
++        }
++        if let Some(resolve) = t.resolve {
++            for (tex, fb) in resolve {
++                gl.delete_texture(Some(&tex));
++                gl.delete_framebuffer(Some(&fb));
++            }
++        }
++    }
++
++    /// The blend layer at `depth` of pooled target `pool`, and its resolve textures, made if needed.
++    fn ensure_layer(&mut self, gl2: &Gl2, pool: usize, depth: usize) -> Result<(), Error> {
++        let (w, h, samples, stencil) = {
++            let t = &self.target_pool[pool];
++            (t.width, t.height, t.samples, t.stencil.clone())
++        };
++        while self.target_pool[pool].layers.len() <= depth {
++            let color = Self::renderbuffer(gl2, samples, Gl2::RGBA8, w, h)?;
++            let fb = gl2
++                .create_framebuffer()
++                .ok_or(Error::UnableToCreateFrameBuffer)?;
++            gl2.bind_framebuffer(Gl2::FRAMEBUFFER, Some(&fb));
++            gl2.framebuffer_renderbuffer(Gl2::FRAMEBUFFER, Gl2::COLOR_ATTACHMENT0, Gl2::RENDERBUFFER, Some(&color));
++            gl2.framebuffer_renderbuffer(Gl2::FRAMEBUFFER, Gl2::STENCIL_ATTACHMENT, Gl2::RENDERBUFFER, Some(&stencil));
++            self.target_pool[pool].layers.push((color, fb));
++        }
++        if self.target_pool[pool].resolve.is_none() {
++            let make = || -> Result<(WebGlTexture, WebGlFramebuffer), Error> {
++                let texture = gl2.create_texture().ok_or(Error::UnableToCreateTexture)?;
++                gl2.bind_texture(Gl2::TEXTURE_2D, Some(&texture));
++                gl2.tex_parameteri(Gl2::TEXTURE_2D, Gl2::TEXTURE_MAG_FILTER, Gl::NEAREST as i32);
++                gl2.tex_parameteri(Gl2::TEXTURE_2D, Gl2::TEXTURE_MIN_FILTER, Gl::NEAREST as i32);
++                gl2.tex_parameteri(Gl2::TEXTURE_2D, Gl2::TEXTURE_WRAP_S, Gl::CLAMP_TO_EDGE as i32);
++                gl2.tex_parameteri(Gl2::TEXTURE_2D, Gl2::TEXTURE_WRAP_T, Gl::CLAMP_TO_EDGE as i32);
++                gl2.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
++                    Gl2::TEXTURE_2D,
++                    0,
++                    Gl2::RGBA as i32,
++                    w,
++                    h,
++                    0,
++                    Gl2::RGBA,
++                    Gl2::UNSIGNED_BYTE,
++                    None,
++                )
++                .into_js_result()?;
++                gl2.bind_texture(Gl2::TEXTURE_2D, None);
++                let fb = gl2
++                    .create_framebuffer()
++                    .ok_or(Error::UnableToCreateFrameBuffer)?;
++                gl2.bind_framebuffer(Gl2::FRAMEBUFFER, Some(&fb));
++                gl2.framebuffer_texture_2d(Gl2::FRAMEBUFFER, Gl2::COLOR_ATTACHMENT0, Gl2::TEXTURE_2D, Some(&texture), 0);
++                Ok((texture, fb))
++            };
++            let first = make()?;
++            let second = make()?;
++            self.target_pool[pool].resolve = Some([first, second]);
+         }
+         Ok(())
+     }
+@@ -1158,6 +1399,149 @@ impl WebGlRenderBackend {
+     }
+ }
+ 
++/// The blend shader's mode for blend modes that need the pixels behind them.
++fn complex_blend_code(mode: BlendMode) -> Option<i32> {
++    match mode {
++        BlendMode::Darken => Some(2),
++        BlendMode::Difference => Some(3),
++        BlendMode::Invert => Some(4),
++        BlendMode::Overlay => Some(5),
++        BlendMode::HardLight => Some(6),
++        _ => None,
++    }
++}
++
++impl WebGlRenderBackend {
++    fn build_blend_program(gl: &Gl, gl2: &Gl2) -> Result<BlendProgram, Error> {
++        let vertex = Self::compile_shader(gl, Gl::VERTEX_SHADER, BLEND_VERTEX_GLSL)?;
++        let fragment = Self::compile_shader(gl, Gl::FRAGMENT_SHADER, BLEND_FRAGMENT_GLSL)?;
++        let program = gl.create_program().ok_or(Error::UnableToCreateProgram)?;
++        gl.attach_shader(&program, &vertex);
++        gl.attach_shader(&program, &fragment);
++        gl.link_program(&program);
++        if !gl
++            .get_program_parameter(&program, Gl::LINK_STATUS)
++            .as_bool()
++            .unwrap_or(false)
++        {
++            let msg = format!("Error linking blend program: {:?}", gl.get_program_info_log(&program));
++            return Err(Error::LinkingShaderProgram(msg));
++        }
++        let quad = gl2.create_buffer().ok_or(Error::UnableToCreateBuffer)?;
++        gl2.bind_buffer(Gl2::ARRAY_BUFFER, Some(&quad));
++        let vertices: [f32; 8] = [0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0];
++        let bytes: Vec<u8> = vertices.iter().flat_map(|v| v.to_le_bytes()).collect();
++        gl2.buffer_data_with_u8_array(Gl2::ARRAY_BUFFER, &bytes, Gl2::STATIC_DRAW);
++        gl2.bind_buffer(Gl2::ARRAY_BUFFER, None);
++        Ok(BlendProgram {
++            position: gl.get_attrib_location(&program, "position") as u32,
++            parent: gl.get_uniform_location(&program, "u_parent"),
++            current: gl.get_uniform_location(&program, "u_current"),
++            mode: gl.get_uniform_location(&program, "u_mode"),
++            uv_scale: gl.get_uniform_location(&program, "u_uv_scale"),
++            program,
++            quad,
++        })
++    }
++
++    fn blend_layer_ready(&self) -> bool {
++        self.gl2.is_some()
++            && self.blend_program.is_some()
++            && self.targets.last().is_some_and(|t| t.depth < MAX_BLEND_LAYERS)
++    }
++
++    /// Draws `commands` into a layer of the current offscreen target, then mixes the layer with what is
++    /// behind it there.
++    fn blend_with_layer(&mut self, commands: CommandList, code: i32) {
++        let (Some(top), Some(gl2)) = (self.targets.last().cloned(), self.gl2.clone()) else {
++            commands.execute(self);
++            return;
++        };
++        if let Err(e) = self.ensure_layer(&gl2, top.pool, top.depth) {
++            log::error!("Blend layer unavailable: {e}");
++            gl2.bind_framebuffer(Gl2::FRAMEBUFFER, Some(&top.framebuffer));
++            self.push_blend_mode(RenderBlendMode::Builtin(BlendMode::Normal));
++            commands.execute(self);
++            self.pop_blend_mode();
++            return;
++        }
++        let (w, h) = (top.width, top.height);
++        let (cap_w, cap_h) = (self.target_pool[top.pool].width, self.target_pool[top.pool].height);
++        let layer_fb = self.target_pool[top.pool].layers[top.depth].1.clone();
++
++        // Draw the object on its own.
++        gl2.bind_framebuffer(Gl2::FRAMEBUFFER, Some(&layer_fb));
++        self.gl.color_mask(true, true, true, true);
++        self.gl.clear_color(0.0, 0.0, 0.0, 0.0);
++        self.clear_region(w, h, Gl::COLOR_BUFFER_BIT);
++        self.mask_state_dirty = true;
++        self.targets.push(ActiveTarget {
++            pool: top.pool,
++            framebuffer: layer_fb.clone(),
++            width: w,
++            height: h,
++            depth: top.depth + 1,
++        });
++        self.push_blend_mode(RenderBlendMode::Builtin(BlendMode::Normal));
++        commands.execute(self);
++        self.pop_blend_mode();
++        self.targets.pop();
++
++        // Single-sample copies of the layer and of what is behind it.
++        self.gl.disable(Gl::STENCIL_TEST);
++        self.gl.color_mask(true, true, true, true);
++        let Some([(layer_tex, layer_copy), (parent_tex, parent_copy)]) =
++            self.target_pool[top.pool].resolve.clone()
++        else {
++            return;
++        };
++        gl2.bind_framebuffer(Gl2::READ_FRAMEBUFFER, Some(&layer_fb));
++        gl2.bind_framebuffer(Gl2::DRAW_FRAMEBUFFER, Some(&layer_copy));
++        gl2.blit_framebuffer(0, 0, w, h, 0, 0, w, h, Gl2::COLOR_BUFFER_BIT, Gl2::NEAREST);
++        gl2.bind_framebuffer(Gl2::READ_FRAMEBUFFER, Some(&top.framebuffer));
++        gl2.bind_framebuffer(Gl2::DRAW_FRAMEBUFFER, Some(&parent_copy));
++        gl2.blit_framebuffer(0, 0, w, h, 0, 0, w, h, Gl2::COLOR_BUFFER_BIT, Gl2::NEAREST);
++        gl2.bind_framebuffer(Gl2::FRAMEBUFFER, Some(&top.framebuffer));
++
++        // Mix them back (masks still apply through the shared stencil).
++        self.mask_state_dirty = true;
++        self.set_stencil_state();
++        let gl = &self.gl;
++        gl.disable(Gl::BLEND);
++        if let Some(program) = &self.blend_program {
++            gl.use_program(Some(&program.program));
++            gl.active_texture(Gl::TEXTURE1);
++            gl.bind_texture(Gl::TEXTURE_2D, Some(&layer_tex));
++            gl.active_texture(Gl::TEXTURE0);
++            gl.bind_texture(Gl::TEXTURE_2D, Some(&parent_tex));
++            gl.uniform1i(program.parent.as_ref(), 0);
++            gl.uniform1i(program.current.as_ref(), 1);
++            gl.uniform1i(program.mode.as_ref(), code);
++            gl.uniform2f(program.uv_scale.as_ref(), w as f32 / cap_w as f32, h as f32 / cap_h as f32);
++            self.bind_vertex_array(None);
++            gl.bind_buffer(Gl::ARRAY_BUFFER, Some(&program.quad));
++            gl.enable_vertex_attrib_array(program.position);
++            gl.vertex_attrib_pointer_with_i32(program.position, 2, Gl::FLOAT, false, 0, 0);
++            gl.draw_arrays(Gl::TRIANGLE_STRIP, 0, 4);
++            gl.disable_vertex_attrib_array(program.position);
++            gl.bind_buffer(Gl::ARRAY_BUFFER, None);
++            gl.active_texture(Gl::TEXTURE1);
++            gl.bind_texture(Gl::TEXTURE_2D, None);
++            gl.active_texture(Gl::TEXTURE0);
++        }
++        gl.enable(Gl::BLEND);
++        self.active_program = std::ptr::null();
++        self.mult_color = None;
++        self.add_color = None;
++        self.apply_blend_mode(
++            self.blend_modes
++                .last()
++                .cloned()
++                .unwrap_or(RenderBlendMode::Builtin(BlendMode::Normal)),
++        );
++    }
++}
++
+ fn same_blend_mode(first: Option<&RenderBlendMode>, second: &RenderBlendMode) -> bool {
+     match (first, second) {
+         (Some(RenderBlendMode::Builtin(old)), RenderBlendMode::Builtin(new)) => old == new,
+@@ -1176,13 +1560,17 @@ impl RenderBackend for WebGlRenderBackend {
+         let view_matrix = self.view_matrix;
+         let mut framebuffers = vec![];
+         let mut renderbuffers = vec![];
+-        if let Err(e) = self.render_to_texture(
++        self.offscreen_depth += 1;
++        let result = self.render_to_texture(
+             &handle,
+             commands,
+             quality,
++            None,
+             &mut framebuffers,
+             &mut renderbuffers,
+-        ) {
++        );
++        self.offscreen_depth -= 1;
++        if let Err(e) = result {
+             // Keep the bitmap as it was rather than failing the draw, which aborts the script.
+             log::error!("BitmapData.draw could not render: {e}");
+         }
+@@ -1264,6 +1652,11 @@ impl RenderBackend for WebGlRenderBackend {
+         ShapeHandle(Arc::new(mesh))
+     }
+ 
++    fn is_offscreen_supported(&self) -> bool {
++        // cacheAsBitmap images need WebGL2 here (pooled buffers, blits).
++        self.gl2.is_some()
++    }
++
+     fn submit_frame(
+         &mut self,
+         clear: Color,
+@@ -1271,7 +1664,32 @@ impl RenderBackend for WebGlRenderBackend {
+         cache_entries: Vec<BitmapCacheEntry>,
+     ) {
+         if !cache_entries.is_empty() {
+-            panic!("Bitmap caching is unavailable on the webgl backend");
++            // cacheAsBitmap images: drawn before the stage, so the stage buffers are not interrupted.
++            // Filters are not supported by this renderer and are left out, as on the stage.
++            let view_matrix = self.view_matrix;
++            let mut framebuffers = vec![];
++            let mut renderbuffers = vec![];
++            self.offscreen_depth += 1;
++            for entry in cache_entries {
++                if let Err(e) = self.render_to_texture(
++                    &entry.handle,
++                    entry.commands,
++                    StageQuality::High,
++                    Some(entry.clear),
++                    &mut framebuffers,
++                    &mut renderbuffers,
++                ) {
++                    log::error!("Could not draw a cached bitmap: {e}");
++                }
++            }
++            self.offscreen_depth -= 1;
++            self.restore_stage_target(view_matrix);
++            for framebuffer in &framebuffers {
++                self.gl.delete_framebuffer(Some(framebuffer));
++            }
++            for renderbuffer in &renderbuffers {
++                self.gl.delete_renderbuffer(Some(renderbuffer));
++            }
+         }
+         self.begin_frame(clear);
+         commands.execute(self);
+@@ -1505,6 +1923,21 @@ impl RenderBackend for WebGlRenderBackend {
+             .tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MIN_FILTER, Gl::LINEAR as i32);
+         self.gl
+             .tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MAG_FILTER, Gl::LINEAR as i32);
++        // Storage up front: cacheAsBitmap images are drawn into these through a framebuffer, which
++        // needs an allocated texture to be complete.
++        self.gl
++            .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
++                Gl::TEXTURE_2D,
++                0,
++                Gl::RGBA as i32,
++                width.get() as i32,
++                height.get() as i32,
++                0,
++                Gl::RGBA,
++                Gl::UNSIGNED_BYTE,
++                None,
++            )
++            .map_err(|e| BitmapError::JavascriptError(e.into()))?;
+ 
+         Ok(BitmapHandle(Arc::new(RegistryData {
+             gl: self.gl.clone(),
+@@ -1821,6 +2254,14 @@ impl CommandHandler for WebGlRenderBackend {
+     }
+ 
+     fn blend(&mut self, commands: CommandList, blend: RenderBlendMode) {
++        if let RenderBlendMode::Builtin(mode) = &blend {
++            if let Some(code) = complex_blend_code(*mode) {
++                if self.blend_layer_ready() {
++                    self.blend_with_layer(commands, code);
++                    return;
++                }
++            }
++        }
+         self.push_blend_mode(blend);
+         commands.execute(self);
+         self.pop_blend_mode();

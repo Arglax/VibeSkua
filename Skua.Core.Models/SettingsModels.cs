@@ -307,6 +307,10 @@ public class ClientSettings
     [JsonPropertyName("DefaultFastTravels")]
     public StringCollection DefaultFastTravels { get; set; } = new();
 
+    // Which set of starter spots has been added to FastTravels, so a spot the user deletes stays deleted.
+    [JsonPropertyName("FastTravelStarters")]
+    public int FastTravelStarters { get; set; } = 0;
+
     [JsonPropertyName("HotKeys")]
     public StringCollection HotKeys { get; set; } = new();
 
@@ -318,6 +322,40 @@ public class ClientSettings
 
     [JsonExtensionData]
     public Dictionary<string, object>? ExtensionData { get; set; }
+
+    // Starter spots for the bot, as "Name,map,cell,pad". Each boss cell was checked in game (Nov 2026).
+    // Raise the version when adding more, so saved lists pick up the new ones once.
+    private const int StarterFastTravelsVersion = 1;
+
+    private static readonly string[] StarterFastTravels =
+    {
+        "Doom Overlord,necrodungeon,r4,Left",
+        "Escherion,escherion,Boss,Left",
+        "Carnax,aqlesson,Frame9,Right",
+        "Kitsune,kitsune,Boss,Left",
+        "Shadow Lord,shadowrealmpast,r4,Left",
+        "Shadow Realm Past mobs,shadowrealmpast,Enter,Spawn",
+        "Undead Champion,battleunderb,r3,Left",
+        "Battle Under B,battleunderb,Enter,Spawn"
+    };
+
+    // Adds each spot whose map and cell aren't in the list yet (names may have been edited).
+    private static void AddMissingTravels(StringCollection list, IEnumerable<string> spots)
+    {
+        static string Where(string spot)
+        {
+            string[] v = spot.Split(',');
+            return v.Length >= 4 ? $"{v[1].Trim()},{v[2].Trim()}".ToLowerInvariant() : spot.ToLowerInvariant();
+        }
+
+        HashSet<string> have = new();
+        foreach (string? s in list)
+            if (!string.IsNullOrWhiteSpace(s))
+                have.Add(Where(s));
+        foreach (string spot in spots)
+            if (have.Add(Where(spot)))
+                list.Add(spot);
+    }
 
     public void InitializeDefaults()
     {
@@ -342,6 +380,13 @@ public class ClientSettings
                 "Nulgath,tercessuinotlim,Boss2,Right",
                 "VHL & Taro,tercessuinotlim,Taro,Left"
             };
+        }
+
+        if (FastTravelStarters < StarterFastTravelsVersion)
+        {
+            AddMissingTravels(FastTravels, StarterFastTravels);
+            AddMissingTravels(DefaultFastTravels, StarterFastTravels);
+            FastTravelStarters = StarterFastTravelsVersion;
         }
 
         if (!HotKeysInitialized)

@@ -65,6 +65,16 @@
                             </StackPanel>
                         </Button>
                     </UniformGrid>
+                    <CheckBox IsChecked="{Binding SendReports}" Content="Send problem reports to the MVS developer" />
+                    <TextBlock Classes="s-text" Opacity="0.75"
+                               Text="When MVS crashes or a script stops because of MVS, a short report goes to the developer automatically, without your account names or passwords. Mistakes in a script are not sent: MVS tells you to show those to the AUQW Discord." />
+                    <Button Classes="skua-button" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Command="{Binding ReportProblemCommand}" IsEnabled="{Binding SendReports}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <materialIcons:MaterialIcon Kind="BugOutline" Width="16" Height="16" />
+                            <TextBlock Text="{Binding ReportButtonText}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Border>
 
@@ -135,6 +145,12 @@
                     </Button>
                 </StackPanel>
             </Border>
+
+            <!-- Version (seven taps: developer mode) -->
+            <Button Background="Transparent" BorderThickness="0" HorizontalAlignment="Center" Padding="8,4"
+                    Command="{Binding VersionTapCommand}">
+                <TextBlock Text="{Binding VersionText}" Opacity="0.6" FontSize="12" />
+            </Button>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

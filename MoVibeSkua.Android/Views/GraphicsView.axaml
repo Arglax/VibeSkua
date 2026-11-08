@@ -47,7 +47,7 @@
                                 Content="Ultra" Command="{Binding ApplyPresetCommand}" CommandParameter="ultra" />
                     </UniformGrid>
                     <TextBlock Classes="gfx-note"
-                               Text="Battery and Balanced keep fights smooth on weaker phones. Ultra draws above the screen's resolution with 8x anti-aliasing and richer colours; it needs a strong GPU." />
+                               Text="Battery and Balanced keep fights smooth on weaker phones. Ultra draws above the screen's resolution with 8x anti-aliasing and richer colours; it needs a strong phone." />
                 </StackPanel>
             </Border>
 
@@ -87,7 +87,7 @@
                         </ComboBox>
                     </Grid>
                     <TextBlock Classes="gfx-note"
-                               Text="Resolution and anti-aliasing cost the most GPU time. Game setting leaves anti-aliasing to AQW's own LOW/MEDIUM/HIGH switch." />
+                               Text="Resolution and anti-aliasing cost the most graphics power. &quot;Game setting&quot; leaves anti-aliasing to AQW's own quality option." />
                 </StackPanel>
             </Border>
 
@@ -100,6 +100,15 @@
                     <CheckBox Content="Show game FPS" IsChecked="{Binding ShowFps}" />
                     <TextBlock Classes="gfx-note"
                                Text="AQW is made for 30 frames a second: green is 28+, yellow 20+, red below. Running it faster would speed its animations up, not smooth them." />
+                    <CheckBox Content="Smooth motion (looks like 60 fps)" IsChecked="{Binding SmoothMotion}" />
+                    <TextBlock Classes="gfx-note"
+                               Text="The game still runs at 30 frames a second, but walking, sliding and tweened moves are also drawn halfway between frames, so they look like 60. Art that swaps from frame to frame (some attacks) stays at 30. It costs processor time, so with Auto smooth on it pauses while the phone is throttling itself (hot), or when it adds fewer than 15 pictures a second, and comes back when it pays off again." />
+                    <CheckBox Content="Auto smooth (keep 30 fps)" IsChecked="{Binding AutoSmooth}" />
+                    <TextBlock Classes="gfx-note"
+                               Text="When the game drops below 30 fps for a few seconds, MVS first turns off Smooth motion, then lowers anti-aliasing and resolution one step at a time, and goes back to your settings when there is room. A step that does not raise the frame rate is undone." />
+                    <CheckBox Content="Heat warnings" IsChecked="{Binding HeatWarnings}" />
+                    <TextBlock Classes="gfx-note"
+                               Text="MVS runs at full speed up to 47°C (battery temperature) and warns you from 45°C. At 47°C, or when Android reports the phone as hot, it switches to a cooler mode (lighter graphics, steadier clocks) until the phone is back under 45°C." />
                     <CheckBox Content="Lag killer (hide the whole game world; bots keep playing)" IsChecked="{Binding Options.LagKiller}" />
                     <CheckBox Content="Hide other players" IsChecked="{Binding Options.HidePlayers}" />
                     <CheckBox Content="Optimize other players" IsChecked="{Binding Options.OptimizePlayers}" />

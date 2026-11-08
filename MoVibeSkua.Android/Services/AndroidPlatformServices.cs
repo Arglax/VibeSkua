@@ -85,7 +85,7 @@ public class AndroidProcessService : IProcessService
         if (!string.IsNullOrEmpty(loaded))
             OpenVSC(loaded);
         else
-            Toast($"Load a script first. Scripts are in {Skua.Core.Models.ClientFileSources.SkuaScriptsDIR}");
+            Toast("Load a script first (Scripts page).");
     }
 
     /// <summary>
