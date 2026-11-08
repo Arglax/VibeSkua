@@ -41,7 +41,21 @@ public class LoadoutService : ILoadoutService
             if (!Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
             
-            return Path.Combine(dir, $"{_bot.Player.Username}.json");
+            // Lower case, so a login typed "Arglax" one day and "arglax" the next finds the same file
+            // (Android's file names are case-sensitive); a file saved under another case is moved.
+            string path = Path.Combine(dir, $"{_bot.Player.Username.ToLowerInvariant()}.json");
+            try
+            {
+                if (!File.Exists(path))
+                {
+                    string? other = Directory.GetFiles(dir, "*.json")
+                        .FirstOrDefault(f => string.Equals(Path.GetFileName(f), Path.GetFileName(path), StringComparison.OrdinalIgnoreCase));
+                    if (other is not null)
+                        File.Move(other, path);
+                }
+            }
+            catch { }
+            return path;
         }
     }
 

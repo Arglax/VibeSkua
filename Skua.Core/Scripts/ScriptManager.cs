@@ -120,6 +120,33 @@ public partial class ScriptManager : ObservableObject, IScriptManager, IDisposab
 
     public bool ShouldExit => ScriptCts?.IsCancellationRequested ?? false;
 
+    /// <summary>
+    /// CoreBots reads options/CBO_Storage(&lt;server name&gt;).txt with the server's lower-case name. On
+    /// Android file names are case-sensitive, so a file saved under the name as typed at login
+    /// ("Arglax") was never found and scripts ran on Generic classes; move it to the name CoreBots uses.
+    /// </summary>
+    private void FixCoreBotsOptionsCase()
+    {
+        try
+        {
+            string? raw = _lazyBot.Value.Flash.GetGameObject("sfc.myUserName");
+            if (string.IsNullOrEmpty(raw) || raw.Length < 3 || raw[0] != '"')
+                return;
+            string dir = ClientFileSources.SkuaOptionsDIR;
+            string want = Path.Combine(dir, $"CBO_Storage({raw[1..^1]}).txt");
+            if (File.Exists(want) || !Directory.Exists(dir))
+                return;
+            string? other = Directory.GetFiles(dir, "CBO_Storage(*).txt")
+                .FirstOrDefault(f => string.Equals(Path.GetFileName(f), Path.GetFileName(want), StringComparison.OrdinalIgnoreCase));
+            if (other is not null)
+            {
+                File.Move(other, want);
+                _logger.ScriptLog($"CoreBots options: using {Path.GetFileName(want)} (was {Path.GetFileName(other)}).");
+            }
+        }
+        catch { }
+    }
+
     public async Task<Exception?> StartScript()
     {
         lock (_threadLock)
@@ -146,6 +173,7 @@ public partial class ScriptManager : ObservableObject, IScriptManager, IDisposab
             await _lazyBot.Value.Auto.StopAsync();
 
             UnloadPreviousScript();
+            FixCoreBotsOptionsCase();
 
             string scriptContent = File.ReadAllText(LoadedScript);
             object? script = await Task.Run(() => Compile(scriptContent));

@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.DependencyInjection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Skua.Core.Interfaces;
@@ -84,14 +85,15 @@ public partial class CoreBotsViewModel : BotControlViewModelBase
         if (!Directory.Exists(optionsDir))
             Directory.CreateDirectory(optionsDir);
 
-        string filePath = Path.Combine(optionsDir, $"CBO_Storage({_player.Username}).txt");
+        string name = CboName();
+        string filePath = CboPath(name);
         File.WriteAllText(filePath, bob.ToString());
 
         if (showDialog)
         {
-            _dialogService.ShowMessageBox($@"Saved to \options\CBO_Storage({_player.Username}).txt", "Save Successful!");
+            _dialogService.ShowMessageBox($@"Saved to \options\CBO_Storage({name}).txt", "Save Successful!");
         }
-        _readValues[_player.Username] = ReadValues(File.ReadAllLines(filePath));
+        _readValues[name] = ReadValues(File.ReadAllLines(filePath));
     }
 
     [RelayCommand]
@@ -111,16 +113,17 @@ public partial class CoreBotsViewModel : BotControlViewModelBase
         }
 
         CurrentPlayer = _player.Username;
-        if (_readValues.ContainsKey(_player.Username))
+        string name = CboName();
+        if (_readValues.ContainsKey(name))
         {
-            SetValues(_readValues[_player.Username]);
+            SetValues(_readValues[name]);
             return;
         }
 
-        string filePath = Path.Combine(ClientFileSources.SkuaOptionsDIR, $"CBO_Storage({_player.Username}).txt");
+        string filePath = CboPath(name);
         if (!File.Exists(filePath) && Directory.Exists(ClientFileSources.LegacySkuaDIR))
         {
-            string legacyPath = Path.Combine(ClientFileSources.LegacySkuaDIR, "options", $"CBO_Storage({_player.Username}).txt");
+            string legacyPath = Path.Combine(ClientFileSources.LegacySkuaDIR, "options", $"CBO_Storage({name}).txt");
             if (File.Exists(legacyPath))
                 filePath = legacyPath;
         }
@@ -132,8 +135,46 @@ public partial class CoreBotsViewModel : BotControlViewModelBase
 
         SetValues(optionsDict);
 
-        _readValues.Add(_player.Username, optionsDict);
+        _readValues[name] = optionsDict;
     }
+
+    /// <summary>
+    /// The name in CoreBots' options file, exactly as CoreBots.cs reads it: the server's name for the
+    /// account (sfc.myUserName, lower case), not what was typed at login. Windows ignores letter case in
+    /// file names, so the two never differed there; Android doesn't, so "Arglax" typed at login wrote
+    /// CBO_Storage(Arglax).txt while scripts read CBO_Storage(arglax).txt and ran on Generic classes.
+    /// </summary>
+    private string CboName()
+    {
+        try
+        {
+            string? raw = Ioc.Default.GetService<IFlashUtil>()?.GetGameObject("sfc.myUserName");
+            if (!string.IsNullOrEmpty(raw) && raw.Length > 2 && raw[0] == '"')
+                return raw[1..^1];
+        }
+        catch { }
+        return (_player.Username ?? string.Empty).ToLowerInvariant();
+    }
+
+    /// <summary>The options file for <paramref name="name"/>; one saved under another letter case is moved to it.</summary>
+    private static string CboPath(string name)
+    {
+        string dir = ClientFileSources.SkuaOptionsDIR;
+        string path = Path.Combine(dir, $"CBO_Storage({name}).txt");
+        try
+        {
+            if (!File.Exists(path) && Directory.Exists(dir))
+            {
+                string? other = Directory.GetFiles(dir, "CBO_Storage(*).txt")
+                    .FirstOrDefault(f => string.Equals(Path.GetFileName(f), Path.GetFileName(path), StringComparison.OrdinalIgnoreCase));
+                if (other is not null)
+                    File.Move(other, path);
+            }
+        }
+        catch { }
+        return path;
+    }
+
 
     // Refreshes the class and equipment lists from the logged-in character's inventory, keeping the
     // selections already made in the window.
