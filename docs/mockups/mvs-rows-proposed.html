@@ -1,0 +1,90 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>MVS rows proposal</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { width:1356px; height:610px; background:#000; font-family:Arial,Helvetica,sans-serif; color:#fff; overflow:hidden; position:relative; }
+  .rail { position:absolute; top:0; bottom:0; width:92px; background:#141210; border-right:1px solid #3a2f1d; }
+  .rail.r { right:0; border-right:none; border-left:1px solid #3a2f1d; }
+  .game { position:absolute; left:92px; right:92px; top:0; bottom:0; background:linear-gradient(160deg,#20202a,#101016 60%,#18120e); }
+  .win { position:absolute; left:470px; top:14px; width:560px; bottom:14px; background:#050505; border:3px solid #b8892e; border-radius:14px;
+         box-shadow:inset 0 0 0 2px #3b2b0e, 0 8px 30px #000; padding:10px 18px 10px 12px; }
+  .title { font-family:Georgia,serif; color:#f4e2b0; font-size:22px; text-align:center; margin-bottom:6px; }
+  .sect { color:#e8c15a; font-weight:bold; font-size:15px; letter-spacing:.14em; display:flex; align-items:center; gap:10px; margin:6px 4px; }
+  .sect::after { content:""; flex:1; height:1px; background:linear-gradient(90deg,#8a6a26,transparent); }
+  .row { height:42px; display:flex; align-items:center; gap:8px; border:1px solid #1f1f1f; background:#0b0b0b; padding:0 8px; margin-bottom:3px; }
+  .row .name { font-size:16.5px; color:#f2f2f2; }
+  .row.off .name { color:#9a9a9a; }
+  .tag { font-size:11px; font-weight:bold; color:#3a2a08; background:#e2bb5c; border:1px solid #fff0b5; border-radius:4px; padding:1px 5px; }
+  .row.off .tag { background:#7d6a3a; color:#241a06; border-color:#a8946a; }
+  .q { width:24px; height:24px; border-radius:50%; border:2px solid #d9b25a; color:#f4dc98; display:grid; place-items:center; font-size:14px; font-weight:bold; background:#1c1406; }
+  .row .sp { flex:1; }
+  .pill { width:100px; height:30px; border-radius:6px; display:grid; place-items:center; font-weight:bold; font-size:15px; letter-spacing:.03em;
+          border:2px solid #e7b65a; background:linear-gradient(#ff5a4a,#d81e14 55%,#a5100a); color:#fff; text-shadow:0 1px 0 #600; box-shadow:inset 0 2px 0 #ff9c90; }
+  .pill.off { border-color:#7a6440; background:linear-gradient(#5e4646,#3e2c2c 55%,#2b1d1d); color:#b8a8a8; text-shadow:none; box-shadow:inset 0 2px 0 #6f5656; }
+  .scr { position:absolute; right:6px; top:70px; width:8px; height:120px; border-radius:5px; background:#c8261b; border:1px solid #f29a8e; }
+  .note { position:absolute; left:110px; top:20px; width:340px; color:#d9d9d9; font-size:14px; line-height:1.4; }
+  .note h2 { color:#e8c15a; font-size:16px; margin-bottom:6px; }
+  .note li { margin-left:18px; margin-bottom:5px; }
+  /* guide popup */
+  .guide { position:absolute; left:1048px; top:40px; width:300px; height:520px; background:#0a0806; border:3px solid #c99a3a; border-radius:12px;
+           box-shadow:inset 0 0 0 2px #3b2b0e, 0 10px 40px #000; padding:12px 14px; }
+  .guide .gt { font-family:Georgia,serif; color:#f4e2b0; font-size:20px; display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .guide .x { margin-left:auto; width:26px; height:26px; border-radius:50%; background:#b51d14; border:2px solid #e7b65a; display:grid; place-items:center; font-size:14px; }
+  .guide h4 { color:#e8c15a; font-size:13px; letter-spacing:.08em; margin:8px 0 3px; }
+  .guide p { font-size:13.5px; line-height:1.35; color:#e4e4e4; }
+  .demo { margin-top:6px; height:140px; border:1px solid #4a3a1a; border-radius:8px; background:#15151c; position:relative; overflow:hidden; }
+  .demo .zone { position:absolute; left:0; top:0; bottom:0; width:35%; background:repeating-linear-gradient(45deg,#e8c15a22 0 8px,#e8c15a10 8px 16px); border-right:2px dashed #e8c15a; }
+  .demo .zl { position:absolute; left:6px; top:5px; font-size:11px; color:#f4dc98; }
+  .demo .stick { position:absolute; left:34px; top:62px; width:54px; height:54px; border-radius:50%; border:2px solid #ffffffaa; background:#ffffff18; }
+  .demo .knob { position:absolute; left:58px; top:70px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 0 8px #fff; }
+  .demo .finger { position:absolute; left:62px; top:76px; font-size:22px; }
+  .demo .hero { position:absolute; left:170px; top:64px; width:22px; height:44px; border-radius:8px; background:#7aa7ff; }
+  .demo .arrow { position:absolute; left:196px; top:80px; color:#9ec0ff; font-size:20px; }
+  .demo .cap { position:absolute; right:8px; bottom:6px; font-size:11px; color:#aaa; }
+  .guide .row2 { display:flex; gap:8px; margin-top:10px; }
+  .guide .b { flex:1; height:32px; border-radius:6px; display:grid; place-items:center; font-weight:bold; font-size:14px; border:2px solid #e7b65a;
+              background:linear-gradient(#ff5a4a,#d81e14 55%,#a5100a); }
+  .guide .b.alt { background:linear-gradient(#5e4646,#3e2c2c 55%,#2b1d1d); border-color:#7a6440; color:#d8caca; }
+</style></head>
+<body>
+  <div class="rail"></div><div class="rail r"></div><div class="game"></div>
+  <div class="note">
+    <h2>What changes</h2>
+    <ul>
+      <li><b>OFF looks off:</b> the pill goes dark like the game's own OFF buttons, and the name and MVS tag dim.</li>
+      <li><b>(?) on every MVS row:</b> opens a short guide with what it does, ON vs OFF, and a picture or animation.</li>
+      <li>Tapping the pill still switches it, as now.</li>
+    </ul>
+  </div>
+  <div class="win">
+    <div class="title">Options</div>
+    <div class="sect">CONTROLS</div>
+    <div class="row"><span class="name">Improve FPS</span><span class="tag">MVS</span><span class="q">?</span><span class="sp"></span><span class="pill">ON</span></div>
+    <div class="row"><span class="name">Mobile Layout</span><span class="tag">MVS</span><span class="q">?</span><span class="sp"></span><span class="pill">ON</span></div>
+    <div class="row"><span class="name">Dynamic Joystick</span><span class="tag">MVS</span><span class="q" style="box-shadow:0 0 0 3px #e8c15a66">?</span><span class="sp"></span><span class="pill">ON</span></div>
+    <div class="row off"><span class="name">Long Dash</span><span class="tag">MVS</span><span class="q">?</span><span class="sp"></span><span class="pill off">OFF</span></div>
+    <div class="row"><span class="name">Swipe Scrolling</span><span class="tag">MVS</span><span class="q">?</span><span class="sp"></span><span class="pill">ON</span></div>
+    <div class="row off"><span class="name">Improved Auras</span><span class="tag">MVS</span><span class="q">?</span><span class="sp"></span><span class="pill off">OFF</span></div>
+    <div class="row"><span class="name">Inventory UI</span><span class="tag">MVS</span><span class="q">?</span><span class="sp"></span><span class="pill">ON</span></div>
+    <div class="row"><span class="name">Inventory Filter</span><span class="tag">MVS</span><span class="q">?</span><span class="sp"></span><span class="pill">ON</span></div>
+    <div class="row off"><span class="name">Class Rating</span><span class="tag">MVS</span><span class="q">?</span><span class="sp"></span><span class="pill off">OFF</span></div>
+    <div class="row"><span class="name">MVS Drops</span><span class="tag">MVS</span><span class="q">?</span><span class="sp"></span><span class="pill">ON</span></div>
+    <div class="row"><span class="name">Keybinds</span><span class="sp"></span><span class="pill">Open</span></div>
+    <div class="scr"></div>
+  </div>
+  <div class="guide">
+    <div class="gt">Dynamic Joystick <span class="x">✕</span></div>
+    <p>Move by putting your thumb down <b>anywhere on the left third</b> of the screen. The joystick appears under your thumb.</p>
+    <div class="demo">
+      <div class="zone"></div><div class="zl">left 35%</div>
+      <div class="stick"></div><div class="knob"></div><div class="finger">👆</div>
+      <div class="hero"></div><div class="arrow">➜</div>
+      <div class="cap">plays as a short animation</div>
+    </div>
+    <h4>WHEN ON</h4>
+    <p>Touch anywhere in the left 35% to steer.</p>
+    <h4>WHEN OFF</h4>
+    <p>The game's normal joystick: only its fixed corner spot works.</p>
+    <div class="row2"><div class="b alt">Turn off</div><div class="b">Got it</div></div>
+  </div>
+</body></html>
