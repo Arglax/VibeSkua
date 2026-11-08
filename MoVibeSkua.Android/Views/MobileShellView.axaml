@@ -92,10 +92,14 @@
                 <Button Grid.Row="2" Classes="mobile-rail mobile-rail-script" Classes.running="{Binding IsScriptRunning}" Command="{Binding ToggleScriptCommand}" IsVisible="{Binding IsBotMode}">
                     <StackPanel Spacing="1">
                         <Panel>
-                            <materialIcons:MaterialIcon Kind="Play" Width="26" Height="26" IsVisible="{Binding !IsScriptRunning}" />
-                            <materialIcons:MaterialIcon Kind="Stop" Width="26" Height="26" IsVisible="{Binding IsScriptRunning}" />
+                            <materialIcons:MaterialIcon Kind="Play" Width="22" Height="22" IsVisible="{Binding !IsScriptRunning}" />
+                            <materialIcons:MaterialIcon Kind="Stop" Width="22" Height="22" IsVisible="{Binding IsScriptRunning}" />
                         </Panel>
-                        <TextBlock Text="{Binding ToggleScriptText}" Classes="mobile-rail-label" />
+                        <!-- Short label so the button stays one rail button tall and Army fits without scrolling. -->
+                        <Panel>
+                            <TextBlock Text="Start" Classes="mobile-rail-label" IsVisible="{Binding !IsScriptRunning}" />
+                            <TextBlock Text="Stop" Classes="mobile-rail-label" IsVisible="{Binding IsScriptRunning}" />
+                        </Panel>
                     </StackPanel>
                 </Button>
             </Grid>

@@ -129,26 +129,46 @@
                         <materialIcons:MaterialIcon Classes="g-icon" Kind="GestureTap" />
                         <TextBlock Classes="g-title" Text="Inside the game" />
                     </StackPanel>
-                    <Grid ColumnDefinitions="26,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
-                        <materialIcons:MaterialIcon Grid.Row="0" Classes="g-icon" Kind="AccountCircle" />
+                    <Grid ColumnDefinitions="26,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10">
+                        <materialIcons:MaterialIcon Grid.Row="0" Classes="g-icon" Kind="Cog" />
                         <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2">
-                            <TextBlock Classes="g-name" Text="Big menus" />
-                            <TextBlock Classes="g-text" Text="Tap your portrait, another player, or Char / Quests: their small menus open as large buttons. Tap beside the panel to close it." />
+                            <TextBlock Classes="g-name" Text="MVS features: the game's Settings" />
+                            <TextBlock Classes="g-text" Text="Every MVS extra has its own On/Off row with a gold MVS tag at the top of Settings, Advanced Options, Controls: Improve FPS, Mobile Layout, Dynamic Joystick, Long Dash, Swipe Scrolling, Improved Auras, Inventory UI, Inventory Filter, Class Rating and MVS Drops. Hold a row to read what it does. Your choices stay through app updates." />
                         </StackPanel>
-                        <materialIcons:MaterialIcon Grid.Row="1" Classes="g-icon" Kind="Star" />
+                        <materialIcons:MaterialIcon Grid.Row="1" Classes="g-icon" Kind="GamepadVariant" />
                         <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
-                            <TextBlock Classes="g-name" Text="Class stars in your inventory" />
-                            <TextBlock Classes="g-text" Text="Each class shows 0-5 stars. Tap the &quot;MVS:&quot; chip beside the Inventory title to pick a use case (Farming, Solo, Bossing, Ultra, PvP): the list puts the best classes first. A-Z goes back to the game's order. The Preview shows every use case's stars." />
+                            <TextBlock Classes="g-name" Text="Touch controls" />
+                            <TextBlock Classes="g-text" Text="Turn on Mobile Controls (pick On; Auto doesn't detect phones here). MVS lays the skill buttons around auto attack, puts drops and your potion in the bar, and makes the portraits larger (the small button on a portrait resizes or hides it). The joystick appears wherever your thumb lands on the left side of the screen, and dash goes three times as far." />
                         </StackPanel>
-                        <materialIcons:MaterialIcon Grid.Row="2" Classes="g-icon" Kind="TimerOutline" />
+                        <materialIcons:MaterialIcon Grid.Row="2" Classes="g-icon" Kind="GestureSwipeVertical" />
                         <StackPanel Grid.Row="2" Grid.Column="1" Spacing="2">
-                            <TextBlock Classes="g-name" Text="Script window" />
-                            <TextBlock Classes="g-text" Text="While a script runs, a small window shows its name, run time and what it is doing. Drag it by its top, tap the top to fold it, × hides it until the next script." />
+                            <TextBlock Classes="g-name" Text="Swipe to scroll" />
+                            <TextBlock Classes="g-text" Text="Swipe the inventory, shops, quests, Settings and the chat with a finger. A quick flick keeps scrolling; tap to stop it." />
                         </StackPanel>
-                        <materialIcons:MaterialIcon Grid.Row="3" Classes="g-icon" Kind="ShieldLockOutline" />
+                        <materialIcons:MaterialIcon Grid.Row="3" Classes="g-icon" Kind="AccountCircle" />
                         <StackPanel Grid.Row="3" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="g-name" Text="Big menus and auras" />
+                            <TextBlock Classes="g-text" Text="Tap your portrait, another player, or Char / Quests: their small menus open as large buttons. &quot;Show Auras&quot; there opens the aura windows: your buffs on the left, your target's top right, with stacks, timers and Decay / Enrage warnings. Tap an aura for details; drag a window by its dots." />
+                        </StackPanel>
+                        <materialIcons:MaterialIcon Grid.Row="4" Classes="g-icon" Kind="PackageDown" />
+                        <StackPanel Grid.Row="4" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="g-name" Text="Drops" />
+                            <TextBlock Classes="g-text" Text="Drops wait in the bar and in the Drops panel (right side) instead of popping up. The panel shows each item's art with Accept, Decline, Preview and Block." />
+                        </StackPanel>
+                        <materialIcons:MaterialIcon Grid.Row="5" Classes="g-icon" Kind="Star" />
+                        <StackPanel Grid.Row="5" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="g-name" Text="Class stars in your inventory" />
+                            <TextBlock Classes="g-text" Text="Each class shows 0-5 stars. Tap the &quot;MVS:&quot; chip beside the Inventory title to pick a use case (Farming, Solo, Bossing, Ultra, PvP): the list puts the best classes first. Gear lists get a Sort chip (damage type or boost)." />
+                        </StackPanel>
+                        <materialIcons:MaterialIcon Grid.Row="6" Classes="g-icon" Kind="TimerOutline" />
+                        <StackPanel Grid.Row="6" Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="g-name" Text="Script window" />
+                            <TextBlock Classes="g-text" Text="While a script runs, a small window shows its name, run time and what it is doing. Drag it by its top, tap the top to fold it, x hides it until the next script." />
+                        </StackPanel>
+                        <materialIcons:MaterialIcon Grid.Row="7" Classes="g-icon" Kind="ShieldLockOutline" />
+                        <StackPanel Grid.Row="7" Grid.Column="1" Spacing="2">
                             <TextBlock Classes="g-name" Text="Only on your screen" />
-                            <TextBlock Classes="g-text" Text="Stars, big menus and windows are drawn on your phone only. Nothing about them is changed on the game's servers." />
+                            <TextBlock Classes="g-text" Text="Stars, menus and windows are drawn on your phone only. Nothing about them is changed on the game's servers." />
                         </StackPanel>
                     </Grid>
                 </StackPanel>

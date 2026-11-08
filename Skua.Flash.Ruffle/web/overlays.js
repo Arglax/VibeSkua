@@ -345,7 +345,8 @@
         }
         // MVS additions, tagged so they read as MVS's rather than the game's: the aura overlay for
         // whoever this menu is about (you, or your target).
-        if (!given && (title === "You" || title === "Monster" || title === "Player") && window.MvsAuras) {
+        if (!given && (title === "You" || title === "Monster" || title === "Player") && window.MvsAuras &&
+            !(window.__mvsOpts && window.__mvsOpts.mvsAuras === false)) {
             const b = document.createElement("button");
             b.className = "mvs-add";
             b.innerHTML = `Show Auras<sup class="mvs-tag">MVS</sup>`;

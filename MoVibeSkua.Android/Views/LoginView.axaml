@@ -5,72 +5,99 @@
              xmlns:platform="clr-namespace:MoVibeSkua.Android.Platform"
              x:Class="MoVibeSkua.Android.Views.LoginView"
              x:DataType="vm:LoginViewModel">
+    <!-- Account Manager: saved accounts (one tap logs in with that account's server), "+ Add account",
+         and the form for adding or editing one. -->
     <ScrollViewer>
         <StackPanel Margin="16" Spacing="10" MaxWidth="480">
 
-            <!-- Saved accounts: one tap logs in with that account's server. -->
-            <StackPanel Spacing="6" IsVisible="{Binding HasAccounts}">
-                <TextBlock Text="Quick login" FontWeight="SemiBold" />
-                <ItemsControl ItemsSource="{Binding Accounts}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="platform:SavedAccount">
-                            <Border Margin="0,3" Padding="10,8" CornerRadius="8"
-                                    Background="{DynamicResource SkuaSurfaceAltBrush}"
-                                    BorderBrush="{DynamicResource SkuaBorderBrush}" BorderThickness="1">
-                                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Subtitle}" FontSize="11" Foreground="{DynamicResource SkuaMutedTextBrush}" />
-                                    </StackPanel>
-                                    <Button Grid.Column="1" Classes="skua-button skua-primary" Content="Log in"
-                                            Command="{Binding $parent[UserControl].((vm:LoginViewModel)DataContext).QuickLoginCommand}"
-                                            CommandParameter="{Binding}" />
-                                    <Button Grid.Column="2" Classes="skua-button" ToolTip.Tip="Edit"
-                                            Command="{Binding $parent[UserControl].((vm:LoginViewModel)DataContext).EditAccountCommand}"
-                                            CommandParameter="{Binding}">
-                                        <materialIcons:MaterialIcon Kind="PencilOutline" Width="16" Height="16" />
-                                    </Button>
-                                    <Button Grid.Column="3" Classes="skua-button" ToolTip.Tip="Remove from this device"
-                                            Command="{Binding $parent[UserControl].((vm:LoginViewModel)DataContext).RemoveAccountCommand}"
-                                            CommandParameter="{Binding}">
-                                        <materialIcons:MaterialIcon Kind="TrashCanOutline" Width="16" Height="16" />
-                                    </Button>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
+            <TextBlock Text="Saved on this phone only, encrypted with its keystore. MVS keeps you logged in and relogs after disconnects."
+                       TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SkuaMutedTextBrush}" />
 
-            <TextBlock Text="Log in with your AQW account. MVS keeps you logged in and relogs after disconnects. Saved accounts stay on this device only, encrypted with the phone's keystore."
-                       TextWrapping="Wrap" Foreground="{DynamicResource SkuaMutedTextBrush}" />
-            <!-- No auto-capitals, autocorrect or suggestions: the hidden password used to get its first
-                 letter capitalised or a word swapped by the keyboard, so AQW rejected a correct login. -->
-            <TextBox Text="{Binding Username}" Watermark="Username"
-                     TextInputOptions.AutoCapitalization="False" TextInputOptions.ShowSuggestions="False" />
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                <TextBox Grid.Column="0" Text="{Binding Password}" Watermark="Password" PasswordChar="•"
-                         RevealPassword="{Binding #ShowPassword.IsChecked}"
-                         TextInputOptions.ContentType="Password" TextInputOptions.IsSensitive="True"
-                         TextInputOptions.AutoCapitalization="False" TextInputOptions.ShowSuggestions="False" />
-                <ToggleButton x:Name="ShowPassword" Grid.Column="1" Classes="skua-button" ToolTip.Tip="Show password">
-                    <Panel>
-                        <materialIcons:MaterialIcon Kind="EyeOutline" Width="18" Height="18" IsVisible="{Binding !#ShowPassword.IsChecked}" />
-                        <materialIcons:MaterialIcon Kind="EyeOffOutline" Width="18" Height="18" IsVisible="{Binding #ShowPassword.IsChecked}" />
-                    </Panel>
-                </ToggleButton>
-            </Grid>
-            <ComboBox ItemsSource="{Binding Servers}" SelectedItem="{Binding Server}" HorizontalAlignment="Stretch"
-                      PlaceholderText="Server" />
-            <CheckBox IsChecked="{Binding Remember}" Content="Save this account on this device when I log in" />
-            <Grid ColumnDefinitions="*,8,*,8,*">
-                <Button Grid.Column="0" Classes="skua-button skua-primary" HorizontalAlignment="Stretch"
-                        Content="Log in" Command="{Binding LoginCommand}" IsVisible="{Binding !IsBusy}" />
-                <Button Grid.Column="0" Classes="skua-button" HorizontalAlignment="Stretch"
-                        Content="Cancel" Command="{Binding CancelLoginCommand}" IsVisible="{Binding IsBusy}" />
-                <Button Grid.Column="2" Classes="skua-button" HorizontalAlignment="Stretch"
-                        Content="Save account" Command="{Binding SaveAccountCommand}" />
-                <Button Grid.Column="4" Classes="skua-button" HorizontalAlignment="Stretch"
+            <ItemsControl ItemsSource="{Binding Accounts}" IsVisible="{Binding HasAccounts}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="platform:SavedAccount">
+                        <Border Margin="0,4" Padding="10,8" CornerRadius="12"
+                                Background="{DynamicResource SkuaSurfaceAltBrush}"
+                                BorderBrush="{DynamicResource SkuaBorderBrush}" BorderThickness="1">
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+                                <Border Grid.Column="0" Width="40" Height="40" CornerRadius="20" Background="#5A2A1C"
+                                        BorderBrush="#B88A3A" BorderThickness="1" VerticalAlignment="Center">
+                                    <materialIcons:MaterialIcon Kind="Account" Width="24" Height="24" Foreground="#E8C15A" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="16" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Server}" FontSize="12" Foreground="{DynamicResource SkuaMutedTextBrush}" />
+                                </StackPanel>
+                                <Button Grid.Column="2" Classes="skua-button skua-primary" Content="Log in" VerticalAlignment="Center"
+                                        Command="{Binding $parent[UserControl].((vm:LoginViewModel)DataContext).QuickLoginCommand}"
+                                        CommandParameter="{Binding}" />
+                                <Button Grid.Column="3" Classes="skua-button" ToolTip.Tip="Edit" VerticalAlignment="Center"
+                                        Command="{Binding $parent[UserControl].((vm:LoginViewModel)DataContext).EditAccountCommand}"
+                                        CommandParameter="{Binding}">
+                                    <materialIcons:MaterialIcon Kind="PencilOutline" Width="18" Height="18" />
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Button Classes="skua-button" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="10,12"
+                    Command="{Binding AddAccountCommand}" IsVisible="{Binding !ShowForm}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <materialIcons:MaterialIcon Kind="AccountPlus" Width="20" Height="20" />
+                    <TextBlock Text="Add account" VerticalAlignment="Center" FontWeight="SemiBold" />
+                </StackPanel>
+            </Button>
+
+            <!-- Add / edit form. -->
+            <Border Padding="12" CornerRadius="12" IsVisible="{Binding ShowForm}"
+                    Background="{DynamicResource SkuaSurfaceAltBrush}"
+                    BorderBrush="{DynamicResource SkuaBorderBrush}" BorderThickness="1">
+                <StackPanel Spacing="9">
+                    <TextBlock Text="{Binding FormTitle}" FontWeight="SemiBold" FontSize="16" />
+                    <!-- No auto-capitals, autocorrect or suggestions: the hidden password used to get its first
+                         letter capitalised or a word swapped by the keyboard, so AQW rejected a correct login. -->
+                    <TextBox Text="{Binding Username}" Watermark="Username"
+                             TextInputOptions.AutoCapitalization="False" TextInputOptions.ShowSuggestions="False" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <TextBox Grid.Column="0" Text="{Binding Password}" Watermark="Password" PasswordChar="•"
+                                 RevealPassword="{Binding #ShowPassword.IsChecked}"
+                                 TextInputOptions.ContentType="Password" TextInputOptions.IsSensitive="True"
+                                 TextInputOptions.AutoCapitalization="False" TextInputOptions.ShowSuggestions="False" />
+                        <ToggleButton x:Name="ShowPassword" Grid.Column="1" Classes="skua-button" ToolTip.Tip="Show password">
+                            <Panel>
+                                <materialIcons:MaterialIcon Kind="EyeOutline" Width="18" Height="18" IsVisible="{Binding !#ShowPassword.IsChecked}" />
+                                <materialIcons:MaterialIcon Kind="EyeOffOutline" Width="18" Height="18" IsVisible="{Binding #ShowPassword.IsChecked}" />
+                            </Panel>
+                        </ToggleButton>
+                    </Grid>
+                    <ComboBox ItemsSource="{Binding Servers}" SelectedItem="{Binding Server}" HorizontalAlignment="Stretch"
+                              PlaceholderText="Server" />
+                    <Grid ColumnDefinitions="*,8,*,8,Auto">
+                        <Button Grid.Column="0" Classes="skua-button skua-primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Content="Save &amp; log in" Command="{Binding SaveAndLoginCommand}" IsEnabled="{Binding !IsBusy}" />
+                        <Button Grid.Column="2" Classes="skua-button" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Content="Save" Command="{Binding SaveAccountCommand}" />
+                        <Button Grid.Column="4" Classes="skua-button" Content="Cancel" Command="{Binding CloseFormCommand}"
+                                IsVisible="{Binding HasAccounts}" />
+                    </Grid>
+                    <Button Classes="skua-button" HorizontalAlignment="Left" Foreground="#FF8A80"
+                            IsVisible="{Binding EditingName, Converter={x:Static ObjectConverters.IsNotNull}}"
+                            Command="{Binding RemoveAccountCommand}"
+                            CommandParameter="{Binding $parent[UserControl].((vm:LoginViewModel)DataContext).EditingAccount}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <materialIcons:MaterialIcon Kind="TrashCanOutline" Width="16" Height="16" />
+                            <TextBlock Text="Remove from this phone" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <Grid ColumnDefinitions="*,8,*">
+                <Button Grid.Column="0" Classes="skua-button" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        Content="Cancel login" Command="{Binding CancelLoginCommand}" IsVisible="{Binding IsBusy}" />
+                <Button Grid.Column="2" Classes="skua-button" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                         Content="Log out" Command="{Binding LogoutCommand}" />
             </Grid>
             <ProgressBar IsIndeterminate="{Binding IsBusy}" Height="4" IsVisible="{Binding IsBusy}" />

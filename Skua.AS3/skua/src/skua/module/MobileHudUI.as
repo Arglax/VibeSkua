@@ -10,6 +10,7 @@ import flash.display.Shape;
 import flash.display.Sprite;
 import flash.events.MouseEvent;
 import flash.geom.Matrix;
+import flash.geom.Point;
 import flash.geom.Rectangle;
 import flash.text.TextField;
 import flash.text.TextFormat;
@@ -89,28 +90,76 @@ public class MobileHudUI extends Module {
         mhFrame(game);
     }
 
-    // ---- the game's Options: "Mobile Layout" (MVS) right before its "Mobile Controls" ----
+    // ---- MVS features in the game's Options: one row each, at the top of Controls ----
 
-    private static const MH_OPT:String = "Mobile Layout";
+    // [key in litePreference.data.dOptions, row name, description]. All are on unless set to false.
+    // The page (bridge.js, overlays) is told each value as "key:on" / "key:off" through mvsOption and keeps a
+    // copy for what it needs before the game has loaded (Improve FPS, Long Dash).
+    private static const MH_OPTS:Array = [
+        ["mvsImproveFps", "Improve FPS", "MVS: smoother, steadier frames: in-between pictures, a frame governor that lowers graphics only when that helps, and removed objects left still.\nOff runs the game the way plain Ruffle does."],
+        ["mvsMobileLayout", "Mobile Layout", "MVS: lays out the game's mobile controls for phones while Mobile Controls is on.\nThe skill bar becomes your drops and potion, the skill buttons sit around auto attack, the portraits are larger, and the room's player count moves into the bar.\nOff gives the game's own layout."],
+        ["mvsJoystick", "Dynamic Joystick", "MVS: the joystick appears wherever your thumb lands on the left 35% of the screen, not only near its corner, so a move never turns into a tap.\nA touch that doesn't move is still a tap. Needs Mobile Controls."],
+        ["mvsLongDash", "Long Dash", "MVS: the mobile dash goes 3 times as far, like the classic dash across the screen.\nTakes effect the next time the game starts."],
+        ["mvsSwipe", "Swipe Scrolling", "MVS: swipe lists, shops, quests and the chat with a finger."],
+        ["mvsAuras", "Improved Auras", "MVS: windows for your and your target's auras: stacks, timers, Decay and Enrage warnings, tap one for details."],
+        ["mvsInvUI", "Inventory UI", "MVS: larger inventory rows and category icons; classes show their rank, gear its enhancement.\nReopen the bag to see the change."],
+        ["mvsInvFilter", "Inventory Filter", "MVS: sort weapons, armor, helms and capes by a damage type or a boost (the Sort chip in the bag).\nReopen the bag to see the change."],
+        ["mvsClassRating", "Class Rating", "MVS: star ratings for classes in the inventory.\nReopen the bag to see the change."],
+        ["mvsDrops", "MVS Drops", "MVS: drops wait in the Drops panel and the bar instead of popping up over the game."]
+    ];
     private static var mhOptTick:int = 0;
     private static var mhOptRows:Dictionary = new Dictionary(true);
+    private static var mhOptSynced:Boolean = false;
 
-    private static function mhLayoutOn(game:*):Boolean {
+    // Whether an MVS feature is on (the game's settings; on unless turned off).
+    private static function mvsOpt(game:*, key:String):Boolean {
         try {
-            return game.litePreference.data.dOptions["mvsMobileLayout"] !== false;
+            return game.litePreference.data.dOptions[key] !== false;
         } catch (e:Error) {
         }
         return true;
     }
 
-    private static function mhOptLabel(game:*):String {
-        return MH_OPT + ": " + (mhLayoutOn(game) ? "On" : "Off");
+    private static function mhLayoutOn(game:*):Boolean {
+        return mvsOpt(game, "mvsMobileLayout");
+    }
+
+    private static function mhOptLabel(game:*, o:Array):String {
+        return o[1] + ": " + (mvsOpt(game, o[0]) ? "On" : "Off");
+    }
+
+    // The option a row or list entry stands for ("Name" once the row has split off its value).
+    private static function mhOptFor(text:String):Array {
+        for each (var o:Array in MH_OPTS) {
+            if (text == o[1] || text.indexOf(o[1] + ":") == 0) {
+                return o;
+            }
+        }
+        return null;
+    }
+
+    // Tells the page every option's value once the game's settings are there.
+    private static function mhOptSync(game:*):void {
+        if (mhOptSynced || game == null || game.litePreference == null || game.litePreference.data == null) {
+            return;
+        }
+        mhOptSynced = true;
+        for each (var o:Array in MH_OPTS) {
+            mhOptSend(o[0], mvsOpt(game, o[0]));
+        }
+    }
+
+    private static function mhOptSend(key:String, on:Boolean):void {
+        try {
+            skua.Main.instance.external.call("mvsOption", key + ":" + (on ? "on" : "off"));
+        } catch (e:Error) {
+        }
     }
 
     // The Options window (mcOption) rebuilds game.litePref and draws it every time it opens (one
     // window is kept and reopened, so this can't be done once per window): while it's up and the list
-    // lacks the entry, add it and draw the list again. Not while a search is typed: the search list
-    // is drawn from a fresh rebuild, and clearing the search rebuilds it again.
+    // lacks the entries, add them and draw the list again. Not while a search is typed: the search
+    // list is drawn from a fresh rebuild, and clearing the search rebuilds it again.
     private static function mhOptions(game:*):void {
         if (++mhOptTick % 10 != 0) {
             return;
@@ -133,9 +182,9 @@ public class MobileHudUI extends Module {
 
     private static var mhOptPlaced:Dictionary = new Dictionary(true);
 
-    // The Options list groups rows into sections by name and sorts them, so a name it doesn't know
-    // lands in "Other" at the bottom. Move the row up into Controls, just above "Mobile Controls"
-    // (dropping the "Other" header if it was alone there), and stack the list again: headers are
+    // The Options list groups rows into sections by name and sorts them, so names it doesn't know
+    // land in "Other" at the bottom. Move the MVS rows, in MH_OPTS order, to the top of the first
+    // section (Controls), drop any header left with no rows, and stack the list again: headers are
     // 26 px tall, rows 35 px.
     private static function mhOptPlace(win:*):void {
         var list:DisplayObjectContainer = win.optionList as DisplayObjectContainer;
@@ -147,81 +196,70 @@ public class MobileHudUI extends Module {
             items.push(list.getChildAt(i));
         }
         items.sortOn("y", Array.NUMERIC);
-        var mine:int = -1;
-        var mobile:int = -1;
-        for (i = 0; i < items.length; i++) {
-            var row:* = items[i];
-            if (getQualifiedClassName(row).indexOf("RowHeader") >= 0 || !("txtName" in row) || row.txtName == null) {
-                continue;
-            }
-            var name:String = String(row.txtName.text);
-            if (name.indexOf(MH_OPT) == 0) {
-                mine = i;
-            } else if (mobile < 0 && name.indexOf("Mobile Controls") == 0) {
-                mobile = i;
+        var top:Number = DisplayObject(items[0]).y;
+        var mine:Array = [];
+        var rest:Array = [];
+        for each (var d:* in items) {
+            var o:Array = !mhIsHeader(d) && ("txtName" in d) && d.txtName != null ? mhOptFor(String(d.txtName.text)) : null;
+            if (o != null) {
+                mine.push({"row": d, "at": MH_OPTS.indexOf(o)});
+            } else {
+                rest.push(d);
             }
         }
-        if (mine < 0 || mobile < 0) {
+        if (mine.length == 0 || rest.length == 0 || !mhIsHeader(rest[0])) {
             return;
         }
         mhOptPlaced[list] = true;
-        if (mine < mobile) {
-            return;
+        mine.sortOn("at", Array.NUMERIC);
+        var kept:Array = [];
+        for (i = 0; i < rest.length; i++) {
+            if (i > 0 && mhIsHeader(rest[i]) && (i == rest.length - 1 || mhIsHeader(rest[i + 1]))) {
+                list.removeChild(rest[i]);
+                continue;
+            }
+            kept.push(rest[i]);
         }
-        var top:Number = DisplayObject(items[0]).y;
-        var me:DisplayObject = items[mine];
-        var isHeader:Function = function(d:*):Boolean {
-            return getQualifiedClassName(d).indexOf("RowHeader") >= 0;
-        };
-        // Alone in its section: a header just before it and a header (or the end) just after.
-        var alone:Boolean = mine > 0 && isHeader(items[mine - 1]) && (mine == items.length - 1 || isHeader(items[mine + 1]));
-        if (alone) {
-            var hdr:DisplayObject = items[mine - 1];
-            list.removeChild(hdr);
-            items.splice(mine - 1, 2);
-        } else {
-            items.splice(mine, 1);
+        var rowX:Number = kept.length > 1 ? DisplayObject(kept[1]).x : DisplayObject(mine[0].row).x;
+        for (i = mine.length - 1; i >= 0; i--) {
+            DisplayObject(mine[i].row).x = rowX;
+            kept.splice(1, 0, mine[i].row);
         }
-        items.splice(mobile, 0, me);
         var y:Number = top;
-        for (i = 0; i < items.length; i++) {
-            var d:DisplayObject = items[i];
-            d.y = y;
-            y += isHeader(d) ? 26 : 35;
+        for each (var e:DisplayObject in kept) {
+            e.y = y;
+            y += mhIsHeader(e) ? 26 : 35;
         }
-        me.x = DisplayObject(items[mobile + 1]).x;
         try {
             win.dRun = list.height - win.bg2.cntMask.height + 5;
-        } catch (e:Error) {
+        } catch (err:Error) {
         }
+    }
+
+    private static function mhIsHeader(d:*):Boolean {
+        return getQualifiedClassName(d).indexOf("RowHeader") >= 0;
     }
 
     private static function mhOptInsert(game:*):Boolean {
         var list:Array = game.litePref as Array;
-        if (list != null) {
-            var at:int = -1;
+        if (list == null) {
+            return false;
+        }
+        var added:Boolean = false;
+        for each (var o:Array in MH_OPTS) {
             var have:Boolean = false;
             for (var i:int = 0; i < list.length; i++) {
-                var n:String = list[i] != null ? String(list[i].strName) : "";
-                if (n.indexOf(MH_OPT) == 0) {
+                if (list[i] != null && mhOptFor(String(list[i].strName)) == o) {
                     have = true;
-                }
-                if (at < 0 && n.indexOf("Mobile Controls") == 0) {
-                    at = i;
+                    break;
                 }
             }
-            if (!have && at >= 0) {
-                list.splice(at, 0, {
-                    "strName": mhOptLabel(game),
-                    "btn": true,
-                    "sDesc": "MVS: lays out the game's mobile controls for phones while Mobile Controls is on.\n" +
-                        "The skill bar becomes your drops and potion, the skill buttons are larger, the portraits " +
-                        "are larger, and the room's player count moves into the bar.\nTurn it off for the game's own layout."
-                });
-                return true;
+            if (!have) {
+                list.push({"strName": mhOptLabel(game, o), "btn": true, "sDesc": o[2]});
+                added = true;
             }
         }
-        return false;
+        return added;
     }
 
     private static function mhOptionRows(c:DisplayObjectContainer, game:*, depth:int):void {
@@ -229,7 +267,7 @@ public class MobileHudUI extends Module {
             var d:DisplayObject = c.getChildAt(i);
             if (getQualifiedClassName(d) == "liteAssets.listOptionsItem::listOptionsItemBtn") {
                 var row:* = d;
-                if (mhOptRows[row] == null && row.txtName != null && String(row.txtName.text).indexOf(MH_OPT) == 0) {
+                if (mhOptRows[row] == null && row.txtName != null && mhOptFor(String(row.txtName.text)) != null) {
                     mhOptRows[row] = true;
                     row.btnActive.addEventListener(MouseEvent.CLICK, mhOptTap, false, 0, true);
                     var tag:Sprite = mhTag();
@@ -248,19 +286,78 @@ public class MobileHudUI extends Module {
     private static function mhOptTap(e:MouseEvent):void {
         try {
             var game:* = skua.Main.instance.getGame();
-            var opts:* = game.litePreference.data.dOptions;
-            opts["mvsMobileLayout"] = !mhLayoutOn(game);
+            var row:* = e.currentTarget.parent;
+            var o:Array = mhOptFor(String(row.txtName.text));
+            if (o == null) {
+                return;
+            }
+            var on:Boolean = !mvsOpt(game, o[0]);
+            game.litePreference.data.dOptions[o[0]] = on;
             game.litePreference.flush();
             // The row splits "Name: Value" into its name and pill right after this.
-            var row:* = e.currentTarget.parent;
-            row.txtName.text = mhOptLabel(game);
+            row.txtName.text = mhOptLabel(game, o);
             for each (var entry:* in game.litePref) {
-                if (entry != null && String(entry.strName).indexOf(MH_OPT) == 0) {
-                    entry.strName = mhOptLabel(game);
+                if (entry != null && mhOptFor(String(entry.strName)) == o) {
+                    entry.strName = mhOptLabel(game, o);
                 }
             }
+            mhOptSend(o[0], on);
         } catch (err:Error) {
         }
+    }
+
+    // ---- Dynamic joystick: the game's joystick takes the left 35% of the screen ----
+
+    // The game's own zone is a square around the joystick's corner; a touch just outside it walks
+    // to that spot instead. The game's mobile HUD sits under its interface (chat, bars, portraits),
+    // which keep their own touches, and taps that don't move are passed on by the joystick itself.
+    private static const MH_JOY_ZONE:Rectangle = new Rectangle(0, 0, 336, 500);
+    private static var mhJoyTick:int = 0;
+    private static var mhJoy:* = null;
+    // The zone the game last set (put back when this is off) and the one set here.
+    private static var mhJoyGame:Rectangle = null;
+    private static var mhJoyOurs:Rectangle = null;
+
+    private static function mhJoystick(game:*, on:Boolean):void {
+        if (++mhJoyTick % 15 != 0) {
+            return;
+        }
+        if (mhJoy == null || mhJoy.stage == null) {
+            mhJoy = mhFind(game.ui as DisplayObjectContainer, "liteAssets.mobile::Joystick", 0);
+            mhJoyGame = null;
+            mhJoyOurs = null;
+            if (mhJoy == null) {
+                return;
+            }
+        }
+        var hit:DisplayObject = mhJoy.numChildren > 0 ? mhJoy.getChildAt(0) : null;
+        if (hit == null || mhJoy.pressed) {
+            return;
+        }
+        var now:Rectangle = hit.getBounds(mhJoy);
+        if (mhJoyOurs == null || !mhRectNear(now, mhJoyOurs)) {
+            // Not ours (first look, or the game laid its controls out again): that's the game's zone.
+            mhJoyGame = now;
+            mhJoyOurs = null;
+        }
+        if (!on) {
+            if (mhJoyOurs != null && mhJoyGame != null) {
+                mhJoy.setZone(mhJoyGame);
+                mhJoyOurs = null;
+            }
+            return;
+        }
+        if (mhJoyOurs != null) {
+            return;
+        }
+        var tl:Point = mhJoy.globalToLocal(new Point(MH_JOY_ZONE.x, MH_JOY_ZONE.y));
+        var br:Point = mhJoy.globalToLocal(new Point(MH_JOY_ZONE.right, MH_JOY_ZONE.bottom));
+        mhJoy.setZone(new Rectangle(tl.x, tl.y, br.x - tl.x, br.y - tl.y));
+        mhJoyOurs = hit.getBounds(mhJoy);
+    }
+
+    private static function mhRectNear(a:Rectangle, b:Rectangle):Boolean {
+        return Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1 && Math.abs(a.width - b.width) < 1 && Math.abs(a.height - b.height) < 1;
     }
 
     // The small gold "MVS" badge that marks MVS additions in the game's own windows.
@@ -287,8 +384,15 @@ public class MobileHudUI extends Module {
     private static function mhFrame(game:*):void {
         if (mhOn) {
             try {
+                mhOptSync(game);
                 mhOptions(game);
             } catch (eo:Error) {
+            }
+            try {
+                if (mhMobile(game)) {
+                    mhJoystick(game, mvsOpt(game, "mvsJoystick"));
+                }
+            } catch (ej:Error) {
             }
         }
         if (!(mhOn && mhMobile(game) && mhLayoutOn(game))) {

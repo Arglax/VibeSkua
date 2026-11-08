@@ -78,6 +78,34 @@
         try { player.ruffle().callExternalInterface("setGameObject", "stage.quality", q); } catch (e) { }
     }
 
+    // ---------------- MVS options (the game's Options, "MVS" rows) ----------------
+    // skua.swf (MobileHudUI) owns them in the game's settings and tells the page each value through
+    // ExternalInterface "mvsOption" ("key:on" / "key:off") when the game starts and when one is switched.
+    // A copy is kept here for what has to be decided before the game loads (Improve FPS, Long Dash).
+    function mvsOptStored(key) {
+        try { return localStorage.getItem("mvs.opt." + key) !== "off"; } catch (e) { return true; }
+    }
+    window.__mvsOpts = {
+        mvsImproveFps: mvsOptStored("mvsImproveFps"), mvsLongDash: mvsOptStored("mvsLongDash"),
+        mvsSwipe: mvsOptStored("mvsSwipe"), mvsAuras: mvsOptStored("mvsAuras"), mvsDrops: mvsOptStored("mvsDrops")
+    };
+    window.__mvsSwipeScroll = window.__mvsOpts.mvsSwipe;
+
+    function onMvsOption(key, value) {
+        const on = String(value) !== "off";
+        try { localStorage.setItem("mvs.opt." + key, on ? "on" : "off"); } catch (e) { }
+        const was = window.__mvsOpts[key];
+        window.__mvsOpts[key] = on;
+        if (key === "mvsSwipe") window.__mvsSwipeScroll = on;
+        if (key === "mvsImproveFps") {
+            window.__mvsFreezeOrphans = on;
+            if (!on && gov.level !== 0) setLevel(0, "Improve FPS off");
+            applySmooth();
+        }
+        if (key === "mvsLongDash" && was !== undefined && was !== on) log("Long Dash " + (on ? "on" : "off") + ": takes effect the next time the game starts");
+        try { window.dispatchEvent(new CustomEvent("mvsoption", { detail: { key, on } })); } catch (e) { }
+    }
+
     // ---------------- MVS frame governor ----------------
     // Keeps the game at its own frame rate: when the measured rate stays below it (a crowded map, a
     // heavy menu, a hot phone), it lowers anti-aliasing first, then render resolution, one step at a
@@ -92,7 +120,7 @@
     // Ruffle MVS switch: clips the game took off the stage (old monsters after each respawn, spent skill
     // effects, avatars of players who left) are invisible but Flash keeps animating them until memory is
     // cleaned up; on a busy map that is thousands of objects every frame. Leave them as they are.
-    window.__mvsFreezeOrphans = true;
+    window.__mvsFreezeOrphans = window.__mvsOpts.mvsImproveFps;
     const gov = {
         level: 0, floor: 0, low: 0, good: 0, settle: 0, gameRate: 30, rateAt: 0,
         upWait: 30, failedUpAt: 0, heat: "ok", lastFps: 0, gameQuality: "",
@@ -115,7 +143,7 @@
 
     // In-betweening (Ruffle's MVS patch): draws up to gfx.smooth pictures a second between game frames.
     function governedSmooth() {
-        if (!(gfx.smooth > 0) || window.__mvsNoDraw) return 0;
+        if (!(gfx.smooth > 0) || window.__mvsNoDraw || !window.__mvsOpts.mvsImproveFps) return 0;
         if (!gfx.auto) return gfx.smooth;
         if (window.__mvsNoDraw || !govLevels[gov.level].smooth || gov.throttled || Date.now() < gov.smoothPausedUntil) return 0;
         return gfx.smooth;
@@ -192,6 +220,7 @@
     function governorTick(fps) {
         gov.lastFps = fps;
         if (!gfx.auto || !player || document.hidden || window.__mvsNoDraw || player.style.visibility === "hidden") return;
+        if (!window.__mvsOpts.mvsImproveFps) return;
         if (Date.now() - gov.rateAt > 15000) { gov.rateAt = Date.now(); readGameRate(); }
         if (gov.settle > 0) { gov.settle--; return; }
         gov.recent.push(fps);
@@ -377,6 +406,14 @@
         if (name === "loaded") { setStatus(""); setTimeout(applyQuality, 0); setTimeout(applyTouchUi, 0); }
         if (name === "mvsMenu") { try { window.MvsOverlays.menu(args); } catch (e) { log("menu: " + e); } }
         if (name === "mvsDrops") { try { window.MvsOverlays.dropsList(args); } catch (e) { log("drops: " + e); } }
+        if (name === "mvsOption") {
+            try {
+                let raw = args;
+                while (Array.isArray(raw)) raw = raw[0];
+                const m = /^(\w+):(on|off)$/.exec(String(raw));
+                if (m) onMvsOption(m[1], m[2]);
+            } catch (e) { log("option: " + e); }
+        }
         send({ t: "ext", n: String(name), a: Array.from(args || []) });
         return undefined;
     };
@@ -587,7 +624,8 @@
         }
         touchRowH = Number(cfg.touchRowH) || 0;
         // The game's touch dash goes 180 px from a stand; the dash it replaced crossed the screen.
-        const consts = { "MoveInput.DASH_PX": 540 };
+        const consts = {};
+        if (window.__mvsOpts.mvsLongDash) consts["MoveInput.DASH_PX"] = 540;
         if (touchRowH > 0) {
             consts["LPFFrameInvAQ.ROW_H"] = touchRowH;
             // The touch skill buttons keep the game's size (58 and 80 px before its own Mobile UI Size

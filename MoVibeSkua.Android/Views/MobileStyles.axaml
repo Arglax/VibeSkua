@@ -108,7 +108,8 @@
         <Setter Property="Background" Value="{StaticResource AqwStartBrush}" />
         <Setter Property="Foreground" Value="#FFF6DC" />
         <Setter Property="BorderBrush" Value="{StaticResource AqwGoldBrush}" />
-        <Setter Property="MinHeight" Value="64" />
+        <Setter Property="MinHeight" Value="48" />
+        <Setter Property="Margin" Value="1,2,1,0" />
     </Style>
     <Style Selector="Button.mobile-rail-script.running">
         <Setter Property="Background" Value="{StaticResource AqwStopBrush}" />

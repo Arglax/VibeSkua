@@ -52,6 +52,60 @@ public sealed partial class LoginViewModel : ObservableObject
 
     public bool HasAccounts => Accounts.Count > 0;
 
+    /// <summary>
+    /// Account Manager: the form opens from "+ Add account" or an account's edit button, and is always
+    /// open while no account is saved.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowForm), nameof(FormTitle))]
+    private bool _isEditing;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FormTitle), nameof(EditingAccount))]
+    private string? _editingName;
+
+    public SavedAccount? EditingAccount => EditingName is null ? null
+        : Accounts.FirstOrDefault(a => a.Username.Equals(EditingName, StringComparison.OrdinalIgnoreCase));
+
+    public bool ShowForm => IsEditing || !HasAccounts;
+
+    public string FormTitle => EditingName is null ? "Add account" : $"Edit {EditingName}";
+
+    [RelayCommand]
+    private void AddAccount()
+    {
+        EditingName = null;
+        Username = string.Empty;
+        Password = string.Empty;
+        Status = string.Empty;
+        IsEditing = true;
+    }
+
+    [RelayCommand]
+    private void CloseForm()
+    {
+        IsEditing = false;
+        EditingName = null;
+        Password = string.Empty;
+        Status = string.Empty;
+    }
+
+    /// <summary>Saves the account in the form and logs in with it.</summary>
+    [RelayCommand]
+    private async Task SaveAndLogin()
+    {
+        if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
+        {
+            Status = "Enter a username and password.";
+            return;
+        }
+        StoreAccount(Username.Trim(), Password, Server);
+        Usage.UsageTracker.Track(Usage.Signal.ACCOUNT_SAVED);
+        IsEditing = false;
+        EditingName = null;
+        await Login();
+    }
+
     private void LoadAccounts()
     {
         List<SavedAccount> accounts = SavedAccounts.Load();
@@ -83,7 +137,9 @@ public sealed partial class LoginViewModel : ObservableObject
         }
         StoreAccount(Username.Trim(), Password, Server);
         Usage.UsageTracker.Track(Usage.Signal.ACCOUNT_SAVED);
-        Status = $"Saved {Username.Trim()} on this device.";
+        IsEditing = false;
+        EditingName = null;
+        Status = $"Saved {Username.Trim()} on this phone.";
     }
 
     private void StoreAccount(string user, string pass, string server)
@@ -96,6 +152,7 @@ public sealed partial class LoginViewModel : ObservableObject
             Accounts.Add(account);
         SavedAccounts.Save(Accounts);
         OnPropertyChanged(nameof(HasAccounts));
+        OnPropertyChanged(nameof(ShowForm));
     }
 
     /// <summary>One tap: logs in with a saved account and its server.</summary>
@@ -120,7 +177,9 @@ public sealed partial class LoginViewModel : ObservableObject
         Username = account.Username;
         Password = account.Password;
         Server = account.Server;
-        Status = $"Editing {account.Username}: change it, then tap Save account.";
+        EditingName = account.Username;
+        IsEditing = true;
+        Status = string.Empty;
     }
 
     [RelayCommand]
@@ -131,7 +190,10 @@ public sealed partial class LoginViewModel : ObservableObject
         Accounts.Remove(account);
         SavedAccounts.Save(Accounts);
         OnPropertyChanged(nameof(HasAccounts));
-        Status = $"Removed {account.Username} from this device.";
+        OnPropertyChanged(nameof(ShowForm));
+        IsEditing = false;
+        EditingName = null;
+        Status = $"Removed {account.Username} from this phone.";
     }
 
     [ObservableProperty]

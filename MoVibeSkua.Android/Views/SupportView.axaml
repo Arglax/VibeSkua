@@ -37,7 +37,7 @@
                     <TextBlock Classes="s-text" TextAlignment="Center"
                                Text="I wanna make a more mobile-friendly experience for AE games so here we go. Also couldn't find a bot for mobile so I made one. Appreciate my work? Support me through BuyMeACoffee." />
                     <TextBlock Classes="s-text" TextAlignment="Center"
-                               Text="I don't make the scripts (got no more time and money), they're mainly from AUQW so ask them (and support them!) instead." />
+                               Text="I don't make the scripts (got no more time and money), they're from the Skua, VibeSkua and Tato team (AUQW), so report script problems to them (and support them!) instead." />
                 </StackPanel>
             </Border>
 
@@ -48,7 +48,7 @@
                         <materialIcons:MaterialIcon Kind="Forum" Width="20" Height="20" Foreground="#5865F2" />
                         <TextBlock Classes="s-head" Text="Need help?" />
                     </StackPanel>
-                    <TextBlock Classes="s-text" Text="Problems with the app itself (buttons, screen, crashes) or ideas: the MVS Discord. Questions about a script: the AUQW Discord, where the scripts are made." />
+                    <TextBlock Classes="s-text" Text="Problems with the app itself (buttons, screen, crashes) or ideas: the MVS Discord. Problems with a script: the script team's Discord (Skua, VibeSkua, Tato), where the scripts are made." />
                     <UniformGrid Columns="2">
                         <Button Classes="skua-button" Margin="0,0,4,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                 Command="{Binding OpenDiscordCommand}">
@@ -61,13 +61,13 @@
                                 Command="{Binding OpenAuqwDiscordCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <materialIcons:MaterialIcon Kind="OpenInNew" Width="16" Height="16" />
-                                <TextBlock Text="AUQW Discord" VerticalAlignment="Center" />
+                                <TextBlock Text="Script team Discord" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </UniformGrid>
                     <CheckBox IsChecked="{Binding SendReports}" Content="Send problem reports to the MVS developer" />
                     <TextBlock Classes="s-text" Opacity="0.75"
-                               Text="When MVS crashes or a script stops because of MVS, a short report goes to the developer automatically, without your account names or passwords. Mistakes in a script are not sent: MVS tells you to show those to the AUQW Discord." />
+                               Text="When MVS crashes or a script stops because of MVS, a short report goes to Arglax, the MVS developer, automatically, without your account names or passwords. Mistakes in a script are not sent: MVS asks you to report those to the script team (Skua, VibeSkua, Tato)." />
                     <Button Classes="skua-button" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                             Command="{Binding ReportProblemCommand}" IsEnabled="{Binding SendReports}">
                         <StackPanel Orientation="Horizontal" Spacing="6">

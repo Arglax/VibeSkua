@@ -132,7 +132,7 @@
                             <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
                                 <Border Classes="b-num" VerticalAlignment="Center"><TextBlock Text="4" /></Border>
                                 <materialIcons:MaterialIcon Grid.Column="1" Kind="Play" Width="22" Height="22" Foreground="#7CC47C" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="2" Classes="b-steptext" TextAlignment="Left" VerticalAlignment="Center" Text="Start Script (tap again to stop)" />
+                                <TextBlock Grid.Column="2" Classes="b-steptext" TextAlignment="Left" VerticalAlignment="Center" Text="Start (tap again to stop)" />
                             </Grid>
                         </Border>
                     </UniformGrid>
@@ -163,8 +163,8 @@
                         </StackPanel>
                         <Border Grid.Row="2" Classes="b-tool"><materialIcons:MaterialIcon Kind="Play" /></Border>
                         <StackPanel Grid.Row="2" Grid.Column="1" Spacing="2">
-                            <TextBlock Classes="b-name" Text="Start Script / Stop" />
-                            <TextBlock Classes="b-text" Text="The big green button at the bottom left. It turns into Stop while the bot is running." />
+                            <TextBlock Classes="b-name" Text="Start / Stop" />
+                            <TextBlock Classes="b-text" Text="The green button at the bottom left. It turns into Stop while the bot is running." />
                         </StackPanel>
                         <Border Grid.Row="3" Classes="b-tool"><materialIcons:MaterialIcon Kind="BookOpenPageVariant" /></Border>
                         <StackPanel Grid.Row="3" Grid.Column="1" Spacing="2">
@@ -253,8 +253,8 @@
                     <Grid ColumnDefinitions="34,*" RowDefinitions="Auto,Auto" RowSpacing="10">
                         <Border Grid.Row="0" Classes="b-tool"><materialIcons:MaterialIcon Kind="ShieldAccount" /></Border>
                         <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2">
-                            <TextBlock Classes="b-name" Text="Login" />
-                            <TextBlock Classes="b-text" Text="Save your account on this phone for quick login, and pick the server. If you get disconnected, it logs you back in. Your saved login stays on your phone." />
+                            <TextBlock Classes="b-name" Text="Accounts" />
+                            <TextBlock Classes="b-text" Text="The Account Manager: tap + Add account to save one (username, password, server), then one tap logs in with it. The pencil changes or removes a saved account. If you get disconnected, MVS logs you back in. Saved accounts stay on your phone, encrypted." />
                         </StackPanel>
                         <Border Grid.Row="1" Classes="b-tool"><materialIcons:MaterialIcon Kind="AccountGroup" /></Border>
                         <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
@@ -279,7 +279,7 @@
                         <Border Grid.Row="0" Classes="b-tool"><materialIcons:MaterialIcon Kind="Cog" /></Border>
                         <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2">
                             <TextBlock Classes="b-name" Text="Options" />
-                            <TextBlock Classes="b-text" Text="Game tweaks the bot can apply, like making the game lighter so it runs smoother, or hiding other players." />
+                            <TextBlock Classes="b-text" Text="Game tweaks the bot can apply, like making the game lighter so it runs smoother, or hiding other players. MVS's own in-game extras (Improve FPS, Mobile Layout, auras and so on) are switched in the game's Settings, at the top of Controls." />
                         </StackPanel>
                         <Border Grid.Row="1" Classes="b-tool"><materialIcons:MaterialIcon Kind="Eye" /></Border>
                         <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
@@ -325,7 +325,7 @@
                         <TextBlock Classes="b-title" Text="Good to know" />
                     </StackPanel>
                     <TextBlock Classes="b-text" Text="• Botting can go against AQW's rules and accounts can get banned. You use it at your own risk." />
-                    <TextBlock Classes="b-text" Text="• Scripts are made by the AUQW community, not by MVS. Questions about a script go to the AUQW Discord." />
+                    <TextBlock Classes="b-text" Text="• Scripts are made by the Skua, VibeSkua and Tato script team (AUQW), not by MVS. Script problems go to them; MVS asks you to report them when a script stops. Problems with the app itself go to Arglax (MVS Discord)." />
                     <TextBlock Classes="b-text" Text="• Leave the app open in the background while a bot runs; a notification shows it is still going." />
                     <UniformGrid Columns="2" Margin="0,6,0,0">
                         <Button Classes="skua-button skua-primary" Margin="0,0,4,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
@@ -339,7 +339,7 @@
                                 Command="{Binding OpenAuqwDiscordCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <materialIcons:MaterialIcon Kind="OpenInNew" Width="16" Height="16" />
-                                <TextBlock Text="AUQW Discord" VerticalAlignment="Center" />
+                                <TextBlock Text="Script team Discord" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </UniformGrid>

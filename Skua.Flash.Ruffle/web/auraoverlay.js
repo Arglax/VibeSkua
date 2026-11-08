@@ -195,7 +195,8 @@
         s.textContent = `
 .mvs-aw { position: fixed; z-index: 31; width: 17em; font: calc(11px * var(--s, .72))/1.25 system-ui, sans-serif; color: #EDE3CC;
   background: rgba(22, 17, 12, 0.84); border: 1px solid #8A6A2E; border-radius: .8em; box-shadow: 0 2px 10px rgba(0,0,0,.5);
-  user-select: none; -webkit-user-select: none; touch-action: none; max-height: 94vh; overflow: hidden; }
+  user-select: none; -webkit-user-select: none; touch-action: none; max-height: 94vh; overflow: hidden;
+  contain: layout paint; will-change: transform; }
 .mvs-aw .hd { display: flex; align-items: center; gap: .3em; padding: .25em .25em .25em .3em; }
 .mvs-aw .grip { flex: none; width: 1.4em; text-align: center; color: #C9A447; font-size: 1.35em; line-height: 1; cursor: grab;
   opacity: .85; }
@@ -217,7 +218,8 @@
 .mvs-aw .tm { flex: none; min-width: 3em; text-align: right; font: 600 1em monospace; color: #C8B89A; }
 .mvs-aw .tag { flex: none; padding: 0 .35em; border-radius: .35em; font-size: .8em; font-weight: 800; }
 .mvs-aw .sum { color: #A89C84; font-size: .9em; margin: .15em 0 0 2.4em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mvs-aw .bar { position: absolute; left: 0; bottom: 0; height: .2em; background: #40A8C8; }
+.mvs-aw .bar { position: absolute; left: 0; bottom: 0; width: 100%; height: .2em; background: #40A8C8;
+  transform-origin: 0 50%; will-change: transform; }
 .mvs-aw .bar.low { background: #FF9A3C; }
 .mvs-aw .row.noheal { border-color: #FF5A4E; background: rgba(70,10,8,.6); }
 .mvs-aw .row.noheal .tag { background: #FF5A4E; color: #1A0604; }
@@ -411,7 +413,13 @@
         return out;
     }
 
+    // The game's Options row "Improved Auras" (MVS) turns the whole overlay off (bridge.js keeps the value).
+    function enabled() {
+        return !(window.__mvsOpts && window.__mvsOpts.mvsAuras === false);
+    }
+
     function poll() {
+        if (!enabled()) return;
         const me = read("world.myAvatar.objData.strUsername") || "";
         state.me = me;
         if (!me) { state.mine = []; state.theirs = []; state.target = null; return; }
@@ -584,11 +592,16 @@
             const a = byKey[node.dataset.k];
             if (!a) continue;
             const tm = node.querySelector(".tm");
-            if (tm) tm.textContent = node.classList.contains("chip") ? (a.left != null ? " " + Math.ceil(Math.max(0, a.left)) + "s" : "") : fmtTime(a.left);
+            // Ten times a second for every row: write only what changed, and move the bar with a
+            // transform, so the page doesn't lay out and repaint on the thread the game runs on
+            // (redrawing widths and text cost ~5 fps in combat on the Poco X6 Pro).
+            const txt = node.classList.contains("chip") ? (a.left != null ? " " + Math.ceil(Math.max(0, a.left)) + "s" : "") : fmtTime(a.left);
+            if (tm && tm.textContent !== txt) tm.textContent = txt;
             const bar = node.querySelector(".bar");
             if (bar) {
                 const frac = a.left != null && a.dur > 0 ? Math.max(0, Math.min(1, a.left / a.dur)) : 0;
-                bar.style.width = (frac * 100).toFixed(1) + "%";
+                const sx = "scaleX(" + frac.toFixed(3) + ")";
+                if (bar.style.transform !== sx) bar.style.transform = sx;
                 bar.classList.toggle("low", a.left != null && a.left < 3);
             }
         }
@@ -596,6 +609,10 @@
 
     function draw() {
         const W = windows();
+        if (!enabled()) {
+            for (const w of Object.values(W)) { w.el.style.display = "none"; w.pill.style.display = "none"; }
+            return;
+        }
         iconBudget = 2;
         const now = Date.now();
         const mine = decorate(state.mine, now), theirs = decorate(state.theirs, now);

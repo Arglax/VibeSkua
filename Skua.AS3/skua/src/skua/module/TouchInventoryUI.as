@@ -46,8 +46,18 @@ public class TouchInventoryUI extends Module {
         tiOn = on;
     }
 
+    // The game's Options switch these parts separately ("Inventory UI", "Inventory Filter"; MVS rows
+    // from MobileHudUI, whose mvsOpt this uses once both are merged into Modules).
+    private static var tiUiOn:Boolean = true;
+    private static var tiFilterOn:Boolean = true;
+
     override public function onFrame(game:*):void {
         if (!tiOn) {
+            return;
+        }
+        tiUiOn = mvsOpt(game, "mvsInvUI");
+        tiFilterOn = mvsOpt(game, "mvsInvFilter");
+        if (!tiUiOn && !tiFilterOn) {
             return;
         }
         var popup:DisplayObjectContainer = game.ui.mcPopup as DisplayObjectContainer;
@@ -77,7 +87,7 @@ public class TouchInventoryUI extends Module {
         var i:int = 0;
         while (i < frame.numChildren) {
             var s:Sprite = frame.getChildAt(i) as Sprite;
-            if (s != null && (s.name == TI_NAME || (s.x == 14 && s.y == TI_LIST_Y && s.numChildren > 0 && s.getChildAt(0) is Sprite))) {
+            if (tiUiOn && s != null && (s.name == TI_NAME || (s.x == 14 && s.y == TI_LIST_Y && s.numChildren > 0 && s.getChildAt(0) is Sprite))) {
                 if (s.name != TI_NAME) {
                     s.name = TI_NAME;
                     s.x = TI_STRIP_X;
@@ -92,7 +102,9 @@ public class TouchInventoryUI extends Module {
         tiVisible = [];
         tiRows(frame, 0);
         tiSort(frame);
-        tiPreview(frame.parent, 0);
+        if (tiUiOn) {
+            tiPreview(frame.parent, 0);
+        }
     }
 
     // ---- MVS sort for gear lists (weapons, armor, helms, capes) by a damage type or a boost ----
@@ -118,6 +130,11 @@ public class TouchInventoryUI extends Module {
     private static var tiTargetKey:String = null;
 
     private function tiSort(frame:DisplayObjectContainer):void {
+        // Filter off: the list goes back to the game's order and the chip goes away.
+        if (!tiFilterOn && tiSortIdx != 0) {
+            tiSortIdx = 0;
+            tiTargetKey = null;
+        }
         var cat:String = null;
         var rows:Array = [];
         for each (var row:* in tiVisible) {
@@ -137,7 +154,7 @@ public class TouchInventoryUI extends Module {
             cat = String(it.sES);
             rows.push(row);
         }
-        tiSortChip(frame, cat != null);
+        tiSortChip(frame, cat != null && tiFilterOn);
         if (cat == null) {
             return;
         }
@@ -547,7 +564,9 @@ public class TouchInventoryUI extends Module {
             if (d != null && d.visible) {
                 if (getQualifiedClassName(d) == "LPFElementInvAQRow") {
                     tiVisible.push(d);
-                    tiRow(d);
+                    if (tiUiOn) {
+                        tiRow(d);
+                    }
                 } else if (depth < 3) {
                     tiRows(d, depth + 1);
                 }

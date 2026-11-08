@@ -16,8 +16,9 @@ namespace MoVibeSkua.Android.Diagnostics;
 
 /// <summary>
 /// When a script stops with an error, decides who can fix it and tells the player in plain words:
-///  - the script itself (a mistake in its code, or it used the bot wrongly): scripts come from the AUQW
-///    community, so the player is pointed to their Discord with a copy of what they need;
+///  - the script itself (a mistake in its code, or it used the bot wrongly): scripts are made by the
+///    Skua / VibeSkua / Tato script team (AUQW), so the player is asked to report it to them on their
+///    Discord, with a copy of what they need;
 ///  - MVS (the mobile port: a Windows-only feature, an Android limit, a fault in MVS's own code or in the
 ///    bot engine it ships): reported to the MVS developer automatically (<see cref="ProblemReports"/>).
 /// The script's own code is told apart by its assembly: Skua compiles each script into one named after
@@ -93,16 +94,16 @@ public static class ScriptProblems
         {
             body = $"“{script}” {what} because of a problem in the script itself, not in MVS.\n\n" +
                    $"{verdict.Reason}\n{verdict.Short}\n\n" +
-                   "Scripts are made by the AUQW community. Tell them on the AUQW Discord so they can fix it: " +
-                   "“Copy details” copies what they need.";
-            buttons = new[] { "Copy details", "AUQW Discord", "OK" };
+                   "Please report it to the script team (Skua, VibeSkua and Tato) on their Discord so they can fix it. " +
+                   "Scripts are theirs, not MVS's. “Copy details” copies what they need.";
+            buttons = new[] { "Copy details", "Report to script team", "OK" };
         }
         else
         {
             body = $"“{script}” {what} because of a problem in MVS, not in the script.\n\n" +
                    $"{verdict.Reason}\n{verdict.Short}\n\n" +
                    (ProblemReports.SendEnabled
-                       ? "It was sent to the MVS developer (without your account details). Trying again often works; if it keeps happening, the MVS Discord can help."
+                       ? "It was sent to Arglax, the MVS developer (without your account details). Trying again often works; if it keeps happening, the MVS Discord can help."
                        : "Problem reports are off, so it was not sent. “Copy details” copies it for the MVS Discord.");
             buttons = new[] { "Copy details", "MVS Discord", "OK" };
         }

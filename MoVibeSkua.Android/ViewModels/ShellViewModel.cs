@@ -346,7 +346,7 @@ public sealed partial class ShellViewModel : ObservableObject
     private Task ToggleScript() => ScriptLoader.ToggleScriptCommand.ExecuteAsync(null);
 
     [RelayCommand]
-    private void OpenLogin() => ShowPage("Login", "Login", Ioc.Default.GetRequiredService<LoginViewModel>());
+    private void OpenLogin() => ShowPage("Login", "Accounts", Ioc.Default.GetRequiredService<LoginViewModel>());
 
     private void OpenManaged(string key) => Ioc.Default.GetRequiredService<IWindowService>().ShowManagedWindow(key);
 
@@ -452,7 +452,7 @@ public sealed partial class ShellViewModel : ObservableObject
         _gameRight.Add(GameButton("Rest", Material.Icons.MaterialIconKind.HeartPulse, "btnRest", "rest"));
         _gameRight.Add(GameButton("Char", Material.Icons.MaterialIconKind.ShieldAccount, "btnChar", "char"));
 
-        _botLeft.Add(Page("Login", Material.Icons.MaterialIconKind.ShieldAccount, "Login", () => OpenLogin()));
+        _botLeft.Add(Page("Accounts", Material.Icons.MaterialIconKind.AccountPlus, "Login", () => OpenLogin()));
         _botLeft.Add(Managed("Scripts", Material.Icons.MaterialIconKind.ScriptText, "Scripts"));
         _botLeft.Add(Page("Repo", Material.Icons.MaterialIconKind.Bookshelf, "Script Repo", () => ShowPage("Script Repo", "Script Repo", Ioc.Default.GetRequiredService<ScriptRepoViewModel>())));
         _botLeft.Add(Managed("Logs", Material.Icons.MaterialIconKind.BookOpenPageVariant, "Logs"));
@@ -685,9 +685,31 @@ public sealed partial class ShellViewModel : ObservableObject
                 catch { }
                 Dispatcher.UIThread.Post(() => { if (_dropsAction is not null) _dropsAction.Badge = count; });
             }
+            else if (function == "mvsOption" && args is { Length: > 0 })
+            {
+                // The game's Options row "MVS Drops" ("mvsDrops:on" / "mvsDrops:off"): off gives the
+                // game's own drops, so no Drops button.
+                string raw = string.Join(",", args.Select(a => a?.ToString()));
+                if (raw.Contains("mvsDrops:"))
+                {
+                    bool on = !raw.Contains("mvsDrops:off");
+                    Dispatcher.UIThread.Post(() => SetDropsRail(on));
+                }
+            }
         };
         // Already loaded (the shell came up after the game).
         _ = Task.Run(() => { try { flash.Call("mvsDropsOn", true); } catch { } });
+    }
+
+    private void SetDropsRail(bool on)
+    {
+        if (_dropsAction is null || _gameRight.Contains(_dropsAction) == on)
+            return;
+        if (on)
+            _gameRight.Insert(Math.Min(1, _gameRight.Count), _dropsAction);
+        else
+            _gameRight.Remove(_dropsAction);
+        ApplyRails();
     }
 
     private void OpenBank()
