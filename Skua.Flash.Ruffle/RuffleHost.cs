@@ -250,31 +250,55 @@ public sealed partial class RuffleHost : IDisposable
             return;
         }
 
-        using HttpRequestMessage request = new(new HttpMethod(head.Method), uri);
-        if (body.Length > 0 || head.Method is "POST" or "PUT" or "PATCH")
-            request.Content = new ByteArrayContent(body);
-
-        foreach (string name in _forwardedRequestHeaders)
+        HttpRequestMessage NewRequest()
         {
-            string? value = head[name];
-            if (value is null)
-                continue;
-            if (name == "Content-Type")
-            {
-                if (request.Content is not null && MediaTypeHeaderValue.TryParse(value, out MediaTypeHeaderValue? mt))
-                    request.Content.Headers.ContentType = mt;
-                continue;
-            }
-            request.Headers.TryAddWithoutValidation(name, value);
-        }
+            HttpRequestMessage request = new(new HttpMethod(head.Method), uri);
+            if (body.Length > 0 || head.Method is "POST" or "PUT" or "PATCH")
+                request.Content = new ByteArrayContent(body);
 
-        request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
-        request.Headers.TryAddWithoutValidation("Referer", "https://game.aq.com/game/");
-        request.Headers.TryAddWithoutValidation("X-Requested-With", "ShockwaveFlash/32.0.0.465");
+            foreach (string name in _forwardedRequestHeaders)
+            {
+                string? value = head[name];
+                if (value is null)
+                    continue;
+                if (name == "Content-Type")
+                {
+                    if (request.Content is not null && MediaTypeHeaderValue.TryParse(value, out MediaTypeHeaderValue? mt))
+                        request.Content.Headers.ContentType = mt;
+                    continue;
+                }
+                request.Headers.TryAddWithoutValidation(name, value);
+            }
+
+            request.Headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+            request.Headers.TryAddWithoutValidation("Referer", "https://game.aq.com/game/");
+            request.Headers.TryAddWithoutValidation("X-Requested-With", "ShockwaveFlash/32.0.0.465");
+            return request;
+        }
 
         try
         {
-            using HttpResponseMessage response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            // A short network drop (the phone briefly unable to look up game.aq.com) failed the game's
+            // version check once and left the game on "Loading game client..." for good: reads are
+            // tried again, 5 times over about 18 s, before the game sees the failure.
+            bool idempotent = head.Method is "GET" or "HEAD";
+            int[] waits = { 2000, 3000, 5000, 8000 };
+            HttpResponseMessage? sent = null;
+            for (int attempt = 0; ; attempt++)
+            {
+                using HttpRequestMessage request = NewRequest();
+                try
+                {
+                    sent = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+                    break;
+                }
+                catch (HttpRequestException ex) when (idempotent && attempt < waits.Length && !ct.IsCancellationRequested)
+                {
+                    Trace.WriteLine($"[RuffleHost] proxy {uri.Host}{uri.AbsolutePath} failed ({ex.Message}); trying again");
+                    await Task.Delay(waits[attempt], ct).ConfigureAwait(false);
+                }
+            }
+            using HttpResponseMessage response = sent;
             byte[] content = await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
             List<KeyValuePair<string, string>> headers = new();
             foreach (string name in _forwardedResponseHeaders)
@@ -289,7 +313,50 @@ public sealed partial class RuffleHost : IDisposable
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             Trace.WriteLine($"[RuffleHost] proxy {uri} failed: {ex.Message}");
+            if (IsStartupFile(uri))
+                _ = ReloadWhenReachable(uri.Host);
             await WriteText(stream, 502, "Bad Gateway", "text/plain", ex.Message, head.KeepAlive, ct).ConfigureAwait(false);
+        }
+    }
+
+    // The game's version check and its main file, fetched only while the game starts: when they fail the
+    // game never asks again and stays on "Loading game client...".
+    private static bool IsStartupFile(Uri uri) =>
+        uri.AbsolutePath.Contains("/api/data/gameversion", StringComparison.OrdinalIgnoreCase)
+        || uri.AbsolutePath.Contains("/gamefiles/Game", StringComparison.OrdinalIgnoreCase) && uri.AbsolutePath.EndsWith(".swf", StringComparison.OrdinalIgnoreCase);
+
+    private int _recovering;
+
+    /// <summary>Waits (up to 15 minutes) until <paramref name="host"/> can be looked up again, then reloads the game page.</summary>
+    private async Task ReloadWhenReachable(string host)
+    {
+        if (Interlocked.Exchange(ref _recovering, 1) == 1)
+            return;
+        try
+        {
+            Trace.WriteLine($"[RuffleHost] the game couldn't start ({host} unreachable); reloading it once the connection is back");
+            DateTime until = DateTime.UtcNow.AddMinutes(15);
+            while (DateTime.UtcNow < until)
+            {
+                await Task.Delay(5000).ConfigureAwait(false);
+                try
+                {
+                    if ((await System.Net.Dns.GetHostAddressesAsync(host).ConfigureAwait(false)).Length > 0)
+                    {
+                        Trace.WriteLine("[RuffleHost] connection back: reloading the game");
+                        Control.Post("{\"t\":\"reload\"}");
+                        return;
+                    }
+                }
+                catch
+                {
+                }
+            }
+            Trace.WriteLine("[RuffleHost] connection still down after 15 min; restart MVS when it's back");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _recovering, 0);
         }
     }
 

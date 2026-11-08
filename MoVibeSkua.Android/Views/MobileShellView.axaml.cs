@@ -1,3 +1,4 @@
+using Avalonia.Media.Imaging;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -87,6 +88,7 @@ public partial class MobileShellView : UserControl
         ApplyRailSource();
         ShowCurrentPageView();
         UpdateBodyLayout();
+        StartPreparingPages();
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
@@ -252,12 +254,7 @@ public partial class MobileShellView : UserControl
         if (content is not null && !_pageViews.TryGetValue(content, out view))
         {
             built = true;
-            view = content as Control ?? this.FindDataTemplate(content)?.Build(content) ?? new TextBlock { Text = content.GetType().Name };
-            if (view != content)
-                view.DataContext = content;
-            view.IsVisible = false;
-            _pageViews[content] = view;
-            PageHost.Children.Add(view);
+            view = BuildPageView(content);
         }
         if (content is not null)
         {
@@ -275,6 +272,77 @@ public partial class MobileShellView : UserControl
         // Background priority runs after the layout and render passes that show the page.
         Dispatcher.UIThread.Post(() => Trace.WriteLine($"[Page] {key} shown in {sw.ElapsedMilliseconds} ms ({(built ? "built" : "kept view")})"),
             DispatcherPriority.Background);
+    }
+
+    private Control BuildPageView(object content)
+    {
+        Control view = content as Control ?? this.FindDataTemplate(content)?.Build(content) ?? new TextBlock { Text = content.GetType().Name };
+        if (view != content)
+            view.DataContext = content;
+        view.IsVisible = false;
+        _pageViews[content] = view;
+        PageHost.Children.Add(view);
+        return view;
+    }
+
+    // Bot pages are built ahead of the first tap (see ShellViewModel.BotPagesToPrepare), one per idle
+    // moment while the game loads, and measured once off screen so their templates are applied too.
+    private bool _prepareStarted;
+
+    private void StartPreparingPages()
+    {
+        if (_prepareStarted || _vm is null)
+            return;
+        _prepareStarted = true;
+        Queue<object>? queue = null;
+        DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(700) };
+        int waited = 0;
+        timer.Tick += (_, _) =>
+        {
+            // Start a few seconds in, after the shell's own first layout and the game page.
+            if (++waited < 5)
+                return;
+            try
+            {
+                queue ??= new Queue<object>(_vm?.BotPagesToPrepare() ?? new List<object>());
+                while (queue.Count > 0 && _pageViews.ContainsKey(queue.Peek()))
+                    queue.Dequeue();
+                if (queue.Count == 0)
+                {
+                    timer.Stop();
+                    Trace.WriteLine("[Page] bot pages prepared");
+                    return;
+                }
+                object content = queue.Dequeue();
+                Stopwatch sw = Stopwatch.StartNew();
+                Control view = BuildPageView(content);
+                // Least recently used, so pages the player opened stay kept first.
+                _pageOrder.Insert(0, content);
+                double w = PageHost.Bounds.Width > 100 ? PageHost.Bounds.Width : 900;
+                double h = PageHost.Bounds.Height > 100 ? PageHost.Bounds.Height : 1000;
+                // Lay it out and draw it once into an off-screen image: the first real show then finds its
+                // templates, text and drawing code ready (measuring alone left 0.25-0.45 s of first-show work).
+                // Shown and hidden again within this one step, so nothing reaches the screen.
+                view.IsVisible = true;
+                try
+                {
+                    view.Measure(new Size(w, h));
+                    view.Arrange(new Rect(0, 0, w, h));
+                    using RenderTargetBitmap image = new(new PixelSize((int)w, (int)h));
+                    image.Render(view);
+                }
+                finally
+                {
+                    view.IsVisible = ReferenceEquals(content, _shownContent);
+                }
+                Trace.WriteLine($"[Page] prepared {content.GetType().Name} in {sw.ElapsedMilliseconds} ms");
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine($"[Page] prepare failed: {ex.Message}");
+            }
+        };
+        timer.Start();
     }
 
     private void DropOldPageViews()

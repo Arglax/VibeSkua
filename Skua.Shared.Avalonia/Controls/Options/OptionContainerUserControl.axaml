@@ -14,32 +14,32 @@
     <Style Selector="TextBlock.title"><Setter Property="FontSize" Value="12" /><Setter Property="TextTrimming" Value="CharacterEllipsis" /></Style>
     <Style Selector="TextBlock.desc"><Setter Property="FontSize" Value="11" /><Setter Property="TextTrimming" Value="CharacterEllipsis" /></Style>
     <Style Selector="TextBlock.def"><Setter Property="IsVisible" Value="False" /></Style>
-    <Style Selector="UserControl:not(.mvs) Border.bar"><Setter Property="Opacity" Value="0" /></Style>
-    <Style Selector="UserControl.mvs Border#InfoCard"><Setter Property="IsVisible" Value="False" /></Style>
-    <Style Selector="UserControl.mvs Border#ListFrame">
+    <Style Selector=":is(UserControl):not(.mvs) Border.bar"><Setter Property="Opacity" Value="0" /></Style>
+    <Style Selector=":is(UserControl).mvs Border#InfoCard"><Setter Property="IsVisible" Value="False" /></Style>
+    <Style Selector=":is(UserControl).mvs Border#ListFrame">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Padding" Value="0" />
     </Style>
-    <Style Selector="UserControl.mvs Border.row">
+    <Style Selector=":is(UserControl).mvs Border.row">
       <Setter Property="Padding" Value="14,12" />
       <Setter Property="Margin" Value="0,4" />
       <Setter Property="CornerRadius" Value="10" />
     </Style>
-    <Style Selector="UserControl.mvs TextBlock.title"><Setter Property="FontSize" Value="15" /><Setter Property="TextTrimming" Value="None" /><Setter Property="TextWrapping" Value="Wrap" /></Style>
-    <Style Selector="UserControl.mvs TextBlock.desc">
+    <Style Selector=":is(UserControl).mvs TextBlock.title"><Setter Property="FontSize" Value="15" /><Setter Property="TextTrimming" Value="None" /><Setter Property="TextWrapping" Value="Wrap" /></Style>
+    <Style Selector=":is(UserControl).mvs TextBlock.desc">
       <Setter Property="FontSize" Value="13" />
       <Setter Property="TextTrimming" Value="None" />
       <Setter Property="TextWrapping" Value="Wrap" />
       <Setter Property="LineHeight" Value="18" />
       <Setter Property="Margin" Value="0,2,0,0" />
     </Style>
-    <Style Selector="UserControl.mvs TextBlock.def">
+    <Style Selector=":is(UserControl).mvs TextBlock.def">
       <Setter Property="IsVisible" Value="True" />
       <Setter Property="FontSize" Value="11.5" />
       <Setter Property="Margin" Value="0,4,0,0" />
     </Style>
-    <Style Selector="UserControl.mvs TextBlock.cat"><Setter Property="FontSize" Value="13" /><Setter Property="Foreground" Value="#E8C15A" /></Style>
+    <Style Selector=":is(UserControl).mvs TextBlock.cat"><Setter Property="FontSize" Value="13" /><Setter Property="Foreground" Value="#E8C15A" /></Style>
   </UserControl.Styles>
   <Grid RowDefinitions="*,Auto" Margin="12">
     <!-- Options List Panel -->

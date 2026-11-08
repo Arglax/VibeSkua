@@ -48,11 +48,16 @@ public partial class ScriptRepoViewModel : BotControlViewModelBase
         {
             _ = LoadInitialScripts();
         }
-        else
+        else if (DateTime.UtcNow - _lastListRefresh > TimeSpan.FromMinutes(2))
         {
+            // Not on every open: swapping in the rebuilt 1,950-script list re-creates the visible rows
+            // (about 0.6 s of stutter on a phone) and the list can't have changed seconds later. Downloads,
+            // updates and the scripts service refresh it themselves.
             _ = RefreshScriptsList();
         }
     }
+
+    private DateTime _lastListRefresh = DateTime.MinValue;
 
     private async Task LoadInitialScripts()
     {
@@ -621,6 +626,7 @@ public partial class ScriptRepoViewModel : BotControlViewModelBase
             });
 
             _scripts.ReplaceRange(scriptViewModels);
+            _lastListRefresh = DateTime.UtcNow;
 
             ApplySearchFilter();
             OnPropertyChanged(nameof(Scripts));

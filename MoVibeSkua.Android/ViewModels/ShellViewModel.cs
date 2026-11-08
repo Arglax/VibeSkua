@@ -352,8 +352,10 @@ public sealed partial class ShellViewModel : ObservableObject
 
     private BotOptionsViewModel? _botOptionsPage;
 
-    /// <summary>MVS's bot settings (Auto Enhance) above the game options the bot can apply.</summary>
-    private void OpenBotOptions()
+    /// <summary>MVS's bot settings (Use Best Enhancement) above the game options the bot can apply.</summary>
+    private void OpenBotOptions() => ShowPage("Game", "Bot options", BotOptionsPage());
+
+    private BotOptionsViewModel BotOptionsPage()
     {
         if (_botOptionsPage is null)
         {
@@ -361,13 +363,15 @@ public sealed partial class ShellViewModel : ObservableObject
                 ?? Ioc.Default.GetRequiredService<Skua.App.Avalonia.ViewModels.Options.GameOptionsViewModel>();
             _botOptionsPage = new BotOptionsViewModel(game);
         }
-        ShowPage("Game", "Bot options", _botOptionsPage);
+        return _botOptionsPage;
     }
 
     /// <summary>
     /// Jump with Fast Travel's saved spots under it, sharing the Fast Travel page's list.
     /// </summary>
-    private void OpenJump()
+    private void OpenJump() => ShowPage("Jump", "Jump", JumpPage());
+
+    private MobileJumpViewModel JumpPage()
     {
         if (_jumpPage is null)
         {
@@ -376,10 +380,46 @@ public sealed partial class ShellViewModel : ObservableObject
                 ?? Ioc.Default.GetRequiredService<FastTravelViewModel>();
             _jumpPage = new MobileJumpViewModel(MainMenu.JumpViewModel, fastTravel, _bot);
         }
-        ShowPage("Jump", "Jump", _jumpPage);
+        return _jumpPage;
     }
 
-    private void OpenArmy() => ShowPage("Army", "Army", _armyPage ??= new ArmyViewModel(() => IsStreamerMode, Ioc.Default.GetRequiredService<IDialogService>()));
+    private void OpenArmy() => ShowPage("Army", "Army", ArmyPage());
+
+    private ArmyViewModel ArmyPage() => _armyPage ??= new ArmyViewModel(() => IsStreamerMode, Ioc.Default.GetRequiredService<IDialogService>());
+
+    /// <summary>
+    /// The pages the bot rails open, most used first, for the shell to build before the first tap: a
+    /// page's first open compiles and lays out its view on the main thread (0.25-0.7 s on the phone,
+    /// seen as a stutter); every later open takes a few ms.
+    /// </summary>
+    public List<object> BotPagesToPrepare()
+    {
+        List<object> pages = new();
+        void Add(Func<object?> get)
+        {
+            try
+            {
+                if (get() is { } page)
+                    pages.Add(page);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[Page] prepare skipped: {ex.Message}");
+            }
+        }
+        Services.MobileWindowService? windows = Ioc.Default.GetRequiredService<IWindowService>() as Services.MobileWindowService;
+        Add(() => windows?.GetManagedWindow("Scripts"));
+        Add(() => MainMenu.AutoViewModel);
+        Add(BotOptionsPage);
+        Add(() => Ioc.Default.GetRequiredService<ScriptRepoViewModel>());
+        Add(JumpPage);
+        Add(() => windows?.GetManagedWindow("Loader"));
+        Add(() => windows?.GetManagedWindow("Grabber"));
+        Add(() => windows?.GetManagedWindow("Logs"));
+        Add(() => Ioc.Default.GetRequiredService<LoginViewModel>());
+        Add(ArmyPage);
+        return pages;
+    }
 
     [RelayCommand]
     private void ToggleStreamerMode() => IsStreamerMode = !IsStreamerMode;

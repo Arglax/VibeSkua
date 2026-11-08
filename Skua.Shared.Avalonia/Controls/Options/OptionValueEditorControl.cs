@@ -9,10 +9,24 @@ namespace Skua.Shared.Avalonia.Controls.Options;
 
 public class OptionValueEditorControl : ContentControl
 {
+    private OptionContainerItemViewModel? _watched;
+
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        if (_watched is not null)
+            _watched.PropertyChanged -= OnItemPropertyChanged;
+        _watched = DataContext as OptionContainerItemViewModel;
+        if (_watched is not null)
+            _watched.PropertyChanged += OnItemPropertyChanged;
         RebuildEditor();
+    }
+
+    // The item list arrives after the dialog opens: swap the text box for the dropdown then.
+    private void OnItemPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(OptionContainerItemViewModel.ItemChoices) or nameof(OptionContainerItemViewModel.TypingOwnName))
+            RebuildEditor();
     }
 
     private void RebuildEditor()
@@ -71,22 +85,23 @@ public class OptionValueEditorControl : ContentControl
             };
             Content = comboBox;
         }
-        else if (item.ItemChoices is { Count: > 0 } choices)
+        else if (item.ItemChoices is { Count: > 0 } && !item.TypingOwnName)
         {
-            // An item the player owns: pick it from the list, or type a name as before.
+            // An item the player owns, picked from a list that shows each one's enhancement. A plain
+            // picker: the editable box on Android stored the pick but went on showing its placeholder.
+            // A name not in the list: the last entry switches the row to a text box.
             ComboBox itemBox = new()
             {
-                IsEditable = true,
-                ItemsSource = choices,
-                PlaceholderText = "Pick or type an item",
+                ItemsSource = item.PickerChoices,
+                PlaceholderText = string.IsNullOrEmpty(item.TextValue) ? "Pick an item" : item.TextValue,
                 MinWidth = phone ? 280 : 160,
-                MaxWidth = phone ? 320 : 260,
+                MaxWidth = phone ? 340 : 280,
                 Height = phone ? 42 : 32,
                 MaxDropDownHeight = 320,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            itemBox[!ComboBox.TextProperty] = new Binding(nameof(OptionContainerItemViewModel.TextValue))
+            itemBox[!ComboBox.SelectedItemProperty] = new Binding(nameof(OptionContainerItemViewModel.SelectedChoice))
             {
                 Mode = BindingMode.TwoWay
             };

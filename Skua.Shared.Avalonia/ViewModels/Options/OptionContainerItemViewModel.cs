@@ -3,6 +3,7 @@ using Skua.Core.Interfaces;
 using Skua.Core.Interfaces.ViewModels;
 using Skua.Core.Options;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 
 namespace Skua.Shared.Avalonia.ViewModels.Options;
@@ -109,10 +110,16 @@ public partial class OptionContainerItemViewModel : ObservableObject, IOptionCon
         get => _value?.ToString() ?? string.Empty;
         set
         {
-            _value = value;
-            OnPropertyChanged();
+            // A picked dropdown entry carries its enhancement in front ("(Absolution) Arsenal of Malice"):
+            // the option stores the bare name, and the box keeps showing the entry. Telling the box the bare
+            // name blanked it, since no entry matches the name alone.
+            string text = value ?? string.Empty;
+            string name = OptionItemChoices.NameOf(text, _itemChoices);
+            _value = name;
+            if (name == text)
+                OnPropertyChanged();
             OnPropertyChanged(nameof(Value));
-        OnPropertyChanged(nameof(IsChanged));
+            OnPropertyChanged(nameof(IsChanged));
         }
     }
 
@@ -124,7 +131,11 @@ public partial class OptionContainerItemViewModel : ObservableObject, IOptionCon
     private List<string>? _itemChoices;
     private bool _itemChoicesRead;
 
-    /// <summary>Owned items matching a text option that asks for one (see <see cref="OptionItemChoices"/>), or null.</summary>
+    /// <summary>
+    /// Owned items matching a text option that asks for one (see <see cref="OptionItemChoices"/>), or null.
+    /// Read in the background (it asks the game for the inventory, which stalled the dialog while it
+    /// opened); null until then, and the editor swaps the text box for the dropdown when it arrives.
+    /// </summary>
     public List<string>? ItemChoices
     {
         get
@@ -132,9 +143,58 @@ public partial class OptionContainerItemViewModel : ObservableObject, IOptionCon
             if (!_itemChoicesRead)
             {
                 _itemChoicesRead = true;
-                _itemChoices = IsText ? OptionItemChoices.For(Option) : null;
+                if (IsText)
+                {
+                    System.Threading.Tasks.Task.Run(() =>
+                    {
+                        List<string>? choices = null;
+                        try { choices = OptionItemChoices.For(Option); } catch { }
+                        if (choices is null)
+                            return;
+                        global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            _itemChoices = choices;
+                            OnPropertyChanged(nameof(ItemChoices));
+                        });
+                    });
+                }
             }
             return _itemChoices;
+        }
+    }
+
+    /// <summary>Last entry of the item picker: switches the row to a text box for a name not in the list.</summary>
+    public const string TypeOwnName = "Type a name…";
+
+    /// <summary>Picker entries: the owned items, then <see cref="TypeOwnName"/>.</summary>
+    public List<string>? PickerChoices => _itemChoices is null ? null : new List<string>(_itemChoices) { TypeOwnName };
+
+    /// <summary>True once the player chose to type a name; the editor shows a text box then.</summary>
+    public bool TypingOwnName { get; private set; }
+
+    /// <summary>
+    /// The picker entry for the stored item name ("(Absolution) Arsenal of Malice" for "Arsenal of Malice"),
+    /// so the picker shows what is set, also when the window opens again; picking one stores the bare name.
+    /// </summary>
+    public string? SelectedChoice
+    {
+        get
+        {
+            string current = TextValue;
+            return _itemChoices?.FirstOrDefault(c => OptionItemChoices.NameOf(c, _itemChoices) == current);
+        }
+        set
+        {
+            if (value is null)
+                return;
+            if (value == TypeOwnName)
+            {
+                TypingOwnName = true;
+                OnPropertyChanged(nameof(TypingOwnName));
+                return;
+            }
+            TextValue = value;
+            OnPropertyChanged();
         }
     }
 
