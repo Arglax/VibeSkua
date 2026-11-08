@@ -10,7 +10,10 @@ public class ScriptLoadContext : AssemblyLoadContext
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _knownAssemblyPaths = new(StringComparer.OrdinalIgnoreCase);
     private volatile bool _isUnloading;
 
-    public ScriptLoadContext() : base(isCollectible: true)
+    // Not collectible on Android: Mono's unloading of script assemblies left the GC scanning freed
+    // type data and aborted the app ("sgen-scan-object.h:93", a few minutes after a script stopped).
+    // Each finished script keeps its compiled code (a few MB) until the app closes instead.
+    public ScriptLoadContext() : base(isCollectible: !OperatingSystem.IsAndroid())
     {
         Unloading += context => _isUnloading = true;
     }

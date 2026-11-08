@@ -6,49 +6,52 @@
              Background="{DynamicResource SkuaPageBrush}"
              x:Class="Skua.App.Avalonia.Views.CoreBotsView">
   <Grid Margin="12" RowDefinitions="Auto,Auto,*" RowSpacing="10">
-    <!-- Profile and its actions -->
-    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
-      <Border Grid.Column="0" Width="32" Height="32" CornerRadius="16"
+    <!-- Profile on the left; the actions wrap to a second line on a narrow (phone) page instead of
+         running off its edge. -->
+    <DockPanel Grid.Row="0" LastChildFill="True">
+      <Border DockPanel.Dock="Left" Width="32" Height="32" CornerRadius="16"
               Background="{DynamicResource SkuaSurfaceAltBrush}"
               BorderBrush="{DynamicResource SkuaBorderBrush}"
               BorderThickness="1">
         <materialIcons:MaterialIcon Kind="AccountCircleOutline" Width="18" Height="18"
                                     Foreground="{DynamicResource SkuaAccentBrush}" />
       </Border>
-      <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="2,0,0,0">
+      <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center" Margin="10,0,8,0">
         <TextBlock Text="Profile" FontSize="11" Foreground="{DynamicResource SkuaMutedTextBrush}" />
         <TextBlock Text="{Binding CurrentPlayer}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
                    IsVisible="{Binding CurrentPlayer, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         <TextBlock Text="Not logged in" FontWeight="SemiBold" Foreground="{DynamicResource SkuaMutedTextBrush}"
                    IsVisible="{Binding CurrentPlayer, Converter={x:Static StringConverters.IsNullOrEmpty}}" />
       </StackPanel>
-      <Button Grid.Column="2" Classes="skua-button w84" Command="{Binding LoadCommand}" ToolTip.Tip="Load saved CoreBots settings">
-        <StackPanel Orientation="Horizontal" Spacing="6">
-          <materialIcons:MaterialIcon Kind="FolderOpenOutline" Width="15" Height="15" />
-          <TextBlock Text="Load" VerticalAlignment="Center" />
-        </StackPanel>
-      </Button>
-      <Button Grid.Column="3" Classes="skua-button w140" Command="{Binding LoadCharacterCommand}"
-              ToolTip.Tip="Load in-game character equipment and classes">
-        <StackPanel Orientation="Horizontal" Spacing="6">
-          <materialIcons:MaterialIcon Kind="AccountSyncOutline" Width="15" Height="15" />
-          <TextBlock Text="Load character" VerticalAlignment="Center" />
-        </StackPanel>
-      </Button>
-      <Button Grid.Column="5" Classes="skua-button w84" Command="{Binding ImportCommand}"
-              ToolTip.Tip="Import a CBO_Storage(name).txt, for example copied from VibeSkua on a PC">
-        <StackPanel Orientation="Horizontal" Spacing="6">
-          <materialIcons:MaterialIcon Kind="FileImportOutline" Width="15" Height="15" />
-          <TextBlock Text="Import" VerticalAlignment="Center" />
-        </StackPanel>
-      </Button>
-      <Button Grid.Column="4" Classes="skua-button skua-primary w84" Command="{Binding SaveCommand}" ToolTip.Tip="Save current CoreBots options">
-        <StackPanel Orientation="Horizontal" Spacing="6">
-          <materialIcons:MaterialIcon Kind="ContentSaveOutline" Width="15" Height="15" />
-          <TextBlock Text="Save" VerticalAlignment="Center" />
-        </StackPanel>
-      </Button>
-    </Grid>
+      <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Center" ItemSpacing="8" LineSpacing="8">
+        <Button Classes="skua-button w84" Command="{Binding LoadCommand}" ToolTip.Tip="Load saved CoreBots settings">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <materialIcons:MaterialIcon Kind="FolderOpenOutline" Width="15" Height="15" />
+            <TextBlock Text="Load" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Classes="skua-button w140" Command="{Binding LoadCharacterCommand}"
+                ToolTip.Tip="Load in-game character equipment and classes">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <materialIcons:MaterialIcon Kind="AccountSyncOutline" Width="15" Height="15" />
+            <TextBlock Text="Load character" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Classes="skua-button skua-primary w84" Command="{Binding SaveCommand}" ToolTip.Tip="Save current CoreBots options">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <materialIcons:MaterialIcon Kind="ContentSaveOutline" Width="15" Height="15" />
+            <TextBlock Text="Save" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Classes="skua-button w84" Command="{Binding ImportCommand}"
+                ToolTip.Tip="Import a CBO_Storage(name).txt, for example copied from VibeSkua on a PC">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <materialIcons:MaterialIcon Kind="FileImportOutline" Width="15" Height="15" />
+            <TextBlock Text="Import" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+      </WrapPanel>
+    </DockPanel>
 
     <!-- Tabs; the Options tab's search sits on the right -->
     <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">

@@ -1298,7 +1298,8 @@ public partial class ScriptManager : ObservableObject, IScriptManager, IDisposab
 
         Compiler.ClearSessionRegistries();
 
-        if (context is null)
+        // Android contexts aren't collectible (see ScriptLoadContext): nothing to unload.
+        if (context is null || !context.IsCollectible)
             return;
 
         _ = Task.Run(() =>

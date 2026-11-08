@@ -1,1 +1,1 @@
-arglax 2a0f4ace
+arglax 4aa12e8d (not 2a0f4ace: freeing AVM1 libraries under AQW crashed the engine on 3 of 4 world loads)

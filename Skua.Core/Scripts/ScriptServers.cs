@@ -274,7 +274,12 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
         List<Server> candidates = new();
         AddReloginCandidates(candidates, CachedServers);
         AddReloginCandidates(candidates, ServerList);
-        return candidates;
+        // Fallbacks in list order, but full servers and canned-chat ones (Twilly, Twig) last: re-login went
+        // Yokai -> Twilly -> Twig -> Artix at 1499/1500. A server picked by name is found regardless.
+        return candidates
+            .OrderBy(x => x.MaxPlayers > 0 && x.PlayerCount >= x.MaxPlayers * 0.97 ? 1 : 0)
+            .ThenBy(x => x.ChatLevel == 0 ? 1 : 0)
+            .ToList();
     }
 
     private void RefreshServersSync()

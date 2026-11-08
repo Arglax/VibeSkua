@@ -308,6 +308,8 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                 if (currentInGame)
                 {
                     wasPlaying = true;
+                    if (_reloginFailedRounds != 0 || _reloginPausedUntil != 0)
+                        ResetReloginBackoff();
                     Servers.LastIP = Player.ServerIP ?? Servers.LastIP;
                     if (Servers.IsIntentionalLogout)
                         Servers.IsIntentionalLogout = false;
@@ -799,6 +801,13 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
     private volatile bool _waitForLogin;
     private CancellationTokenSource? _reloginCTS;
 
+    private void ResetReloginBackoff()
+    {
+        _reloginFailedRounds = 0;
+        _reloginPausedUntil = 0;
+        _reloginPauseLogged = false;
+    }
+
     public void CancelRelogin()
     {
         if (_reloginCTS is not null)
@@ -814,10 +823,28 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
         _waitForLogin = false;
     }
 
+    // Back-off after a failed re-login round. Without it the stuck-loading check saw "Authenticating
+    // Account Info..." still on screen and started a new round 1.5 s after the last gave up, hitting the
+    // login server every ~20 s for as long as it refused (which only lengthens its throttling).
+    private static readonly int[] ReloginBackoffMinutes = { 2, 5, 15, 30 };
+    private int _reloginFailedRounds;
+    private long _reloginPausedUntil;
+    private bool _reloginPauseLogged;
+
     private async Task OnLogout(bool logoutNotified)
     {
         if (!Options.AutoRelogin || _waitForLogin || Servers.IsIntentionalLogout)
             return;
+
+        if (Environment.TickCount64 < _reloginPausedUntil)
+        {
+            if (!_reloginPauseLogged)
+            {
+                _reloginPauseLogged = true;
+                Log($"Auto re-login is paused for {(_reloginPausedUntil - Environment.TickCount64) / 60000 + 1} more min after {_reloginFailedRounds} failed round(s). Log in yourself to resume now.");
+            }
+            return;
+        }
 
         if (_reloginTask is { IsCompleted: false })
         {
@@ -897,6 +924,18 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                 else if (startScript && !relogged)
                     Log("Skipping script restart because re-login did not succeed.");
                 Log($"Re-login was {(relogged ? "successful" : "cancelled or unsuccessful")}.");
+                if (relogged)
+                {
+                    ResetReloginBackoff();
+                }
+                else if (!reloginCts.IsCancellationRequested)
+                {
+                    int minutes = ReloginBackoffMinutes[Math.Min(_reloginFailedRounds, ReloginBackoffMinutes.Length - 1)];
+                    _reloginFailedRounds++;
+                    _reloginPausedUntil = Environment.TickCount64 + minutes * 60_000L;
+                    _reloginPauseLogged = false;
+                    Log($"Auto re-login paused for {minutes} min (login server not answering; {_reloginFailedRounds} failed round(s)).");
+                }
             }
             catch (OperationCanceledException) when (reloginCts.IsCancellationRequested)
             {

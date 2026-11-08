@@ -113,6 +113,18 @@ public sealed class ScriptPathResolver : IScriptPathResolver
             .Where(File.Exists)
             .ToList();
 
+        // Android's file names are case-sensitive and Windows' aren't, so the repository has includes that
+        // only work on Windows (28 scripts include "Story/QueenofMonsters/CoreQoM.cs"; the file is CoreQOM.cs,
+        // so Lich and others didn't compile). Match the path ignoring case when nothing matched exactly.
+        if (existing.Count == 0)
+        {
+            existing = candidates
+                .Select(c => FindIgnoringCase(Canonicalize(c)))
+                .OfType<string>()
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+        }
+
         ScriptPathResolution resolution = new(existing.FirstOrDefault(), existing);
         if (resolution.SelectedPath != null)
             _resolutionCache[cacheKey] = resolution;
@@ -124,6 +136,43 @@ public sealed class ScriptPathResolver : IScriptPathResolver
     {
         if (!string.IsNullOrWhiteSpace(ownerFile))
             candidates.Add(Path.Combine(Path.GetDirectoryName(Canonicalize(ownerFile))!, specifier));
+    }
+
+    /// <summary>The existing file whose path equals <paramref name="path"/> ignoring letter case, or null.</summary>
+    private static string? FindIgnoringCase(string path)
+    {
+        if (File.Exists(path))
+            return path;
+        try
+        {
+            string? root = Path.GetPathRoot(path);
+            if (string.IsNullOrEmpty(root))
+                return null;
+            string current = root;
+            string[] parts = path[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < parts.Length; i++)
+            {
+                bool last = i == parts.Length - 1;
+                string exact = Path.Combine(current, parts[i]);
+                if (last ? File.Exists(exact) : Directory.Exists(exact))
+                {
+                    current = exact;
+                    continue;
+                }
+                if (!Directory.Exists(current))
+                    return null;
+                IEnumerable<string> entries = last ? Directory.EnumerateFiles(current) : Directory.EnumerateDirectories(current);
+                string? match = entries.FirstOrDefault(e => string.Equals(Path.GetFileName(e), parts[i], StringComparison.OrdinalIgnoreCase));
+                if (match is null)
+                    return null;
+                current = match;
+            }
+            return current;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static string Canonicalize(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
