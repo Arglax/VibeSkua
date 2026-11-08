@@ -52,4 +52,8 @@
         </ProjectReference>
     </ItemGroup>
 
+  <ItemGroup>
+    <!-- MVS core rotations, read by AdvancedSkillContainer.ApplyCoreSkills. -->
+    <EmbeddedResource Include="Skills\MvsCoreSkills.json" LogicalName="MvsCoreSkills.json" />
+  </ItemGroup>
 </Project>

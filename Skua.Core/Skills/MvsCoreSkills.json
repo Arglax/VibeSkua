@@ -1,0 +1,258 @@
+{
+  "ArchMage": {
+    "Base": {
+      "skillUseMode": "UseIfAvailable",
+      "skillTimeout": 100,
+      "skills": [
+        {
+          "skillId": 4,
+          "rules": [
+            {
+              "type": "Aura",
+              "value": 1,
+              "comparison": "greater",
+              "auraName": "Arcane Flux",
+              "auraTarget": "self"
+            },
+            {
+              "type": "Aura",
+              "value": 0,
+              "comparison": "less",
+              "auraName": "Corporeal Ascension",
+              "auraTarget": "self"
+            }
+          ]
+        },
+        {
+          "skillId": 2
+        },
+        {
+          "skillId": 3
+        },
+        {
+          "skillId": 1,
+          "rules": [
+            {
+              "type": "Aura",
+              "value": 0,
+              "comparison": "less",
+              "auraName": "Cryostasis",
+              "auraTarget": "target"
+            }
+          ]
+        }
+      ]
+    },
+    "Farm": {
+      "skillUseMode": "UseIfAvailable",
+      "skillTimeout": 100,
+      "skills": [
+        {
+          "skillId": 4,
+          "rules": [
+            {
+              "type": "Aura",
+              "value": 1,
+              "comparison": "greater",
+              "auraName": "Arcane Flux",
+              "auraTarget": "self"
+            },
+            {
+              "type": "Aura",
+              "value": 0,
+              "comparison": "less",
+              "auraName": "Corporeal Ascension",
+              "auraTarget": "self"
+            }
+          ]
+        },
+        {
+          "skillId": 2
+        },
+        {
+          "skillId": 3
+        },
+        {
+          "skillId": 1,
+          "rules": [
+            {
+              "type": "Aura",
+              "value": 0,
+              "comparison": "less",
+              "auraName": "Cryostasis",
+              "auraTarget": "target"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "_replaces": {
+    "ArchMage": {
+      "Base": [
+        {
+          "skillUseMode": "WaitForCooldown",
+          "skillTimeout": 100,
+          "skills": [
+            {
+              "skillId": 1,
+              "rules": [
+                {
+                  "type": "Aura",
+                  "value": 0,
+                  "comparison": "less",
+                  "auraName": "incinerate",
+                  "auraTarget": "target"
+                }
+              ]
+            },
+            {
+              "skillId": 4,
+              "rules": [
+                {
+                  "type": "Health",
+                  "value": 70,
+                  "comparison": "greater",
+                  "isPercentage": true
+                },
+                {
+                  "type": "Mana",
+                  "value": 70,
+                  "comparison": "less",
+                  "isPercentage": true
+                },
+                {
+                  "type": "Aura",
+                  "value": 0,
+                  "comparison": "less",
+                  "auraName": "Corporeal Ascension",
+                  "auraTarget": "self"
+                }
+              ]
+            },
+            {
+              "skillId": 2,
+              "rules": [
+                {
+                  "type": "Mana",
+                  "value": 30,
+                  "comparison": "less",
+                  "isPercentage": true
+                }
+              ]
+            },
+            {
+              "skillId": 3
+            }
+          ]
+        },
+        {
+          "skillUseMode": "WaitForCooldown",
+          "skillTimeout": 100,
+          "skills": [
+            {
+              "skillId": 1,
+              "rules": [
+                {
+                  "type": "Aura",
+                  "value": 0,
+                  "comparison": "less",
+                  "auraName": "incinerate",
+                  "auraTarget": "target"
+                }
+              ]
+            },
+            {
+              "skillId": 4,
+              "rules": [
+                {
+                  "type": "Health",
+                  "value": 70,
+                  "comparison": "greater",
+                  "isPercentage": true
+                },
+                {
+                  "type": "Mana",
+                  "value": 70,
+                  "comparison": "less",
+                  "isPercentage": true
+                },
+                {
+                  "type": "Aura",
+                  "value": 0,
+                  "comparison": "less",
+                  "auraName": "Corporeal Ascenion",
+                  "auraTarget": "self"
+                }
+              ]
+            },
+            {
+              "skillId": 2,
+              "rules": [
+                {
+                  "type": "Mana",
+                  "value": 30,
+                  "comparison": "less",
+                  "isPercentage": true
+                }
+              ]
+            },
+            {
+              "skillId": 3
+            }
+          ]
+        }
+      ],
+      "Farm": [
+        {
+          "skillUseMode": "UseIfAvailable",
+          "skillTimeout": 100,
+          "skills": [
+            {
+              "skillId": 4,
+              "rules": [
+                {
+                  "type": "Aura",
+                  "value": 0,
+                  "comparison": "less",
+                  "auraName": "Corporeal Ascension",
+                  "auraTarget": "self"
+                }
+              ]
+            },
+            {
+              "skillId": 0
+            },
+            {
+              "skillId": 2
+            }
+          ]
+        },
+        {
+          "skillUseMode": "UseIfAvailable",
+          "skillTimeout": 100,
+          "skills": [
+            {
+              "skillId": 4,
+              "rules": [
+                {
+                  "type": "Aura",
+                  "value": 0,
+                  "comparison": "less",
+                  "auraName": "Corporeal Ascenion",
+                  "auraTarget": "self"
+                }
+              ]
+            },
+            {
+              "skillId": 0
+            },
+            {
+              "skillId": 2
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -52,8 +52,11 @@ public partial class ScriptSelfAuras : IScriptSelfAuras
         }
     }
 
+    // An aura the game still lists with no time left has ended (it stays listed for a moment): ArchMage's
+    // rotation cast Arcane Sigil on an expired Arcane Flux, paying 40% HP for no stance change.
     public AuraSnapshot? GetAuraSnapshot(string auraName) =>
-        Snapshots.FirstOrDefault(a => a.Name.Equals(auraName, StringComparison.OrdinalIgnoreCase));
+        Snapshots.FirstOrDefault(a => a.Name.Equals(auraName, StringComparison.OrdinalIgnoreCase)
+            && (a.Persistent || a.Duration <= 0 || a.RemainingTime > 0.05));
 
     public int GetAuraStacks(string auraName) => GetAuraSnapshot(auraName)?.Stacks ?? 0;
 

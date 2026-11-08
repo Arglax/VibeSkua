@@ -148,6 +148,87 @@ public class AdvancedSkillContainer : ObservableRecipient, IAdvancedSkillContain
         }
     }
 
+    /// <summary>
+    /// MVS core rotations (Skills/MvsCoreSkills.json, built in): sets checked against the class's own
+    /// mechanics, used for a class mode the player never customised (it is missing or still equals the
+    /// published default). ArchMage's published "Base" cast Arcane Sigil only above 70% HP and below 70%
+    /// mana, so the Corporeal Ascension heal over time (sized by mana when cast) never came when it was
+    /// needed and the class died farming; Glacial Impact (-30% foe damage) only ran below 30% mana.
+    /// </summary>
+    private string ApplyCoreSkills(string userJson)
+    {
+        try
+        {
+            using Stream? stream = typeof(AdvancedSkillContainer).Assembly.GetManifestResourceStream("MvsCoreSkills.json");
+            if (stream is null || JsonNode.Parse(stream) is not JsonObject core)
+                return userJson;
+            if (JsonNode.Parse(userJson) is not JsonObject user)
+                return userJson;
+            JsonObject? defaults = null;
+            if (File.Exists(_defaultSkillsSetsPath))
+                defaults = JsonNode.Parse(File.ReadAllText(_defaultSkillsSetsPath)) as JsonObject;
+
+            bool changed = false;
+            // Earlier published rotations a core set replaces even when today's default differs.
+            JsonObject? replaces = core["_replaces"] as JsonObject;
+            foreach (KeyValuePair<string, JsonNode?> classEntry in core)
+            {
+                if (classEntry.Key.StartsWith('_') || classEntry.Value is not JsonObject coreModes)
+                    continue;
+                string classKey = FindKey(user, classEntry.Key) ?? classEntry.Key;
+                if (user[classKey] is not JsonObject userModes)
+                {
+                    user[classKey] = coreModes.DeepClone();
+                    changed = true;
+                    continue;
+                }
+                JsonObject? defaultModes = defaults is not null && FindKey(defaults, classEntry.Key) is { } dk ? defaults[dk] as JsonObject : null;
+                foreach (KeyValuePair<string, JsonNode?> modeEntry in coreModes)
+                {
+                    JsonNode? userMode = userModes[modeEntry.Key];
+                    JsonNode? defaultMode = defaultModes?[modeEntry.Key];
+                    if (modeEntry.Value is null)
+                        continue;
+                    string? userCanon = Canon(userMode);
+                    bool replaced = userCanon is not null && replaces?[classEntry.Key]?[modeEntry.Key] is JsonArray old
+                        && old.Any(o => Canon(o) == userCanon);
+                    if (userMode is null || replaced || (defaultMode is not null && Canon(defaultMode) == userCanon))
+                    {
+                        userModes[modeEntry.Key] = modeEntry.Value.DeepClone();
+                        changed = true;
+                        System.Diagnostics.Trace.WriteLine($"[Skills] MVS core rotation used for {classKey} / {modeEntry.Key}");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Trace.WriteLine($"[Skills] {classKey} / {modeEntry.Key}: your own rotation kept (MVS core not applied): {userCanon}");
+                    }
+                }
+            }
+            return changed ? user.ToJsonString() : userJson;
+        }
+        catch
+        {
+            return userJson;
+        }
+    }
+
+    // A rotation by meaning, not by text: the in-app Skills editor re-saves the file with other number
+    // formatting and field order, so an untouched rotation no longer matched the published one byte for byte.
+    private string? Canon(JsonNode? mode)
+    {
+        if (mode is null)
+            return null;
+        try
+        {
+            SkillModeJson? m = JsonSerializer.Deserialize<SkillModeJson>(mode.ToJsonString());
+            return m is null ? null : $"{m.SkillUseMode}|{m.SkillTimeout}|{ConvertSkillsToString(m.Skills)}";
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static string? FindKey(JsonObject obj, string key)
     {
         if (obj.ContainsKey(key))
@@ -231,7 +312,7 @@ public class AdvancedSkillContainer : ObservableRecipient, IAdvancedSkillContain
 
             if (File.Exists(_userSkillsSetsPath))
             {
-                string fileContent = File.ReadAllText(_userSkillsSetsPath);
+                string fileContent = ApplyCoreSkills(File.ReadAllText(_userSkillsSetsPath));
                 loadedSkills = LoadFromJson(fileContent, out jsonConfig);
             }
         }

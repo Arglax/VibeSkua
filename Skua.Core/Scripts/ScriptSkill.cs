@@ -341,6 +341,10 @@ public partial class ScriptSkill : IScriptSkill
                 (int indexS, int skill) = _provider!.GetNextSkill();
                 if (indexS == -1 || skill == -1)
                     break;
+                // The next skill's own rules still apply (it was cast unchecked, e.g. ArchMage's Arcane
+                // Sigil while already in Corporeal Ascension).
+                if (_provider.ShouldUseSkill(indexS, CanUseSkill(skill)) != true)
+                    break;
                 if (_playerSkills is not null && skill < _playerSkills.Length && !_playerSkills[skill].IsOk)
                 {
                     break;
