@@ -935,6 +935,7 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                     _reloginPausedUntil = Environment.TickCount64 + minutes * 60_000L;
                     _reloginPauseLogged = false;
                     Log($"Auto re-login paused for {minutes} min (login server not answering; {_reloginFailedRounds} failed round(s)).");
+                    Messenger.Send<ReloginPausedMessage, int>(new(minutes, _reloginFailedRounds, startScript), (int)MessageChannels.GameEvents);
                 }
             }
             catch (OperationCanceledException) when (reloginCts.IsCancellationRequested)

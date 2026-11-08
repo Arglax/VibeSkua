@@ -96,6 +96,9 @@ public static class BotControl
     /// MVS went to the background (true) or came back. The game view keeps running there so the bot
     /// is not frozen, so the page is told to draw nothing and stay silent until MVS is back.
     /// </summary>
+    /// <summary>MVS is out of sight (screen off, home screen or another app).</summary>
+    public static bool InBackground => _inBackground;
+
     public static void SetInBackground(bool background)
     {
         if (background == _inBackground)

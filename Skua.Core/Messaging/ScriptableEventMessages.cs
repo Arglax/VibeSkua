@@ -14,6 +14,9 @@ public sealed record QuestTurninMessage(int QuestID);
 public sealed record MapChangedMessage(string Map);
 public sealed record CellChangedMessage(string Map, string Cell, string Pad);
 public sealed record ReloginTriggeredMessage(bool WasKicked);
+
+/// <summary>Auto re-login gave up a round and waits <paramref name="Minutes"/> before the next; <paramref name="ScriptWasRunning"/> if a script will restart after.</summary>
+public sealed record ReloginPausedMessage(int Minutes, int Rounds, bool ScriptWasRunning);
 public sealed record ExtensionPacketMessage(dynamic Packet);
 public sealed record PacketMessage(string Packet);
 public sealed record PlayerAFKMessage();

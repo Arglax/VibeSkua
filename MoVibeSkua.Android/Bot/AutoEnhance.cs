@@ -16,9 +16,9 @@ using Skua.Core.Models;
 namespace MoVibeSkua.Android.Bot;
 
 /// <summary>
-/// MVS Auto Enhance: before a script starts (and from "Check now"), checks the equipped class, weapon,
-/// helm and cape against the recommended enhancements for the class and use case and enhances them
-/// when the helm or cape is off or less than <see cref="Threshold"/>% of the set matches. The work is
+/// MVS "Use Best Enhancement": shows the best enhancement for each equipped piece (class, weapon, helm,
+/// cape) for the class and use case, and before a script starts (or on "Enhance ticked items now")
+/// enhances every ticked piece that isn't on it yet; unticked pieces are never touched. The work is
 /// done by a built-in script (Scripts/MVS/MvsAutoEnhance.cs) generated here from a template plus AUQW's
 /// own SmartEnhance libraries copied from the downloaded CoreAdvanced.cs, so the picks follow AUQW's
 /// updates; Ultra uses the r/AQW Simplified Bosses Guide where it lists the class (mvs-enhance-ultra.json,
@@ -27,7 +27,7 @@ namespace MoVibeSkua.Android.Bot;
 public static class AutoEnhance
 {
     public static readonly string[] UseCases = { "Farming", "Bossing", "Ultra" };
-    public const int Threshold = 60;
+    public const string Name = "Use Best Enhancement";
 
     private const string Prefs = "movibeskua.autoenhance";
     private static ISharedPreferences? P => global::Android.App.Application.Context.GetSharedPreferences(Prefs, FileCreationMode.Private);
@@ -48,11 +48,10 @@ public static class AutoEnhance
         set => P?.Edit()?.PutString("useCase", value)?.Apply();
     }
 
-    /// <summary>Slots Auto Enhance may change ("class", "weapon", "helm", "cape"); at most <see cref="MaxSlots"/>.</summary>
+    /// <summary>The pieces it may change ("class", "weapon", "helm", "cape"); all ticked unless the player unticks some.</summary>
     public static readonly string[] Slots = { "class", "weapon", "helm", "cape" };
-    public const int MaxSlots = 3;
 
-    public static bool SlotOn(string slot) => P?.GetBoolean("slot." + slot, slot != "class") ?? slot != "class";
+    public static bool SlotOn(string slot) => P?.GetBoolean("slot." + slot, true) ?? true;
 
     public static void SetSlot(string slot, bool on) => P?.Edit()?.PutBoolean("slot." + slot, on)?.Apply();
 
@@ -62,9 +61,37 @@ public static class AutoEnhance
         private set => P?.Edit()?.PutString("last", value)?.Apply();
     }
 
+    /// <summary>One row of the table: a piece, what it has now, its best enhancement.</summary>
+    public sealed record GearRow(string Slot, string Item, string Now, string Best, bool Ok, bool Locked);
+
+    /// <summary>The table from the last read (preview or enhance), the class it was for, and when.</summary>
+    public static (List<GearRow> Rows, string Class, string UseCase, string Source, DateTime When) LastRead
+    {
+        get
+        {
+            try
+            {
+                JObject saved = JObject.Parse(P?.GetString("read", "{}") ?? "{}");
+                List<GearRow> rows = (saved["rows"] as JArray)?.Select(r => new GearRow((string?)r["Slot"] ?? "", (string?)r["Item"] ?? "",
+                    (string?)r["Now"] ?? "", (string?)r["Best"] ?? "", (bool?)r["Ok"] ?? false, (bool?)r["Locked"] ?? false)).ToList() ?? new();
+                return (rows, (string?)saved["class"] ?? "", (string?)saved["useCase"] ?? "", (string?)saved["source"] ?? "",
+                    DateTime.TryParse((string?)saved["when"], null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime w) ? w : DateTime.MinValue);
+            }
+            catch
+            {
+                return (new(), "", "", "", DateTime.MinValue);
+            }
+        }
+    }
+
+    public static event Action? Read;
+
     public static string ScriptPath => Path.Combine(ClientFileSources.SkuaScriptsDIR, "MVS", "MvsAutoEnhance.cs");
 
     private static bool _running;
+
+    /// <summary>Its helper script is running (not the player's script).</summary>
+    public static bool IsRunning => _running;
 
     /// <summary>Hooked into the script loader: runs before the user's script when Auto Enhance is on.</summary>
     public static void Install()
@@ -76,11 +103,14 @@ public static class AutoEnhance
         };
     }
 
-    /// <summary>Runs the check now. Returns the summary shown to the player.</summary>
-    public static async Task<string> RunAsync(bool beforeScript)
+    /// <summary>
+    /// Runs it now: <paramref name="preview"/> only reads the gear and fills the table, otherwise every
+    /// ticked piece not on its best enhancement is enhanced. Returns the summary shown to the player.
+    /// </summary>
+    public static async Task<string> RunAsync(bool beforeScript, bool preview = false)
     {
         if (_running)
-            return "Auto Enhance is already running.";
+            return Name + " is already running.";
         IScriptInterface bot = Ioc.Default.GetRequiredService<IScriptInterface>();
         IScriptManager manager = Ioc.Default.GetRequiredService<IScriptManager>();
         if (!bot.Player.LoggedIn)
@@ -92,7 +122,7 @@ public static class AutoEnhance
         _running = true;
         try
         {
-            string? problem = Generate();
+            string? problem = Generate(preview);
             if (problem is not null)
             {
                 LastResult = problem;
@@ -120,24 +150,33 @@ public static class AutoEnhance
             bool failed = false, show = false;
             if (ex is not null)
             {
-                summary = "Auto Enhance couldn't start: " + ex.Message;
+                summary = Name + " couldn't start: " + ex.Message;
                 failed = show = true;
             }
             else if (File.Exists(resultFile))
             {
                 JObject r = JObject.Parse(File.ReadAllText(resultFile));
-                string status = (string?)r["status"] ?? "ok";
+                string status = (string?)r["Status"] ?? (string?)r["status"] ?? "ok";
                 summary = string.Join("\n", r["Lines"]?.Select(t => (string?)t) ?? Array.Empty<string?>());
                 failed = status is "failed" or "partial" or "error";
-                show = failed || status == "enhanced" || !beforeScript;
+                show = !preview && (failed || status == "enhanced" || !beforeScript);
+                if (r["Rows"] is JArray rows && rows.Count > 0)
+                {
+                    P?.Edit()?.PutString("read", new JObject
+                    {
+                        ["rows"] = rows, ["class"] = r["Class"], ["useCase"] = r["UseCase"], ["source"] = r["Source"],
+                        ["when"] = DateTime.UtcNow.ToString("o")
+                    }.ToString(Newtonsoft.Json.Formatting.None))?.Apply();
+                }
             }
             else
             {
-                summary = "Auto Enhance finished without a result.";
-                show = !beforeScript;
+                summary = Name + " finished without a result.";
+                show = !beforeScript && !preview;
             }
             LastResult = $"{DateTime.Now:HH:mm} {summary}";
-            Trace.WriteLine("[AutoEnhance] " + summary.Replace('\n', ' '));
+            Trace.WriteLine("[AutoEnhance] " + (preview ? "read: " : "") + summary.Replace('\n', ' '));
+            Dispatcher.UIThread.Post(() => Read?.Invoke());
             if (show)
                 Notify(summary, failed);
             return summary;
@@ -147,7 +186,7 @@ public static class AutoEnhance
             Trace.WriteLine("[AutoEnhance] " + e);
             if (!string.IsNullOrEmpty(userScript))
                 try { manager.SetLoadedScript(userScript); } catch { }
-            return "Auto Enhance hit a problem: " + e.Message;
+            return Name + " hit a problem: " + e.Message;
         }
         finally
         {
@@ -164,23 +203,23 @@ public static class AutoEnhance
             {
                 Ioc.Default.GetService<IDialogService>()?.ShowMessageBox(
                     text + (failed ? "\n\nThe script carries on with what you have." : ""),
-                    failed ? "Auto Enhance: couldn't finish" : "Auto Enhance");
+                    failed ? Name + ": couldn't finish" : Name);
             }
             catch { }
         });
     }
 
     /// <summary>Writes the built-in script, its Ultra data and settings. Returns a problem, or null.</summary>
-    public static string? Generate()
+    public static string? Generate(bool preview = false)
     {
         string core = Path.Combine(ClientFileSources.SkuaScriptsDIR, "CoreAdvanced.cs");
         if (!File.Exists(core))
-            return "Auto Enhance needs the community scripts: open Repo and download them first.";
+            return Name + " needs the community scripts: open Repo and download them first.";
         string src = File.ReadAllText(core);
         string? forge = ExtractFunction(src, "bool ForgeEnhancementLibrary()");
         string? awe = ExtractFunction(src, "void AweEnhancementLibrary()");
         if (forge is null || awe is null)
-            return "Auto Enhance couldn't read AUQW's enhancement list (CoreAdvanced.cs changed). Update the scripts in Repo, or tell the MVS Discord.";
+            return Name + " couldn't read AUQW's enhancement list (CoreAdvanced.cs changed). Update the scripts in Repo, or tell the MVS Discord.";
 
         StringBuilder lib = new();
         lib.AppendLine("    private " + forge.Trim());
@@ -205,7 +244,7 @@ public static class AutoEnhance
         File.WriteAllText(Path.Combine(dir, "mvs-enhance-ultra.json"), ReadResource("mvs-enhance-ultra.json"));
         Directory.CreateDirectory(ClientFileSources.SkuaOptionsDIR);
         File.WriteAllText(Path.Combine(ClientFileSources.SkuaOptionsDIR, "mvs-autoenhance.json"),
-            new JObject { ["useCase"] = UseCase, ["threshold"] = Threshold, ["slots"] = new JArray(Slots.Where(SlotOn).ToArray()) }.ToString());
+            new JObject { ["useCase"] = UseCase, ["preview"] = preview, ["slots"] = new JArray(Slots.Where(SlotOn).ToArray()) }.ToString());
         return null;
     }
 

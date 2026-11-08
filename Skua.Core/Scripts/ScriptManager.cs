@@ -174,6 +174,7 @@ public partial class ScriptManager : ObservableObject, IScriptManager, IDisposab
 
             UnloadPreviousScript();
             FixCoreBotsOptionsCase();
+            LastStopWasExternal = false;
 
             string scriptContent = File.ReadAllText(LoadedScript);
             object? script = await Task.Run(() => Compile(scriptContent));
@@ -336,9 +337,16 @@ public partial class ScriptManager : ObservableObject, IScriptManager, IDisposab
         });
     }
 
+    /// <summary>
+    /// True when the last run was stopped from outside the script (the player, a logout, auto re-login),
+    /// false when it ended by itself (finished, or stopped itself). Reset when a script starts.
+    /// </summary>
+    public bool LastStopWasExternal { get; private set; }
+
     public async ValueTask StopScript(bool runScriptStoppingEvent = true)
     {
         ScriptPaused = false;
+        LastStopWasExternal = Thread.CurrentThread.Name != "Script Thread";
 
         string? scriptCorrelationId;
         lock (_threadLock)

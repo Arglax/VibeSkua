@@ -100,6 +100,15 @@ public class KeepAliveService : Service
                 return StartCommandResult.Sticky;
             }
         }
+        // A button on a script-result notification (Diagnostics.RunNotifier).
+        if (intent?.Action is Diagnostics.RunNotifier.ActionRunAgain or Diagnostics.RunNotifier.ActionCopy or Diagnostics.RunNotifier.ActionSendReport)
+        {
+            Diagnostics.RunNotifier.Handle(intent.Action);
+            if (IsRunning)
+                return StartCommandResult.Sticky;
+            StopSelf(startId);
+            return StartCommandResult.NotSticky;
+        }
         if (intent?.Action == ActionRelease)
         {
             ReleaseClient(slot);

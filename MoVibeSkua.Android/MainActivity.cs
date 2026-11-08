@@ -119,6 +119,7 @@ public class MainActivity : AvaloniaMainActivity<App>
         base.OnResume();
         Controls.GameView.Resume();
         Usage.UsageTracker.OnForeground();
+        Diagnostics.RunNotifier.OnScreen();
     }
 
     // Out of sight (home screen, another app, screen off): the game keeps running but draws nothing.

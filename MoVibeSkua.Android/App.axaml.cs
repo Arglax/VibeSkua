@@ -167,6 +167,8 @@ public partial class App : Application
         Ioc.Default.GetRequiredService<IScriptOption>().AutoRelogin = true;
         // A script that stops with an error: tell the player who can fix it, report MVS problems.
         Diagnostics.ScriptProblems.Start();
+        // How each run ended, as a notification (works with the screen off).
+        Diagnostics.RunNotifier.Start();
         Bot.AutoEnhance.Install();
         // Phone temperature for the heat warning and the frame governor.
         Services.ThermalMonitor.Start();

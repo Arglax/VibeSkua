@@ -66,9 +66,11 @@ public static class ScriptProblems
         }
         string script = ScriptName();
         Trace.WriteLine($"[Script] {script} {(starting ? "did not start" : "stopped")}: {verdict.Who} ({verdict.Reason}) {verdict.Short}");
-        ProblemReports.Save("script", verdict.Who == ScriptVerdicts.Who.Mvs ? "mvs" : "script", ScriptVerdicts.Unwrap(error), $"{script}: {verdict.Short}", script, fatal: false);
+        string? reportId = ProblemReports.Save("script", verdict.Who == ScriptVerdicts.Who.Mvs ? "mvs" : "script", ScriptVerdicts.Unwrap(error), $"{script}: {verdict.Short}", script, fatal: false);
         string details = Details(error, script, verdict);
-        Dispatcher.UIThread.Post(() => Show(script, starting, verdict, details));
+        // A notification always (it reaches a phone with the screen off); the box when MVS is on screen.
+        RunNotifier.OnProblem(script, starting, verdict.Who == ScriptVerdicts.Who.Script, verdict.Reason, verdict.Short, details, reportId);
+        RunNotifier.ShowWhenOnScreen(() => Show(script, starting, verdict, details, reportId));
     }
 
     private static string Details(Exception error, string script, ScriptVerdicts.Verdict verdict)
@@ -82,8 +84,9 @@ public static class ScriptProblems
         return AppLog.Redact(sb.ToString());
     }
 
-    private static void Show(string script, bool starting, ScriptVerdicts.Verdict verdict, string details)
+    private static void Show(string script, bool starting, ScriptVerdicts.Verdict verdict, string details, string? reportId)
     {
+        RunNotifier.AskAboutReports();
         IDialogService? dialogs = Ioc.Default.GetService<IDialogService>();
         if (dialogs is null)
             return;
@@ -100,12 +103,14 @@ public static class ScriptProblems
         }
         else
         {
+            bool ask = ProblemReports.Mode == ProblemReports.SendMode.Ask && reportId is not null;
             body = $"“{script}” {what} because of a problem in MVS, not in the script.\n\n" +
                    $"{verdict.Reason}\n{verdict.Short}\n\n" +
-                   (ProblemReports.SendEnabled
+                   (ProblemReports.Mode == ProblemReports.SendMode.Auto
                        ? "It was sent to Arglax, the MVS developer (without your account details). Trying again often works; if it keeps happening, the MVS Discord can help."
+                       : ask ? "“Send report” sends it to Arglax, the MVS developer (without your account details)."
                        : "Problem reports are off, so it was not sent. “Copy details” copies it for the MVS Discord.");
-            buttons = new[] { "Copy details", "MVS Discord", "OK" };
+            buttons = ask ? new[] { "Copy details", "MVS Discord", "Send report", "OK" } : new[] { "Copy details", "MVS Discord", "OK" };
         }
         DialogResult result = dialogs.ShowMessageBox(body, starting ? "Script could not start" : "Script stopped", buttons);
         switch (result.Value)
@@ -115,6 +120,9 @@ public static class ScriptProblems
                 break;
             case 1:
                 ViewModels.SupportViewModel.Open(verdict.Who == ScriptVerdicts.Who.Script ? ViewModels.SupportViewModel.AuqwDiscordUrl : ViewModels.SupportViewModel.DiscordUrl);
+                break;
+            case 2 when buttons.Length == 4 && reportId is not null:
+                _ = System.Threading.Tasks.Task.Run(() => ProblemReports.SendOneAsync(reportId));
                 break;
         }
     }

@@ -94,7 +94,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['uid', 'kind', 'category', 'summary', 'exception', 'stack', 'log',
              'script', 'signature', 'appVersion', 'device', 'android', 'client', 'time'])
         && request.resource.data.kind in ['crash', 'error', 'script', 'user']
-        && request.resource.data.category == 'mvs'
+        && request.resource.data.category in ['mvs', 'script']
         && request.resource.data.summary is string && request.resource.data.summary.size() <= 500
         && request.resource.data.exception is string && request.resource.data.exception.size() <= 200
         && request.resource.data.stack is string && request.resource.data.stack.size() <= 12000
