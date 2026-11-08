@@ -8,7 +8,9 @@ import flash.display.Graphics;
 import flash.display.InteractiveObject;
 import flash.display.Shape;
 import flash.display.Sprite;
+import flash.events.Event;
 import flash.events.MouseEvent;
+import flash.geom.ColorTransform;
 import flash.geom.Matrix;
 import flash.geom.Point;
 import flash.geom.Rectangle;
@@ -107,6 +109,24 @@ public class MobileHudUI extends Module {
         ["mvsClassRating", "Class Rating", "MVS: star ratings for classes in the inventory.\nReopen the bag to see the change."],
         ["mvsDrops", "MVS Drops", "MVS: drops wait in the Drops panel and the bar instead of popping up over the game."]
     ];
+    // The (?) guide's "When ON" / "When OFF" lines, by key.
+    private static const MH_OPT_ONOFF:Object = {
+        "mvsImproveFps": ["Smoother, steadier frames: in-between pictures, the frame governor, removed objects left still.", "Frames the way plain Ruffle draws them."],
+        "mvsMobileLayout": ["Skill buttons around auto attack, drops and potion in the bar, bigger portraits.", "The game's own mobile layout."],
+        "mvsJoystick": ["Put your thumb down anywhere on the left 35% to steer.", "The game's normal joystick: only its fixed corner spot works."],
+        "mvsLongDash": ["The dash goes 3 times as far (from the next game start).", "The game's normal short mobile dash."],
+        "mvsSwipe": ["Drag lists, shops, quests and the chat with a finger.", "Use the scroll bars and arrows."],
+        "mvsAuras": ["Aura windows for you and your target, with stacks and timers.", "Only the game's own aura icons."],
+        "mvsInvUI": ["Bigger rows and icons; class ranks and enhancements shown.", "The game's normal inventory."],
+        "mvsInvFilter": ["A Sort chip in the bag: by damage type or boost.", "The game's normal sorting."],
+        "mvsClassRating": ["Star ratings on classes in the inventory and preview.", "No stars."],
+        "mvsDrops": ["Drops collect in the Drops panel and the bar.", "Drops pop up over the game as usual."]
+    };
+    private static var mhOptRowOf:Object = {};
+    private static var mhOptTagOf:Dictionary = new Dictionary(true);
+    private static var mhGuide:Sprite = null;
+    private static var mhGuideKnob:Shape = null;
+    private static var mhGuideT:Number = 0;
     private static var mhOptTick:int = 0;
     private static var mhOptRows:Dictionary = new Dictionary(true);
     private static var mhOptSynced:Boolean = false;
@@ -267,14 +287,25 @@ public class MobileHudUI extends Module {
             var d:DisplayObject = c.getChildAt(i);
             if (getQualifiedClassName(d) == "liteAssets.listOptionsItem::listOptionsItemBtn") {
                 var row:* = d;
-                if (mhOptRows[row] == null && row.txtName != null && mhOptFor(String(row.txtName.text)) != null) {
+                var ro:Array = row.txtName != null ? mhOptFor(String(row.txtName.text)) : null;
+                if (ro == null) {
+                    continue;
+                }
+                if (mhOptRows[row] == null) {
                     mhOptRows[row] = true;
                     row.btnActive.addEventListener(MouseEvent.CLICK, mhOptTap, false, 0, true);
                     var tag:Sprite = mhTag();
                     tag.x = Math.round(row.txtName.x + row.txtName.textWidth + 8);
                     tag.y = Math.round(row.txtName.y + 3);
                     row.addChild(tag);
+                    mhOptTagOf[row] = tag;
+                    var q:Sprite = mhHelpButton(ro);
+                    q.x = Math.round(tag.x + tag.width + 6);
+                    q.y = Math.round(tag.y - 2);
+                    row.addChild(q);
                 }
+                mhOptRowOf[ro[0]] = row;
+                mhOptLook(row, mvsOpt(game, ro[0]));
                 continue;
             }
             if (depth < 7 && d is DisplayObjectContainer) {
@@ -288,22 +319,246 @@ public class MobileHudUI extends Module {
             var game:* = skua.Main.instance.getGame();
             var row:* = e.currentTarget.parent;
             var o:Array = mhOptFor(String(row.txtName.text));
-            if (o == null) {
-                return;
+            if (o != null) {
+                mhOptSet(game, o, !mvsOpt(game, o[0]));
             }
-            var on:Boolean = !mvsOpt(game, o[0]);
-            game.litePreference.data.dOptions[o[0]] = on;
-            game.litePreference.flush();
-            // The row splits "Name: Value" into its name and pill right after this.
-            row.txtName.text = mhOptLabel(game, o);
-            for each (var entry:* in game.litePref) {
-                if (entry != null && mhOptFor(String(entry.strName)) == o) {
-                    entry.strName = mhOptLabel(game, o);
-                }
-            }
-            mhOptSend(o[0], on);
         } catch (err:Error) {
         }
+    }
+
+    // Switches an MVS option (its pill, or the guide's button) and updates its row and the page.
+    private static function mhOptSet(game:*, o:Array, on:Boolean):void {
+        game.litePreference.data.dOptions[o[0]] = on;
+        game.litePreference.flush();
+        for each (var entry:* in game.litePref) {
+            if (entry != null && mhOptFor(String(entry.strName)) == o) {
+                entry.strName = mhOptLabel(game, o);
+            }
+        }
+        var row:* = mhOptRowOf[o[0]];
+        if (row != null && row.txtName != null) {
+            // The row splits "Name: Value" into its name and pill right after this.
+            row.txtName.text = mhOptLabel(game, o);
+            mhOptLook(row, on);
+        }
+        mhOptSend(o[0], on);
+    }
+
+    // An MVS row that is off looks off, like the game's own OFF buttons: a dark pill and a dimmed name.
+    private static function mhOptLook(row:*, on:Boolean):void {
+        try {
+            row.btnActive.transform.colorTransform = on ? new ColorTransform() : new ColorTransform(0.4, 0.34, 0.34, 1, 20, 14, 14, 0);
+            row.txtName.alpha = on ? 1 : 0.6;
+            var tag:Sprite = mhOptTagOf[row] as Sprite;
+            if (tag != null) {
+                tag.alpha = on ? 1 : 0.55;
+            }
+        } catch (err:Error) {
+        }
+    }
+
+    // ---- (?) guide for each MVS option ----
+
+    private static function mhHelpButton(o:Array):Sprite {
+        var b:Sprite = new Sprite();
+        b.buttonMode = true;
+        b.useHandCursor = true;
+        var g:Graphics = b.graphics;
+        g.beginFill(0x000000, 0);
+        g.drawRect(-5, -5, 25, 25);
+        g.endFill();
+        g.lineStyle(1.5, 0xD9B25A, 1);
+        g.beginFill(0x1C1406, 1);
+        g.drawCircle(7.5, 7.5, 7.5);
+        g.endFill();
+        var tf:TextField = mhText("?", 10, 0xF4DC98, true);
+        tf.x = 7.5 - tf.width / 2;
+        tf.y = 7.5 - tf.height / 2;
+        tf.mouseEnabled = false;
+        b.addChild(tf);
+        b.addEventListener(MouseEvent.CLICK, function (e:MouseEvent):void {
+            e.stopPropagation();
+            mhGuideShow(o, b.stage);
+        }, false, 0, true);
+        return b;
+    }
+
+    private static function mhText(text:String, size:Number, color:uint, bold:Boolean, width:Number = 0, font:String = "Arial"):TextField {
+        var tf:TextField = new TextField();
+        tf.selectable = false;
+        tf.defaultTextFormat = new TextFormat(font, size, color, bold);
+        if (width > 0) {
+            tf.wordWrap = true;
+            tf.multiline = true;
+            tf.width = width;
+        }
+        tf.autoSize = "left";
+        tf.text = text;
+        return tf;
+    }
+
+    private static function mhPill(label:String, red:Boolean, w:Number):Sprite {
+        var p:Sprite = new Sprite();
+        p.buttonMode = true;
+        var g:Graphics = p.graphics;
+        g.lineStyle(2, red ? 0xE7B65A : 0x7A6440, 1);
+        g.beginFill(red ? 0xC8261B : 0x3E2C2C, 1);
+        g.drawRoundRect(0, 0, w, 24, 8, 8);
+        g.endFill();
+        var tf:TextField = mhText(label, 11, red ? 0xFFFFFF : 0xD8CACA, true);
+        tf.x = (w - tf.width) / 2;
+        tf.y = (24 - tf.height) / 2;
+        tf.mouseEnabled = false;
+        p.addChild(tf);
+        return p;
+    }
+
+    private static function mhGuideClose(e:Event = null):void {
+        if (mhGuide != null) {
+            mhGuide.removeEventListener(Event.ENTER_FRAME, mhGuideFrame);
+            if (mhGuide.parent != null) {
+                mhGuide.parent.removeChild(mhGuide);
+            }
+        }
+        mhGuide = null;
+        mhGuideKnob = null;
+    }
+
+    // Dynamic Joystick's sample: the knob moves around under the thumb.
+    private static function mhGuideFrame(e:Event):void {
+        if (mhGuideKnob == null) {
+            return;
+        }
+        mhGuideT += 0.08;
+        mhGuideKnob.x = Math.cos(mhGuideT) * 10;
+        mhGuideKnob.y = Math.sin(mhGuideT * 1.3) * 8;
+    }
+
+    private static function mhGuideShow(o:Array, st:*):void {
+        mhGuideClose();
+        if (st == null) {
+            return;
+        }
+        var game:* = skua.Main.instance.getGame();
+        var on:Boolean = mvsOpt(game, o[0]);
+        var W:Number = st.stageWidth > 0 ? st.stageWidth : 960;
+        var H:Number = st.stageHeight > 0 ? st.stageHeight : 550;
+        var root:Sprite = new Sprite();
+        var shade:Sprite = new Sprite();
+        shade.graphics.beginFill(0x000000, 0.45);
+        shade.graphics.drawRect(0, 0, W, H);
+        shade.graphics.endFill();
+        shade.addEventListener(MouseEvent.CLICK, mhGuideClose, false, 0, true);
+        root.addChild(shade);
+
+        var pw:Number = 300;
+        var panel:Sprite = new Sprite();
+        root.addChild(panel);
+        var y:Number = 12;
+        var title:TextField = mhText(o[1], 16, 0xF4E2B0, false, 0, "_serif");
+        title.x = 14;
+        title.y = y;
+        panel.addChild(title);
+        var close:Sprite = mhPill("X", true, 24);
+        close.x = pw - 36;
+        close.y = y;
+        close.addEventListener(MouseEvent.CLICK, mhGuideClose, false, 0, true);
+        panel.addChild(close);
+        y += 30;
+        var what:String = String(o[2]);
+        if (what.indexOf("MVS: ") == 0) {
+            what = what.substr(5);
+        }
+        var body:TextField = mhText(what, 11, 0xE4E4E4, false, pw - 28);
+        body.x = 14;
+        body.y = y;
+        panel.addChild(body);
+        y += body.height + 8;
+
+        if (o[0] == "mvsJoystick") {
+            var dw:Number = pw - 28;
+            var demo:Sprite = new Sprite();
+            var dg:Graphics = demo.graphics;
+            dg.lineStyle(1, 0x4A3A1A, 1);
+            dg.beginFill(0x15151C, 1);
+            dg.drawRoundRect(0, 0, dw, 92, 8, 8);
+            dg.endFill();
+            dg.lineStyle(0, 0, 0);
+            dg.beginFill(0xE8C15A, 0.16);
+            dg.drawRect(1, 1, dw * 0.35, 90);
+            dg.endFill();
+            dg.lineStyle(1.5, 0xE8C15A, 0.9);
+            dg.moveTo(dw * 0.35, 4);
+            dg.lineTo(dw * 0.35, 88);
+            dg.lineStyle(1.5, 0xFFFFFF, 0.6);
+            dg.drawCircle(46, 54, 22);
+            dg.lineStyle(0, 0, 0);
+            dg.beginFill(0x7AA7FF, 1);
+            dg.drawRoundRect(170, 36, 14, 30, 6, 6);
+            dg.endFill();
+            var zl:TextField = mhText("left 35%", 9, 0xF4DC98, false);
+            zl.x = 5;
+            zl.y = 3;
+            demo.addChild(zl);
+            var knobHolder:Sprite = new Sprite();
+            knobHolder.x = 46;
+            knobHolder.y = 54;
+            mhGuideKnob = new Shape();
+            mhGuideKnob.graphics.beginFill(0xFFFFFF, 1);
+            mhGuideKnob.graphics.drawCircle(0, 0, 9);
+            mhGuideKnob.graphics.endFill();
+            knobHolder.addChild(mhGuideKnob);
+            demo.addChild(knobHolder);
+            demo.x = 14;
+            demo.y = y;
+            panel.addChild(demo);
+            y += 100;
+        }
+
+        var texts:Array = MH_OPT_ONOFF[o[0]] as Array;
+        if (texts != null) {
+            for (var i:int = 0; i < 2; i++) {
+                var h:TextField = mhText(i == 0 ? "WHEN ON" : "WHEN OFF", 10, 0xE8C15A, true);
+                h.x = 14;
+                h.y = y;
+                panel.addChild(h);
+                y += h.height;
+                var t:TextField = mhText(String(texts[i]), 11, 0xE4E4E4, false, pw - 28);
+                t.x = 14;
+                t.y = y;
+                panel.addChild(t);
+                y += t.height + 6;
+            }
+        }
+        y += 4;
+        var bw:Number = (pw - 38) / 2;
+        var turn:Sprite = mhPill(on ? "Turn off" : "Turn on", !on, bw);
+        turn.x = 14;
+        turn.y = y;
+        turn.addEventListener(MouseEvent.CLICK, function (e:MouseEvent):void {
+            mhOptSet(game, o, !mvsOpt(game, o[0]));
+            mhGuideClose();
+        }, false, 0, true);
+        panel.addChild(turn);
+        var ok:Sprite = mhPill("Got it", true, bw);
+        ok.x = 24 + bw;
+        ok.y = y;
+        ok.addEventListener(MouseEvent.CLICK, mhGuideClose, false, 0, true);
+        panel.addChild(ok);
+        y += 36;
+
+        var pg:Graphics = panel.graphics;
+        pg.lineStyle(3, 0xC99A3A, 1);
+        pg.beginFill(0x0A0806, 0.97);
+        pg.drawRoundRect(0, 0, pw, y, 16, 16);
+        pg.endFill();
+        pg.lineStyle(1, 0x3B2B0E, 1);
+        pg.drawRoundRect(4, 4, pw - 8, y - 8, 12, 12);
+        panel.x = Math.round((W - pw) / 2);
+        panel.y = Math.max(6, Math.round((H - y) / 2));
+        mhGuide = root;
+        root.addEventListener(Event.ENTER_FRAME, mhGuideFrame, false, 0, true);
+        st.addChild(root);
     }
 
     // ---- Dynamic joystick: the game's joystick takes the left 35% of the screen ----
