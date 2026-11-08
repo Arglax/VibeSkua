@@ -159,7 +159,7 @@
                         <Border Grid.Row="1" Classes="b-tool"><materialIcons:MaterialIcon Kind="ScriptText" /></Border>
                         <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
                             <TextBlock Classes="b-name" Text="Scripts" />
-                            <TextBlock Classes="b-text" Text="Choose the script to run. Some scripts have settings (for example how many of an item to farm); you can change them here before starting." />
+                            <TextBlock Classes="b-text" Text="Choose the script to run. Some scripts have settings (for example how many of an item to farm); you can change them here before starting. Most scripts switch classes on their own: set your Farm, Solo, Dodge and Boss classes once in Menu, Options, CoreBots, and the scripts use them." />
                         </StackPanel>
                         <Border Grid.Row="2" Classes="b-tool"><materialIcons:MaterialIcon Kind="Play" /></Border>
                         <StackPanel Grid.Row="2" Grid.Column="1" Spacing="2">
@@ -279,7 +279,7 @@
                         <Border Grid.Row="0" Classes="b-tool"><materialIcons:MaterialIcon Kind="Cog" /></Border>
                         <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2">
                             <TextBlock Classes="b-name" Text="Options" />
-                            <TextBlock Classes="b-text" Text="Game tweaks the bot can apply, like making the game lighter so it runs smoother, or hiding other players. MVS's own in-game extras (Improve FPS, Mobile Layout, auras and so on) are switched in the game's Settings, at the top of Controls." />
+                            <TextBlock Classes="b-text" Text="At the top: Auto Enhance (MVS). Turn it on and pick Farming, Bossing or Ultra: before every script MVS checks the enhancements on the class, weapon, helm and cape you wear and fixes them, always the helm and cape first (they swing your HP and utility the most), the rest when less than 60% matches. Check now does it on the spot; it tells you if an enhancement is still locked or you lack gold. Below it: game tweaks the bot can apply, like making the game lighter or hiding other players. MVS's own in-game extras (Improve FPS, Mobile Layout, auras and so on) are switched in the game's Settings, at the top of Controls." />
                         </StackPanel>
                         <Border Grid.Row="1" Classes="b-tool"><materialIcons:MaterialIcon Kind="Eye" /></Border>
                         <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">

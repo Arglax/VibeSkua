@@ -350,6 +350,20 @@ public sealed partial class ShellViewModel : ObservableObject
 
     private void OpenManaged(string key) => Ioc.Default.GetRequiredService<IWindowService>().ShowManagedWindow(key);
 
+    private BotOptionsViewModel? _botOptionsPage;
+
+    /// <summary>MVS's bot settings (Auto Enhance) above the game options the bot can apply.</summary>
+    private void OpenBotOptions()
+    {
+        if (_botOptionsPage is null)
+        {
+            object game = (Ioc.Default.GetRequiredService<IWindowService>() as Services.MobileWindowService)?.GetManagedWindow("Game")
+                ?? Ioc.Default.GetRequiredService<Skua.App.Avalonia.ViewModels.Options.GameOptionsViewModel>();
+            _botOptionsPage = new BotOptionsViewModel(game);
+        }
+        ShowPage("Game", "Bot options", _botOptionsPage);
+    }
+
     /// <summary>
     /// Jump with Fast Travel's saved spots under it, sharing the Fast Travel page's list.
     /// </summary>
@@ -462,7 +476,7 @@ public sealed partial class ShellViewModel : ObservableObject
         _botRight.Add(Page("Jump", Material.Icons.MaterialIconKind.MapMarkerRadius, "Jump", OpenJump));
         _botRight.Add(Managed("Loader", Material.Icons.MaterialIconKind.TreasureChest, "Loader"));
         _botRight.Add(Managed("Grabber", Material.Icons.MaterialIconKind.ClipboardList, "Grabber"));
-        _botRight.Add(Managed("Options", Material.Icons.MaterialIconKind.Cog, "Game"));
+        _botRight.Add(Page("Options", Material.Icons.MaterialIconKind.Cog, "Game", OpenBotOptions));
         _streamerAction = new RailAction("Streamer", Material.Icons.MaterialIconKind.Eye, ToggleStreamerModeCommand);
         _botRight.Add(_streamerAction);
         UpdateStreamerAction();

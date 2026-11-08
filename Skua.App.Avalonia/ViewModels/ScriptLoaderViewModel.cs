@@ -161,8 +161,19 @@ public partial class ScriptLoaderViewModel : BotControlViewModelBase
     /// <summary>"Open VSCode" opens a desktop editor; on a phone "Edit Script" does that.</summary>
     public bool CanOpenEditor => !OperatingSystem.IsAndroid();
 
+    /// <summary>
+    /// Runs before a script starts from the loader (MVS Auto Enhance checks and enhances gear there).
+    /// It may run another script and must load the original one back before returning.
+    /// </summary>
+    public static Func<Task>? BeforeStart { get; set; }
+
     private async Task StartScript()
     {
+        if (BeforeStart is not null)
+        {
+            ScriptStatus = "Checking gear...";
+            try { await BeforeStart(); } catch { }
+        }
         ScriptStatus = "Compiling...";
         Exception? ex = await ScriptManager.StartScript();
         if (ex is not null)

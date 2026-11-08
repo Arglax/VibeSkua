@@ -82,6 +82,9 @@
     <AndroidAsset Include="$(DesktopAppDir)QuestData.json" Link="Assets\seed\QuestData.json" />
     <AndroidAsset Include="$(DesktopAppDir)AdvancedSkills.json" Link="Assets\seed\AdvancedSkills.json" />
     <!-- Community PvE/PvP class ratings for the Auto page's class list (ClassRatings.cs). -->
+    <!-- MVS Auto Enhance: the built-in script's template and its Ultra data (Bot/AutoEnhance.cs). -->
+    <EmbeddedResource Include="Bot\MvsAutoEnhance.template.txt" LogicalName="MvsAutoEnhance.template.txt" />
+    <EmbeddedResource Include="Bot\mvs-enhance-ultra.json" LogicalName="mvs-enhance-ultra.json" />
     <EmbeddedResource Include="$(DesktopAppDir)Assets\class-ratings.json" LogicalName="class-ratings.json" Condition="Exists('$(DesktopAppDir)Assets\class-ratings.json')" />
     <!-- Usage stats' Firebase project (see docs/telemetry/USAGE.md). Not in the repository; without
          it the app builds and runs, and sends nothing. -->

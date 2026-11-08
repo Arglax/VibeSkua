@@ -1,0 +1,126 @@
+{
+ "source": "https://docs.google.com/spreadsheets/d/1yytxo6x0XlvbTIYLLD6TCEF_v1EKV59e_N-gas9Fi8Y (Simplified Bosses Guide by r/AQW)",
+ "built": "2026-11-08",
+ "classes": {
+  "arcana invoker": {
+   "cape": "Vainglory",
+   "helm": "Examen",
+   "type": "Lucky",
+   "weapon": "Ravenous",
+   "fights": 1,
+   "of": 1
+  },
+  "archfiend": {
+   "cape": "Vainglory",
+   "helm": "Forge",
+   "type": "Lucky",
+   "weapon": "Ravenous",
+   "fights": 5,
+   "of": 8
+  },
+  "archpaladin": {
+   "cape": "Lament",
+   "helm": "Forge",
+   "type": "Lucky",
+   "weapon": "Praxis",
+   "fights": 5,
+   "of": 6
+  },
+  "chaos avenger": {
+   "cape": "Vainglory",
+   "helm": "Anima",
+   "type": "Lucky",
+   "weapon": "Dauntless",
+   "fights": 1,
+   "of": 1
+  },
+  "chrono shadowhunter": {
+   "cape": "Vainglory",
+   "helm": "Examen",
+   "type": "Lucky",
+   "weapon": "Arcanas_Concerto",
+   "fights": 12,
+   "of": 20
+  },
+  "glaceran warlord": {
+   "cape": "Vainglory",
+   "helm": "Anima",
+   "type": "Lucky",
+   "weapon": "Dauntless",
+   "fights": 2,
+   "of": 3
+  },
+  "guardian": {
+   "cape": "Lament",
+   "helm": "Vim",
+   "type": "Lucky",
+   "weapon": "Ravenous",
+   "fights": 3,
+   "of": 3
+  },
+  "legendary hero": {
+   "cape": "Lament",
+   "helm": "Anima",
+   "type": "Lucky",
+   "weapon": "Lacerate",
+   "fights": 4,
+   "of": 5
+  },
+  "legion revenant": {
+   "cape": "Lament",
+   "helm": "Pneuma",
+   "type": "Wizard",
+   "weapon": "Arcanas_Concerto",
+   "fights": 6,
+   "of": 20
+  },
+  "lord of order": {
+   "cape": "Penitence",
+   "helm": "Forge",
+   "type": "Lucky",
+   "weapon": "Awe_Blast",
+   "fights": 18,
+   "of": 19
+  },
+  "paladin chronomancer": {
+   "cape": "None",
+   "helm": "Vim",
+   "type": "Fighter",
+   "weapon": "Lacerate",
+   "fights": 1,
+   "of": 2
+  },
+  "phantom chronomancer": {
+   "cape": "Penitence",
+   "helm": "Examen",
+   "type": "Lucky",
+   "weapon": "Ravenous",
+   "fights": 1,
+   "of": 2
+  },
+  "shaman": {
+   "cape": "Lament",
+   "helm": "Forge",
+   "type": "Lucky",
+   "weapon": "Elysium",
+   "fights": 1,
+   "of": 1
+  },
+  "stonecrusher": {
+   "cape": "Absolution",
+   "helm": "Anima",
+   "type": "Fighter",
+   "weapon": "Lacerate",
+   "fights": 9,
+   "of": 11
+  },
+  "verus doomknight": {
+   "cape": "Vainglory",
+   "helm": "Anima",
+   "type": "Lucky",
+   "weapon": "Dauntless",
+   "fights": 5,
+   "of": 10
+  }
+ }
+}

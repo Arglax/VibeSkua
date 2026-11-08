@@ -48,6 +48,9 @@
     <DataTemplate DataType="mobileVm:LoginViewModel">
       <mobileViews:LoginView />
     </DataTemplate>
+    <DataTemplate DataType="mobileVm:BotOptionsViewModel">
+      <mobileViews:BotOptionsView />
+    </DataTemplate>
     <DataTemplate DataType="mobileVm:MobileJumpViewModel">
       <mobileViews:MobileJumpView />
     </DataTemplate>
