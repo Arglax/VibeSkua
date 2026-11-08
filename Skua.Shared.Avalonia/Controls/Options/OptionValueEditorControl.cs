@@ -23,7 +23,24 @@ public class OptionValueEditorControl : ContentControl
             return;
         }
 
-        if (item.IsBool)
+        bool phone = OperatingSystem.IsAndroid();
+        if (item.IsBool && phone)
+        {
+            // A switch is easier to hit than a checkbox on a phone.
+            ToggleSwitch toggle = new()
+            {
+                OnContent = string.Empty,
+                OffContent = string.Empty,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            toggle[!ToggleSwitch.IsCheckedProperty] = new Binding(nameof(OptionContainerItemViewModel.BoolValue))
+            {
+                Mode = BindingMode.TwoWay
+            };
+            Content = toggle;
+        }
+        else if (item.IsBool)
         {
             CheckBox checkBox = new()
             {
@@ -42,9 +59,9 @@ public class OptionValueEditorControl : ContentControl
             ComboBox comboBox = new()
             {
                 ItemsSource = item.EnumValues,
-                MinWidth = 160,
-                MaxWidth = 220,
-                Height = 32,
+                MinWidth = phone ? 220 : 160,
+                MaxWidth = phone ? 320 : 220,
+                Height = phone ? 42 : 32,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -54,13 +71,34 @@ public class OptionValueEditorControl : ContentControl
             };
             Content = comboBox;
         }
+        else if (item.ItemChoices is { Count: > 0 } choices)
+        {
+            // An item the player owns: pick it from the list, or type a name as before.
+            ComboBox itemBox = new()
+            {
+                IsEditable = true,
+                ItemsSource = choices,
+                PlaceholderText = "Pick or type an item",
+                MinWidth = phone ? 280 : 160,
+                MaxWidth = phone ? 320 : 260,
+                Height = phone ? 42 : 32,
+                MaxDropDownHeight = 320,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            itemBox[!ComboBox.TextProperty] = new Binding(nameof(OptionContainerItemViewModel.TextValue))
+            {
+                Mode = BindingMode.TwoWay
+            };
+            Content = itemBox;
+        }
         else
         {
             TextBox textBox = new()
             {
-                MinWidth = 140,
-                MaxWidth = 220,
-                Height = 32,
+                MinWidth = phone ? 220 : 140,
+                MaxWidth = phone ? 320 : 220,
+                Height = phone ? 42 : 32,
                 Padding = new Thickness(8, 4),
                 VerticalContentAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Right,

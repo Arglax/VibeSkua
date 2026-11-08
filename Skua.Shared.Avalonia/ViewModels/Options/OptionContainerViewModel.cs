@@ -41,6 +41,24 @@ public partial class OptionContainerViewModel : ObservableObject, IOptionContain
             .ToList();
 
         SelectedOption = Options.FirstOrDefault();
+        foreach (OptionContainerItemViewModel item in Options.OfType<OptionContainerItemViewModel>())
+        {
+            item.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(OptionContainerItemViewModel.IsChanged))
+                    OnPropertyChanged(nameof(ChangedText));
+            };
+        }
+    }
+
+    /// <summary>"2 changed" for the dialog footer; empty when everything is at its default.</summary>
+    public string ChangedText
+    {
+        get
+        {
+            int n = Options.OfType<OptionContainerItemViewModel>().Count(o => o.IsChanged);
+            return n == 0 ? string.Empty : $"{n} changed";
+        }
     }
 
     public string Title { get; } = "Script Options";

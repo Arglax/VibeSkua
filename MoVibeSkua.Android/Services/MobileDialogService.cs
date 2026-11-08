@@ -132,10 +132,20 @@ public class MobileDialogService : IDialogService
     {
         OptionContainerUserControl content = new() { DataContext = vm, MinHeight = 240 };
         Button reset = Plain("Reset Defaults", vm.ResetAllToDefaults);
-        Grid footer = new() { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        Grid footer = new() { ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*") };
         footer.Children.Add(reset);
+        TextBlock changed = new()
+        {
+            Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#E8C15A")),
+            FontWeight = FontWeight.SemiBold,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            Margin = new Thickness(12, 0, 0, 0)
+        };
+        changed[!TextBlock.TextProperty] = new Avalonia.Data.Binding(nameof(OptionContainerViewModel.ChangedText)) { Source = vm };
+        Grid.SetColumn(changed, 1);
+        footer.Children.Add(changed);
         StackPanel actions = Footer(Plain("Cancel", () => close(false)), Primary("Save", () => close(true)));
-        Grid.SetColumn(actions, 1);
+        Grid.SetColumn(actions, 2);
         footer.Children.Add(actions);
         return BuildCard(string.IsNullOrWhiteSpace(title) ? "Script Options" : title, content, footer, stretch: true);
     }

@@ -9,6 +9,9 @@ public partial class OptionContainerUserControl : UserControl
     public OptionContainerUserControl()
     {
         InitializeComponent();
+        // MVS: the phone layout (see the styles in the .axaml).
+        if (System.OperatingSystem.IsAndroid())
+            Classes.Add("mvs");
     }
 
     private void OnOptionPointerPressed(object? sender, PointerPressedEventArgs e)

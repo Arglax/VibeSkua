@@ -49,7 +49,35 @@ public partial class OptionContainerItemViewModel : ObservableObject, IOptionCon
     }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsChanged))]
     private object _value;
+
+    /// <summary>The default as shown to the player ("Default: Off", "Default: empty").</summary>
+    public string DefaultText
+    {
+        get
+        {
+            object? d = Option.DefaultValue;
+            if (Type == typeof(bool))
+                return "Default: " + ((d is bool b && b) || (bool.TryParse(d?.ToString(), out bool p) && p) ? "On" : "Off");
+            string text = d?.ToString()?.Replace('_', ' ') ?? string.Empty;
+            return "Default: " + (string.IsNullOrWhiteSpace(text) ? "empty" : text);
+        }
+    }
+
+    /// <summary>Whether the value differs from the option's default (shown as a gold bar on MVS).</summary>
+    public bool IsChanged
+    {
+        get
+        {
+            object? d = Option.DefaultValue;
+            if (Type == typeof(bool))
+                return BoolValue != ((d is bool b && b) || (bool.TryParse(d?.ToString(), out bool p) && p));
+            string def = d?.ToString()?.Replace('_', ' ') ?? string.Empty;
+            string now = Type.IsEnum ? (SelectedValue ?? string.Empty) : TextValue;
+            return !string.Equals(now.Trim(), def.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+    }
 
     [ObservableProperty]
     private List<string>? _enumValues;
@@ -61,6 +89,7 @@ public partial class OptionContainerItemViewModel : ObservableObject, IOptionCon
     {
         _value = value ?? string.Empty;
         OnPropertyChanged(nameof(Value));
+        OnPropertyChanged(nameof(IsChanged));
     }
 
     public bool BoolValue
@@ -71,6 +100,7 @@ public partial class OptionContainerItemViewModel : ObservableObject, IOptionCon
             _value = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(Value));
+        OnPropertyChanged(nameof(IsChanged));
         }
     }
 
@@ -82,6 +112,7 @@ public partial class OptionContainerItemViewModel : ObservableObject, IOptionCon
             _value = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(Value));
+        OnPropertyChanged(nameof(IsChanged));
         }
     }
 
@@ -89,6 +120,23 @@ public partial class OptionContainerItemViewModel : ObservableObject, IOptionCon
     public IOption Option { get; }
     public Type Type { get; }
     public string Category { get; }
+
+    private List<string>? _itemChoices;
+    private bool _itemChoicesRead;
+
+    /// <summary>Owned items matching a text option that asks for one (see <see cref="OptionItemChoices"/>), or null.</summary>
+    public List<string>? ItemChoices
+    {
+        get
+        {
+            if (!_itemChoicesRead)
+            {
+                _itemChoicesRead = true;
+                _itemChoices = IsText ? OptionItemChoices.For(Option) : null;
+            }
+            return _itemChoices;
+        }
+    }
 
     public bool IsEnum => Type.IsEnum;
     public bool IsBool => Type == typeof(bool);
@@ -102,6 +150,7 @@ public partial class OptionContainerItemViewModel : ObservableObject, IOptionCon
             SelectedValue = EnumValues != null && EnumValues.Contains(defaultStr) ? defaultStr : (EnumValues?.Count > 0 ? EnumValues[0] : string.Empty);
             _value = SelectedValue;
             OnPropertyChanged(nameof(Value));
+        OnPropertyChanged(nameof(IsChanged));
         }
         else if (Type == typeof(bool))
         {
