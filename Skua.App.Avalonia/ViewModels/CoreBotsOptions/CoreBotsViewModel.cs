@@ -176,6 +176,36 @@ public partial class CoreBotsViewModel : BotControlViewModelBase
     }
 
 
+    /// <summary>
+    /// Imports a CoreBots options file (CBO_Storage(name).txt), e.g. copied from VibeSkua on a PC
+    /// (%APPDATA%\VibeSkua\options), as this account's options.
+    /// </summary>
+    [RelayCommand]
+    private void Import()
+    {
+        if (string.IsNullOrEmpty(_player.Username))
+        {
+            _dialogService.ShowMessageBox("Login first, so the options are saved for this account.", "Import");
+            return;
+        }
+        string? path = Ioc.Default.GetService<IFileDialogService>()?.OpenFile("Text|*.txt");
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            return;
+        string[] lines = File.ReadAllLines(path);
+        if (!lines.Any(l => l.StartsWith("SoloClassSelect:") || l.StartsWith("FarmClassSelect:") || l.StartsWith("PrivateRooms:")))
+        {
+            _dialogService.ShowMessageBox("That file isn't a CoreBots options file (CBO_Storage(name).txt).", "Import");
+            return;
+        }
+        string name = CboName();
+        string target = CboPath(name);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        File.WriteAllLines(target, lines);
+        _readValues.Remove(name);
+        LoadInternal(showDialog: false);
+        _dialogService.ShowMessageBox($"Imported {lines.Length} settings as CBO_Storage({name}).txt. Scripts use them from now on.", "Import");
+    }
+
     // Refreshes the class and equipment lists from the logged-in character's inventory, keeping the
     // selections already made in the window.
     [RelayCommand]

@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using System.Linq;
@@ -11,6 +12,22 @@ public partial class GameOptionsView : UserControl
     {
         InitializeComponent();
         Loaded += GameOptionsView_Loaded;
+        if (System.OperatingSystem.IsAndroid()
+            && this.FindControl<ToggleButton>("SearchToggle") is { } toggle
+            && this.FindControl<TextBox>("SearchBox") is { } box)
+        {
+            toggle.IsVisible = true;
+            box.IsVisible = false;
+            box.Margin = new global::Avalonia.Thickness(0, 0, 52, 0);
+            toggle.IsCheckedChanged += (_, _) =>
+            {
+                box.IsVisible = toggle.IsChecked == true;
+                if (box.IsVisible)
+                    box.Focus();
+                else
+                    box.Text = string.Empty;
+            };
+        }
     }
 
     private void GameOptionsView_Loaded(object? sender, RoutedEventArgs e)

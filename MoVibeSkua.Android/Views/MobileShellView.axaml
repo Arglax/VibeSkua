@@ -86,8 +86,16 @@
                         <TextBlock Text="Menu" Classes="mobile-rail-label" />
                     </StackPanel>
                 </Button>
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden">
-                    <ItemsControl ItemsSource="{Binding LeftRail}" />
+                <!-- Every button gets an equal share of the height, so the rail always fits exactly
+                     and never scrolls (the user asked for no scrolling at all). -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding LeftRail}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Columns="1" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
                 </ScrollViewer>
                 <Button Grid.Row="2" Classes="mobile-rail mobile-rail-script" Classes.running="{Binding IsScriptRunning}" Command="{Binding ToggleScriptCommand}" IsVisible="{Binding IsBotMode}">
                     <StackPanel Spacing="1">

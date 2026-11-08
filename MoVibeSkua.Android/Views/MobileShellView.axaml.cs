@@ -322,8 +322,9 @@ public partial class MobileShellView : UserControl
             Place(LeftRailFrame, 0, 0);
             Place(Split, 0, 1);
             Place(RightRailFrame, 0, 2);
-            RightRailItems.ItemsPanel = new FuncTemplate<Panel?>(() => new StackPanel { Orientation = Orientation.Vertical });
-            RightRailScroll.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+            // Equal shares of the height: the rail fits exactly, no scrolling.
+            RightRailItems.ItemsPanel = new FuncTemplate<Panel?>(() => new UniformGrid { Columns = 1 });
+            RightRailScroll.VerticalScrollBarVisibility = ScrollBarVisibility.Disabled;
             RightRailScroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
             Split.OpenPaneLength = 230;
         }

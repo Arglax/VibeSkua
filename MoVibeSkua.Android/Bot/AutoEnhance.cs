@@ -48,6 +48,14 @@ public static class AutoEnhance
         set => P?.Edit()?.PutString("useCase", value)?.Apply();
     }
 
+    /// <summary>Slots Auto Enhance may change ("class", "weapon", "helm", "cape"); at most <see cref="MaxSlots"/>.</summary>
+    public static readonly string[] Slots = { "class", "weapon", "helm", "cape" };
+    public const int MaxSlots = 3;
+
+    public static bool SlotOn(string slot) => P?.GetBoolean("slot." + slot, slot != "class") ?? slot != "class";
+
+    public static void SetSlot(string slot, bool on) => P?.Edit()?.PutBoolean("slot." + slot, on)?.Apply();
+
     public static string LastResult
     {
         get => P?.GetString("last", "") ?? "";
@@ -185,7 +193,8 @@ public static class AutoEnhance
         foreach (string f in new[] { "EnhancementType CurrentClassEnh", "CapeSpecial CurrentCapeSpecial", "HelmSpecial CurrentHelmSpecial", "WeaponSpecial CurrentWeaponSpecial" })
         {
             string name = f.Split(' ')[1];
-            lib.AppendLine($"    private {f}() => Adv.{name}();");
+            // AUQW reads the weapon's pattern, not its proc (see MvsWeaponSpecial in the template).
+            lib.AppendLine(name == "CurrentWeaponSpecial" ? $"    private {f}() => MvsWeaponSpecial();" : $"    private {f}() => Adv.{name}();");
         }
 
         string template = ReadResource("MvsAutoEnhance.template.txt");
@@ -196,7 +205,7 @@ public static class AutoEnhance
         File.WriteAllText(Path.Combine(dir, "mvs-enhance-ultra.json"), ReadResource("mvs-enhance-ultra.json"));
         Directory.CreateDirectory(ClientFileSources.SkuaOptionsDIR);
         File.WriteAllText(Path.Combine(ClientFileSources.SkuaOptionsDIR, "mvs-autoenhance.json"),
-            new JObject { ["useCase"] = UseCase, ["threshold"] = Threshold }.ToString());
+            new JObject { ["useCase"] = UseCase, ["threshold"] = Threshold, ["slots"] = new JArray(Slots.Where(SlotOn).ToArray()) }.ToString());
         return null;
     }
 

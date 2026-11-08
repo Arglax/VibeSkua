@@ -10,7 +10,13 @@
              mc:Ignorable="d" d:DesignHeight="680" d:DesignWidth="640">
 
   <Grid Margin="12" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10">
-    <TextBox Grid.Row="0" Watermark="Search game options" Text="{Binding SearchText, Mode=TwoWay}">
+    <!-- On phones the search box waits behind a magnifier button (code-behind), so the keyboard only
+         opens when you want to search. -->
+    <ToggleButton x:Name="SearchToggle" Grid.Row="0" HorizontalAlignment="Right" IsVisible="False" Classes="skua-button"
+                  ToolTip.Tip="Search">
+      <materialIcons:MaterialIcon Kind="Magnify" Width="18" Height="18" />
+    </ToggleButton>
+    <TextBox x:Name="SearchBox" Grid.Row="0" Watermark="Search game options" Text="{Binding SearchText, Mode=TwoWay}">
       <TextBox.InnerLeftContent>
         <materialIcons:MaterialIcon Kind="Magnify" Width="15" Height="15" Margin="10,0,0,0" Foreground="{DynamicResource SkuaMutedTextBrush}" />
       </TextBox.InnerLeftContent>

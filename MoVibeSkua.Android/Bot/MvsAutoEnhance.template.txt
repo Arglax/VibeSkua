@@ -32,6 +32,9 @@ public class MvsAutoEnhance
     private HelmSpecial hSpecial = HelmSpecial.None;
     private WeaponSpecial wSpecial = WeaponSpecial.None;
 
+    // The slots the player lets Auto Enhance change (bot Options, at most 3); the others are kept.
+    private HashSet<string> slots = new() { "weapon", "helm", "cape" };
+
     private const string ConfigFile = "mvs-autoenhance.json";
     private const string ResultFile = "mvs-autoenhance-result.json";
     private const string UltraFile = "mvs-enhance-ultra.json";
@@ -86,6 +89,8 @@ public class MvsAutoEnhance
             JObject cfg = JObject.Parse(File.ReadAllText(Path.Combine(ClientFileSources.SkuaOptionsDIR, ConfigFile)));
             useCase = (string?)cfg["useCase"] ?? useCase;
             threshold = (int?)cfg["threshold"] ?? threshold;
+            if (cfg["slots"] is JArray arr && arr.Count > 0)
+                slots = new HashSet<string>(arr.Select(t => ((string?)t ?? "").ToLower()));
         }
         catch { }
         result.UseCase = useCase;
@@ -100,6 +105,12 @@ public class MvsAutoEnhance
         result.Class = cls.Name;
 
         Want want = Recommended(cls.Name, useCase);
+        // Slots left to the player keep what they have.
+        if (!slots.Contains("class")) want.Type = Adv.CurrentClassEnh();
+        if (!slots.Contains("weapon")) want.Weapon = MvsWeaponSpecial();
+        if (!slots.Contains("helm")) want.Helm = Adv.CurrentHelmSpecial();
+        if (!slots.Contains("cape")) want.Cape = Adv.CurrentCapeSpecial();
+        result.Lines.Add("Checking: " + string.Join(", ", new[] { "class", "weapon", "helm", "cape" }.Where(slots.Contains)) + ".");
         int before = Score(want, out List<string> wrong, out bool critical);
         result.Before = before;
         string set = Describe(want);
@@ -210,16 +221,20 @@ public class MvsAutoEnhance
         bool hasHelm = Bot.Inventory.Items.Any(i => i.Equipped && i.Category == ItemCategory.Helm);
         bool hasCape = Bot.Inventory.Items.Any(i => i.Equipped && i.Category == ItemCategory.Cape);
 
-        total += 1;
-        if (cls != null && Adv.CurrentClassEnh() == want.Type) got += 1; else wrong.Add($"class ({want.Type})");
-
-        if (hasWeapon)
+        if (slots.Contains("class"))
         {
             total += 1;
-            if (want.Weapon == WeaponSpecial.None || Adv.CurrentWeaponSpecial() == want.Weapon) got += 1;
+            if (cls != null && Adv.CurrentClassEnh() == want.Type) got += 1; else wrong.Add($"class ({want.Type})");
+        }
+
+        if (hasWeapon && slots.Contains("weapon"))
+        {
+            total += 1;
+            if (want.Weapon == WeaponSpecial.None || MvsWeaponSpecial() == want.Weapon) got += 1;
             else wrong.Add($"weapon ({Pretty(want.Weapon.ToString())})");
         }
-        if (hasHelm)
+        if (!slots.Contains("helm")) { }
+        else if (hasHelm)
         {
             total += 2;
             if (want.Helm == HelmSpecial.None || Adv.CurrentHelmSpecial() == want.Helm) got += 2;
@@ -227,7 +242,8 @@ public class MvsAutoEnhance
         }
         else if (want.Helm != HelmSpecial.None)
             wrong.Add("helm (none equipped)");
-        if (hasCape)
+        if (!slots.Contains("cape")) { }
+        else if (hasCape)
         {
             total += 2;
             if (want.Cape == CapeSpecial.None || Adv.CurrentCapeSpecial() == want.Cape) got += 2;
@@ -249,6 +265,19 @@ public class MvsAutoEnhance
         if (Bot.Player.Gold < 1_000_000)
             return $"probably not enough gold ({Bot.Player.Gold:N0} left).";
         return "the shop didn't sell it at your level, or the item can't take it.";
+    }
+
+    // The weapon's special is its proc (ProcID); AUQW's CurrentWeaponSpecial() reads the enhancement
+    // pattern instead (10 for any forge weapon), so a Ravenous sword read as Arcana's Concerto. Same
+    // rule as AUQW's WeaponAlreadyHasRequestedEnhancement: proc 0 on a forge pattern is Forge.
+    private WeaponSpecial MvsWeaponSpecial()
+    {
+        InventoryItem? w = Bot.Inventory.Items.FirstOrDefault(i => i.Equipped && i.ItemGroup == "Weapon");
+        if (w == null || w.EnhancementLevel <= 0)
+            return WeaponSpecial.None;
+        if (w.ProcID == 0)
+            return w.EnhancementPatternID == 10 ? WeaponSpecial.Forge : WeaponSpecial.None;
+        return w.ProcID >= 2 && Enum.IsDefined(typeof(WeaponSpecial), w.ProcID) ? (WeaponSpecial)w.ProcID : WeaponSpecial.None;
     }
 
     private static string Describe(Want w) =>
