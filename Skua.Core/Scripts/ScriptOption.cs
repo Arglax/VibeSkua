@@ -270,7 +270,9 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
                             flash.Call("setGameObject", "world.myAvatar.pMC.pname.tg.text", StreamerGuild);
                             flash.Call("setGameObject", "world.rootClass.ui.mcPortrait.strName.text", StreamerName);
                         }
-                        flash.Call("setGameObject", "world.rootClass.ui.mcPortraitTarget.strName.text", "Hidden");
+                        // Not under a host that draws the names: this also blanked monsters' names.
+                        if (!NameTagsDrawnByHost)
+                            flash.Call("setGameObject", "world.rootClass.ui.mcPortraitTarget.strName.text", "Hidden");
 
                         // Hide Gold/Coins visually instead of wiping the client's cached integer amounts
                         // Current AQW shows gold in mcGold; the te/str/txt fields are from older versions.

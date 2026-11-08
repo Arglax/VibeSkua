@@ -131,6 +131,144 @@ public class MobileHudUI extends Module {
     private static var mhOptRows:Dictionary = new Dictionary(true);
     private static var mhOptSynced:Boolean = false;
 
+    // ---- Streamer Mode ----
+    // The page (bridge.js) writes litePreference.data.mvsStreamer = "name<TAB>guild<TAB>time ms" every
+    // second while Streamer Mode is on. Done here, every frame, before the frame is drawn: the game
+    // rewrites the portrait name on every HP or MP update, so a page that put the stand-in back a few
+    // times a second let the real name flash in between. A stale value (the page stopped) counts as off.
+    private static var mhStreamOn:Boolean = false;
+    private static var mhStreamHidden:Array = [];
+    private static var mhStreamTexts:Array = [];   // [TextField, original text] changed in the house
+    private static var mhStreamScan:int = 0;
+    private static const MH_STREAM_HOUSE:String = "MVS is the best!";
+
+    private static function mhStreamer(game:*):void {
+        var cfg:Array = null;
+        try {
+            var raw:* = game.litePreference.data.mvsStreamer;
+            if (raw is String && String(raw).length > 0) {
+                cfg = String(raw).split("\t");
+                if (cfg.length < 3 || new Date().time - Number(cfg[2]) > 6000) {
+                    cfg = null;
+                }
+            }
+        } catch (e0:Error) {
+        }
+        if (cfg == null) {
+            if (mhStreamOn) {
+                mhStreamerOff();
+            }
+            return;
+        }
+        mhStreamOn = true;
+        var name:String = String(cfg[0]);
+        var guild:String = String(cfg[1]);
+        var real:String = "";
+        try {
+            real = String(game.world.myAvatar.objData.strUsername);
+        } catch (e1:Error) {
+        }
+        // Name tag over the character (keeps the game's AFK prefix) and guild tag.
+        try {
+            var ti:* = game.world.myAvatar.pMC.pname.ti;
+            var want:String = (String(ti.text).indexOf("<AFK> ") == 0 ? "<AFK> " : "") + name;
+            if (ti.text != want) {
+                ti.text = want;
+            }
+            var tg:* = game.world.myAvatar.pMC.pname.tg;
+            if (tg.text != "< " + guild + " >") {
+                tg.text = "< " + guild + " >";
+            }
+        } catch (e2:Error) {
+        }
+        // Own portrait, and the target portrait only while it shows the player (never a monster).
+        var up:String = name.toUpperCase();
+        try {
+            if (game.ui.mcPortrait.strName.text != up) {
+                game.ui.mcPortrait.strName.text = up;
+            }
+        } catch (e3:Error) {
+        }
+        try {
+            var tn:* = game.ui.mcPortraitTarget.strName;
+            if (real.length > 0 && String(tn.text).toUpperCase() == real.toUpperCase()) {
+                tn.text = up;
+            }
+        } catch (e4:Error) {
+        }
+        // Chat: the classic chat (mcInterface.t1, input te) and the new chat UI (ui.nc).
+        mhStreamHide(game, ["ui", "mcInterface", "t1"]);
+        mhStreamHide(game, ["ui", "mcInterface", "te"]);
+        mhStreamHide(game, ["ui", "nc"]);
+        // The house title ("<name>'s House"), looked for once a second while in a house.
+        if (++mhStreamScan >= 30) {
+            mhStreamScan = 0;
+            try {
+                if (String(game.world.strMapName).toLowerCase().indexOf("house") == 0 && real.length > 0) {
+                    mhStreamHouse(game.world as DisplayObjectContainer, real.toLowerCase(), 0);
+                    mhStreamHouse(game.ui as DisplayObjectContainer, real.toLowerCase(), 0);
+                }
+            } catch (e5:Error) {
+            }
+        }
+    }
+
+    private static function mhStreamHide(game:*, path:Array):void {
+        try {
+            var o:* = game;
+            for each (var k:String in path) {
+                o = o[k];
+            }
+            if (o != null && o.visible) {
+                o.visible = false;
+                if (mhStreamHidden.indexOf(o) < 0) {
+                    mhStreamHidden.push(o);
+                }
+            }
+        } catch (e:Error) {
+        }
+    }
+
+    private static function mhStreamHouse(c:DisplayObjectContainer, real:String, depth:int):void {
+        if (c == null || depth > 8) {
+            return;
+        }
+        for (var i:int = 0; i < c.numChildren; i++) {
+            var d:DisplayObject = c.getChildAt(i);
+            if (d is TextField) {
+                var t:String = TextField(d).text;
+                var low:String = t.toLowerCase();
+                if (low.indexOf(real) >= 0 && low.indexOf("house") >= 0) {
+                    mhStreamTexts.push([d, t]);
+                    TextField(d).text = MH_STREAM_HOUSE;
+                }
+            } else if (d is DisplayObjectContainer) {
+                mhStreamHouse(DisplayObjectContainer(d), real, depth + 1);
+            }
+        }
+    }
+
+    private static function mhStreamerOff():void {
+        mhStreamOn = false;
+        for each (var o:* in mhStreamHidden) {
+            try {
+                o.visible = true;
+            } catch (e:Error) {
+            }
+        }
+        mhStreamHidden = [];
+        for each (var p:Array in mhStreamTexts) {
+            try {
+                if (TextField(p[0]).text == MH_STREAM_HOUSE) {
+                    TextField(p[0]).text = String(p[1]);
+                }
+            } catch (e2:Error) {
+            }
+        }
+        mhStreamTexts = [];
+        // The name tag and portraits come back by themselves (the page writes the real name once).
+    }
+
     // Whether an MVS feature is on (the game's settings; on unless turned off).
     private static function mvsOpt(game:*, key:String):Boolean {
         try {
@@ -637,6 +775,10 @@ public class MobileHudUI extends Module {
     }
 
     private static function mhFrame(game:*):void {
+        try {
+            mhStreamer(game);
+        } catch (es:Error) {
+        }
         if (mhOn) {
             try {
                 mhOptSync(game);

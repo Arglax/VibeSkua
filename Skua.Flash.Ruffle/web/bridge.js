@@ -483,12 +483,22 @@
         streamer = next;
         clearInterval(streamerTimer);
         streamerTimer = 0;
+        // skua.swf (MobileHudUI) does the masking every frame while litePreference.data.mvsStreamer is
+        // fresh: names, portraits, chat and the house title. Kept fresh once a second; a stale value
+        // (page gone) counts as off. Masking from here a few times a second let the real name flash.
+        const beat = () => {
+            const r = player && player.ruffle();
+            if (!r) return;
+            r.callExternalInterface("setGameObject", "litePreference.data.mvsStreamer",
+                streamer ? streamer.name + "	" + streamer.guild + "	" + Date.now() : "");
+        };
         try {
             if (streamer) {
                 streamerShown = streamer.name;
-                applyStreamer(true);
-                streamerTimer = setInterval(() => { try { applyStreamer(true); } catch (e) { } }, 250);
+                beat();
+                streamerTimer = setInterval(() => { try { beat(); } catch (e) { } }, 1000);
             } else {
+                beat();
                 applyStreamer(false);
             }
         } catch (e) { log("streamer: " + e); }
