@@ -334,12 +334,18 @@
 .mvs-aw .row.enrage .tag { background: #FF9A3C; color: #1A0E04; }
 .mvs-aw .row.scroll { border-color: #C77DFF; background: rgba(48,14,70,.62); }
 .mvs-aw .row.scroll .tag { background: #C77DFF; color: #1A0826; }
-.mvs-aw .row.noheal { animation: mvsAuraRed 0.9s ease-in-out infinite alternate; }
-.mvs-aw .row.enrage { animation: mvsAuraOrange 0.9s ease-in-out infinite alternate; }
+/* Glows pulse by opacity on their own layer (compositor only): animating box-shadow repainted the
+   row over the game canvas every frame. */
+.mvs-aw .row.noheal::after, .mvs-aw .row.enrage::after, .mvs-aw .row.max::after { content: ""; position: absolute; inset: 0;
+  border-radius: inherit; pointer-events: none; will-change: opacity; animation: mvsAuraPulse 1s ease-in-out infinite alternate; }
+.mvs-aw .row.noheal::after { box-shadow: inset 0 0 .7em rgba(255,90,78,1); }
+.mvs-aw .row.enrage::after { box-shadow: inset 0 0 .7em rgba(255,154,60,1); }
+.mvs-aw .row.max::after { box-shadow: inset 0 0 .7em rgba(64,224,255,.95); }
+@keyframes mvsAuraPulse { from { opacity: .25; } to { opacity: 1; } }
 @keyframes mvsAuraRed { from { box-shadow: 0 0 2px rgba(255,90,78,.5); } to { box-shadow: 0 0 12px rgba(255,90,78,1); } }
 @keyframes mvsAuraOrange { from { box-shadow: 0 0 2px rgba(255,154,60,.5); } to { box-shadow: 0 0 12px rgba(255,154,60,1); } }
 .mvs-aw .chip.scroll { border-color: #C77DFF; color: #DDB0FF; }
-.mvs-aw .row.max { border-color: #40E0FF; animation: mvsAuraGlow 1.1s ease-in-out infinite alternate; }
+.mvs-aw .row.max { border-color: #40E0FF; }
 .mvs-aw .row.max .st { color: #40E0FF; }
 .mvs-aw .info { margin: .35em 0 0 .2em; padding-top: .25em; border-top: 1px solid rgba(138,106,46,.4); color: #C8B89A; font-size: .95em; white-space: normal; }
 .mvs-aw .info b { color: #EDE3CC; font-weight: 600; }
@@ -356,7 +362,7 @@
 @keyframes mvsAuraGlow { from { box-shadow: 0 0 3px rgba(64,224,255,.45); } to { box-shadow: 0 0 12px rgba(64,224,255,.95); } }
 .mvs-ap { position: fixed; z-index: 31; width: 30px; height: 30px; border-radius: 50%; border: 1px solid #8A6A2E;
   background: rgba(22, 17, 12, 0.86); color: #E8C15A; font: 700 13px system-ui, sans-serif; padding: 0; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
-.mvs-ap.max { border-color: #40E0FF; color: #40E0FF; animation: mvsAuraGlow 1.1s ease-in-out infinite alternate; }
+.mvs-ap.max { border-color: #40E0FF; color: #40E0FF; box-shadow: 0 0 8px rgba(64,224,255,.8); }
 .mvs-ap.noheal { border-color: #FF5A4E; color: #FF5A4E; }
 .mvs-aw { width: 22em; }
 .mvs-aw .top .nm { min-width: 5.5em; }
