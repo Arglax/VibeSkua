@@ -1,4 +1,5 @@
 using System.IO;
+using Skua.Core.Models;
 
 namespace ButlerV5;
 
@@ -58,7 +59,7 @@ public static class AccountConfig
 
     /// <summary>
     /// The class name CoreBots has configured for this account, read from
-    /// %APPDATA%\Skua\options\CBO_Storage({username}).txt ("FarmClassSelect: X").
+    /// %APPDATA%\VibeSkua\options\CBO_Storage({username}).txt (or legacy %APPDATA%\Skua\options).
     /// </summary>
     public static string? GetCboClassName(string username, ButlerClassType type) => type switch
     {
@@ -83,16 +84,25 @@ public static class AccountConfig
     {
         try
         {
-            string optionsDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Skua",
-                "options");
             string expected = $"CBO_Storage({username}).txt";
+            string[] candidateDirs =
+            {
+                ClientFileSources.SkuaOptionsDIR,
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Skua", "options"),
+            };
 
-            string? file = Directory.Exists(optionsDir)
-                ? Directory.EnumerateFiles(optionsDir, "CBO_Storage(*).txt")
-                    .FirstOrDefault(f => Path.GetFileName(f).Equals(expected, StringComparison.OrdinalIgnoreCase))
-                : null;
+            string? file = null;
+            foreach (string optionsDir in candidateDirs.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (!Directory.Exists(optionsDir))
+                    continue;
+
+                file = Directory.EnumerateFiles(optionsDir, "CBO_Storage(*).txt")
+                    .FirstOrDefault(f => Path.GetFileName(f).Equals(expected, StringComparison.OrdinalIgnoreCase));
+                if (file != null)
+                    break;
+            }
+
             if (file == null)
                 return null;
 

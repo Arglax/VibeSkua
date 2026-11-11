@@ -121,7 +121,7 @@ public class KeepAliveService : Service
 
         CreateChannel();
         Notification notification = BuildNotification();
-        if (Build.VERSION.SdkInt >= BuildVersionCodes.UpsideDownCake)
+        if (OperatingSystem.IsAndroidVersionAtLeast(34))
             StartForeground(NotificationId, notification, ForegroundService.TypeSpecialUse);
         else
             StartForeground(NotificationId, notification);

@@ -295,6 +295,25 @@
             window.MvsOverlays.heat(gfx.heat ? { heat, battery, status, headroom, lowered: gfx.auto && gov.floor > 0 } : { heat: "ok" });
     }
 
+    function setTargetFps(fps) {
+        fps = Math.max(0, Math.round(Number(fps) || 0));
+        gov.targetRate = fps;
+        const rate = fps > 0 ? fps : 30;
+        if (player) {
+            try {
+                player.ruffle().callExternalInterface("setGameObject", "stage.frameRate", rate);
+            } catch (e) {
+                log("setTargetFps: " + e);
+            }
+        }
+        if (fps > 0 && fps <= 30) {
+            window.__mvsInterp = 0;
+        } else {
+            applySmooth();
+        }
+        log("frame pacing: target set to " + (fps > 0 ? fps + " fps" : "unlimited"));
+    }
+
     let fpsHooked = false, drawCalls = 0, framesDrawn = 0, fpsEl = null, fpsInterval = 0;
     function hookDraws() {
         if (fpsHooked) return;
@@ -604,6 +623,9 @@
             case "thermal":
                 try { setThermal(msg); } catch (e) { log("thermal: " + e); }
                 break;
+            case "targetFps":
+                try { setTargetFps(msg.fps); } catch (e) { log("targetFps: " + e); }
+                break;
             case "scriptStatus":
                 try { window.MvsOverlays.scriptStatus(msg); } catch (e) { log("scriptStatus: " + e); }
                 break;
@@ -710,6 +732,7 @@
 
         try {
             await player.ruffle().load(options);
+            if (gov.targetRate > 0) setTargetFps(gov.targetRate);
         } catch (e) {
             log("start failed: " + e);
             setStatus("The game couldn't start. Close MVS and open it again.");

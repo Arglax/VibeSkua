@@ -363,6 +363,43 @@ public partial class MobileShellView : UserControl
     }
 
     /// <summary>
+    /// Purges all cached inactive page views from memory when Android signals low memory pressure.
+    /// Safely detaches controls from the visual tree on Avalonia's UI thread.
+    /// </summary>
+    public void PurgeTransientViews()
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Invoke(PurgeTransientViews, DispatcherPriority.Background);
+            return;
+        }
+
+        try
+        {
+            int purged = 0;
+            for (int i = _pageOrder.Count - 1; i >= 0; i--)
+            {
+                object item = _pageOrder[i];
+                if (ReferenceEquals(item, _shownContent))
+                    continue;
+
+                _pageOrder.RemoveAt(i);
+                if (_pageViews.Remove(item, out Control? view))
+                {
+                    PageHost.Children.Remove(view);
+                    purged++;
+                }
+            }
+            Trace.WriteLine($"[PerfGuard] Purged {purged} cached page views under memory pressure");
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine($"[PerfGuard] Error purging page views: {ex.Message}");
+        }
+    }
+
+
+    /// <summary>
     /// Landscape: [left rail | menu | game + page | right rail], game at full height.
     /// Portrait: top bar, game and page stacked, quick tools along the bottom.
     /// </summary>

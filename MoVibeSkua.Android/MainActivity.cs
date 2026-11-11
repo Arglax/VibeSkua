@@ -32,6 +32,7 @@ public class MainActivity : AvaloniaMainActivity<App>
     {
         return base.CustomizeAppBuilder(builder)
             .LogToTrace(Avalonia.Logging.LogEventLevel.Error);
+
     }
 
     protected override void OnCreate(Bundle? savedInstanceState)
@@ -49,6 +50,15 @@ public class MainActivity : AvaloniaMainActivity<App>
         base.OnCreate(savedInstanceState);
         Window?.AddFlags(WindowManagerFlags.KeepScreenOn);
         Services.PerformanceMode.Apply(this);
+        Services.PerformanceGuard.Instance.Initialize(this);
+    }
+
+    // Called on the Android main thread during memory pressure; PerformanceGuard handles GC
+    // and UI cache pruning asynchronously via Task.Run to eliminate ANR risk.
+    public override void OnTrimMemory(global::Android.Content.TrimMemory level)
+    {
+        base.OnTrimMemory(level);
+        Services.PerformanceGuard.OnTrimMemory(level);
     }
 
     private bool _touchOnGame;

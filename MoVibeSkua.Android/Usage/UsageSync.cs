@@ -286,7 +286,8 @@ internal static class UsageSync
         try
         {
             var info = Context.PackageManager!.GetPackageInfo(Context.PackageName!, 0)!;
-            return (info.VersionName ?? "unknown", info.LongVersionCode);
+            long code = OperatingSystem.IsAndroidVersionAtLeast(28) ? info.LongVersionCode : info.VersionCode;
+            return (info.VersionName ?? "unknown", code);
         }
         catch
         {

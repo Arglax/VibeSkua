@@ -15,6 +15,10 @@ namespace ButlerV5;
 public sealed class SettingsWindow : UserControl
 {
     private readonly ButlerV5Plugin _plugin;
+    private readonly Grid _root;
+    private readonly Grid _left;
+    private readonly GridSplitter _splitter;
+    private readonly Grid _right;
     private readonly TextBlock _descTitle;
     private readonly TextBlock _descBody;
     private readonly CheckBox _followTail;
@@ -24,19 +28,20 @@ public sealed class SettingsWindow : UserControl
     private readonly List<LogLine> _renderedLogs = new();
     private readonly List<TextBlock> _renderedLogControls = new();
     private Border? _selectedRow;
+    private bool? _isCompactLayout;
 
     public SettingsWindow(ButlerV5Plugin plugin)
     {
         _plugin = plugin;
         AvaloniaUi.PrepareView(this);
 
-        Grid root = new()
+        _root = new Grid
         {
             Margin = new Thickness(12),
             ColumnDefinitions = new ColumnDefinitions("2*,6,3*"),
         };
 
-        Grid left = new() { RowDefinitions = new RowDefinitions("2*,*") };
+        _left = new Grid { RowDefinitions = new RowDefinitions("2*,*") };
         StackPanel settingsPanel = new();
         IEnumerable<IOption> options = _plugin.OptionContainer?.Options ?? Enumerable.Empty<IOption>();
         bool first = true;
@@ -55,7 +60,7 @@ public sealed class SettingsWindow : UserControl
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
         });
         settingsBox.Margin = new Thickness(0, 0, 0, 6);
-        left.Children.Add(settingsBox);
+        _left.Children.Add(settingsBox);
 
         StackPanel description = new();
         _descTitle = AvaloniaUi.TextBlock(14);
@@ -81,20 +86,20 @@ public sealed class SettingsWindow : UserControl
         });
         descriptionBox.Margin = new Thickness(0, 6, 0, 0);
         Grid.SetRow(descriptionBox, 1);
-        left.Children.Add(descriptionBox);
-        root.Children.Add(left);
+        _left.Children.Add(descriptionBox);
+        _root.Children.Add(_left);
 
-        GridSplitter splitter = new()
+        _splitter = new GridSplitter
         {
             Width = 6,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
             Background = Brushes.Transparent,
         };
-        Grid.SetColumn(splitter, 1);
-        root.Children.Add(splitter);
+        Grid.SetColumn(_splitter, 1);
+        _root.Children.Add(_splitter);
 
-        Grid right = new()
+        _right = new Grid
         {
             Margin = new Thickness(8, 0, 0, 0),
             RowDefinitions = new RowDefinitions("Auto,*,Auto"),
@@ -117,7 +122,7 @@ public sealed class SettingsWindow : UserControl
         };
         Grid.SetColumn(_followTail, 1);
         logHeader.Children.Add(_followTail);
-        right.Children.Add(logHeader);
+        _right.Children.Add(logHeader);
 
         _logRows = new StackPanel { Margin = new Thickness(8, 6) };
         _logScroll = new ScrollViewer
@@ -135,7 +140,7 @@ public sealed class SettingsWindow : UserControl
             CornerRadius = new CornerRadius(6),
         };
         Grid.SetRow(logBox, 1);
-        right.Children.Add(logBox);
+        _right.Children.Add(logBox);
 
         Grid logButtons = new()
         {
@@ -148,19 +153,63 @@ public sealed class SettingsWindow : UserControl
         leftButtons.Children.Add(SmallButton("Clear", "Clear the in-memory log view.", ClearLog));
         logButtons.Children.Add(leftButtons);
         Button openFolder = SmallButton("Open folder", "Open the folder with Butler's saved logs.", OpenLogFolder);
+        openFolder.IsVisible = OperatingSystem.IsWindows();
         Grid.SetColumn(openFolder, 1);
         logButtons.Children.Add(openFolder);
         Grid.SetRow(logButtons, 2);
-        right.Children.Add(logButtons);
+        _right.Children.Add(logButtons);
 
-        Grid.SetColumn(right, 2);
-        root.Children.Add(right);
-        Content = root;
+        Grid.SetColumn(_right, 2);
+        _root.Children.Add(_right);
+        Content = _root;
+
+        SizeChanged += (_, e) => ApplyResponsiveLayout(e.NewSize.Width);
 
         RefreshLog();
         _logTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
         _logTimer.Tick += (_, _) => RefreshLog();
         _logTimer.Start();
+    }
+
+    private void ApplyResponsiveLayout(double width)
+    {
+        if (width <= 0)
+            return;
+
+        bool compact = width < 640;
+        if (_isCompactLayout == compact)
+            return;
+        _isCompactLayout = compact;
+
+        if (compact)
+        {
+            _root.ColumnDefinitions = new ColumnDefinitions("*");
+            _root.RowDefinitions = new RowDefinitions("3*,2*");
+
+            _splitter.IsVisible = false;
+            Grid.SetColumn(_left, 0);
+            Grid.SetRow(_left, 0);
+
+            Grid.SetColumn(_right, 0);
+            Grid.SetRow(_right, 1);
+            _right.Margin = new Thickness(0, 8, 0, 0);
+        }
+        else
+        {
+            _root.ColumnDefinitions = new ColumnDefinitions("2*,6,3*");
+            _root.RowDefinitions = new RowDefinitions("*");
+
+            _splitter.IsVisible = true;
+            Grid.SetColumn(_left, 0);
+            Grid.SetRow(_left, 0);
+
+            Grid.SetColumn(_splitter, 1);
+            Grid.SetRow(_splitter, 0);
+
+            Grid.SetColumn(_right, 2);
+            Grid.SetRow(_right, 0);
+            _right.Margin = new Thickness(8, 0, 0, 0);
+        }
     }
 
     /// <summary>Called by the plugin once the window or page showing this view has closed.</summary>
@@ -262,7 +311,7 @@ public sealed class SettingsWindow : UserControl
             List<object> values = Enum.GetValues(option.Type).Cast<object>().ToList();
             ComboBox combo = new()
             {
-                MinWidth = 125,
+                MinWidth = 105,
                 ItemsSource = values,
                 SelectedItem = values.FirstOrDefault(value => value.Equals(TryParseEnum(option.Type, raw) ?? option.DefaultValue))
                     ?? values.FirstOrDefault(),
@@ -279,8 +328,8 @@ public sealed class SettingsWindow : UserControl
         TextBox textBox = new()
         {
             Text = raw,
-            MinWidth = isInt ? 85 : 160,
-            MaxWidth = 240,
+            MinWidth = isInt ? 75 : 120,
+            MaxWidth = 220,
         };
         textBox.LostFocus += (_, _) =>
         {
@@ -381,9 +430,18 @@ public sealed class SettingsWindow : UserControl
             if (text.Length == 0)
                 return;
             IClipboard? clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
-            if (clipboard == null)
+            if (clipboard != null)
+            {
+                await clipboard.SetTextAsync(text);
+            }
+            else if (_plugin.Services?.GetService(typeof(IClipboardService)) is IClipboardService hostClipboard)
+            {
+                hostClipboard.SetText(text);
+            }
+            else
+            {
                 throw new InvalidOperationException("The clipboard is not available.");
-            await clipboard.SetTextAsync(text);
+            }
             DebugLog.Log("UI", $"copied {_renderedLogs.Count} log lines to clipboard", LogLevel.Success);
         }
         catch (Exception ex)
@@ -395,6 +453,24 @@ public sealed class SettingsWindow : UserControl
     private void SaveLog()
     {
         string? path = DebugLog.SaveExport(_plugin.OwnUsername);
+        if (path != null && !OperatingSystem.IsWindows())
+        {
+            try
+            {
+                if (_plugin.Services?.GetService(typeof(IFileDialogService)) is IFileDialogService fileDialogs)
+                {
+                    string? exportTarget = fileDialogs.Save("Log|*.log");
+                    if (!string.IsNullOrEmpty(exportTarget))
+                    {
+                        File.Copy(path, exportTarget, overwrite: true);
+                        path = exportTarget;
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
         DebugLog.Log("UI", path != null ? $"saved log to {Path.GetFileName(path)}" : "save log failed",
             path != null ? LogLevel.Success : LogLevel.Error);
     }

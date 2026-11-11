@@ -291,7 +291,8 @@ public sealed class AppLog : TraceListener
         {
             global::Android.Content.Context context = global::Android.App.Application.Context;
             var info = context.PackageManager!.GetPackageInfo(context.PackageName!, 0)!;
-            return $"{info.VersionName} ({info.LongVersionCode})";
+            long code = OperatingSystem.IsAndroidVersionAtLeast(28) ? info.LongVersionCode : info.VersionCode;
+            return $"{info.VersionName} ({code})";
         }
         catch
         {

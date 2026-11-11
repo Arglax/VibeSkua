@@ -108,6 +108,14 @@ internal class Options
                 Ioc.Default.GetRequiredService<ISettingsService>().Set("ReloginTryDelay", result);
             }), s.GetRequiredService<ISettingsService>().Get<int>("ReloginTryDelay")),
             CreateSettingOptionItem<bool>("Relogin Watchdog", "Watch for unexpected disconnections, even with no script running, and relog when Auto Relogin (Game Options) is on. Off leaves relogs to kicks and server logouts", "ReloginWatchdog"),
+            CreateSettingOptionItem<bool>("Enable Performance Guard", "Locks render pacing, monitors device thermals, and prevents LMK memory kills", "EnablePerformanceGuard"),
+            new CommandOptionItemViewModel<int>("Target Render FPS", "Target FPS for UI and game render loops (30, 48, 60, or 0 for Unlimited)", "TargetFPS", "FPS", new RelayCommand<string>(value =>
+            {
+                if (!int.TryParse(value, out int result) || result < 0) return;
+                Ioc.Default.GetRequiredService<ISettingsService>().Set("TargetFPS", result);
+            }), s.GetRequiredService<ISettingsService>().Get<int>("TargetFPS")),
+            CreateSettingOptionItem<bool>("Auto-throttle on Overheat", "Automatically lower target frame rate when device reaches high temperature", "AutoThrottleOnOverheat"),
+            CreateSettingOptionItem<bool>("Show Hardware Alerts", "Surface non-intrusive HUD notifications on thermal or low-memory thresholds", "ShowHardwareAlerts"),
             new CommandOptionItemViewModel<IRelayCommand>("Clear Flash Cache", "ClearFlashCache", new RelayCommand(() =>
             {
                 string flash = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Adobe", "Flash Player");

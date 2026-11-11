@@ -50,10 +50,9 @@ public static class AndroidBootstrap
 
             // Seed data the desktop client ships next to the executable, without clobbering user copies.
             CopyAssetFolder(context, "seed", ClientFileSources.SkuaDIR, overwrite: false);
-            // Army clients start after the first one unpacked these, and rewriting a plugin another
-            // client has loaded would pull the file out from under it.
-            if (Army.IsFirst)
-                CopyAssetFolder(context, "plugins", ClientFileSources.SkuaPluginsDIR, overwrite: true);
+            // Primary client updates bundled plugins on startup; Army clients only fill in any missing
+            // files so they never overwrite a DLL another running client already loaded.
+            CopyAssetFolder(context, "plugins", ClientFileSources.SkuaPluginsDIR, overwrite: Army.IsFirst);
         }
         catch (Exception ex)
         {

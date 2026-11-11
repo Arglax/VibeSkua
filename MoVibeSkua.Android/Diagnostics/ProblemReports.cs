@@ -169,6 +169,8 @@ public static class ProblemReports
     // signal, top frames) are what tell one crash from another.
     private static string TraceClues(ApplicationExitInfo info)
     {
+        if (!OperatingSystem.IsAndroidVersionAtLeast(30))
+            return string.Empty;
         try
         {
             using Stream? stream = info.TraceInputStream;

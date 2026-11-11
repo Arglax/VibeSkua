@@ -106,6 +106,7 @@ public partial class App : Application
         services.AddSingleton<RuffleFlashUtil>();
         services.AddSingleton<IFlashUtil>(s => s.GetRequiredService<RuffleFlashUtil>());
         services.AddSingleton<SkuaStartupHandler>();
+        services.AddSingleton(PerformanceGuard.Instance);
         services.AddSingleton<ViewModels.GraphicsViewModel>();
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<LoginViewModel>();
@@ -154,6 +155,7 @@ public partial class App : Application
         // A (re)loaded game page starts with the defaults; send it the Graphics page's settings.
         flash.Host.Control.Connected -= ApplyGraphics;
         flash.Host.Control.Connected += ApplyGraphics;
+        flash.Host.Control.Connected += () => PerformanceGuard.Instance.ApplyFramePacing();
 
         Ioc.Default.GetRequiredService<SkuaStartupHandler>().Execute();
         Trace.WriteLine("[Startup] initializing flash");

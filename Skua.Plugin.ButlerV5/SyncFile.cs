@@ -38,6 +38,18 @@ public class SyncData
     /// <summary>Whether this account is mid-park (walking home) - not summonable yet.</summary>
     public bool Parking;
 
+    /// <summary>External player name for the latest one-shot send-all goto command.</summary>
+    public string SendAllTarget = "";
+
+    /// <summary>Unique ID so each recipient executes a broadcast goto command only once.</summary>
+    public string SendAllCommand = "";
+
+    /// <summary>Recipients selected when the broadcast goto command was issued.</summary>
+    public List<string> SendAllRecipients = new();
+
+    /// <summary>UTC ticks when the broadcast goto command was issued.</summary>
+    public long SendAllIssuedUtcTicks;
+
     /// <summary>File last write time (UTC), populated on read to guard against PID recycling.</summary>
     public DateTime LastModified { get; set; } = DateTime.MinValue;
 
@@ -63,6 +75,10 @@ public class SyncData
         sb.Append("scriptname=").Append(ScriptName).Append('\n');
         sb.Append("declined=").Append(Declined).Append('\n');
         sb.Append("parking=").Append(Parking ? '1' : '0').Append('\n');
+        sb.Append("sendalltarget=").Append(SendAllTarget).Append('\n');
+        sb.Append("sendallcommand=").Append(SendAllCommand).Append('\n');
+        sb.Append("sendallrecipients=").Append(string.Join(",", SendAllRecipients)).Append('\n');
+        sb.Append("sendallissued=").Append(SendAllIssuedUtcTicks).Append('\n');
         return sb.ToString();
     }
 
@@ -107,6 +123,14 @@ public class SyncData
                 case "scriptname": data.ScriptName = value; break;
                 case "declined": data.Declined = value; break;
                 case "parking": data.Parking = value == "1"; break;
+                case "sendalltarget": data.SendAllTarget = value; break;
+                case "sendallcommand": data.SendAllCommand = value; break;
+                case "sendallrecipients":
+                    data.SendAllRecipients = value
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .ToList();
+                    break;
+                case "sendallissued": _ = long.TryParse(value, out data.SendAllIssuedUtcTicks); break;
             }
         }
 
@@ -233,6 +257,14 @@ public static class SyncFile
 
     public static bool IsProcessAlive(int pid, DateTime? fileWriteTimeUtc = null)
     {
+        if (pid <= 0)
+            return false;
+        if (pid == Environment.ProcessId)
+            return true;
+
+        if (!OperatingSystem.IsWindows())
+            return IsUnixProcessAlive(pid);
+
         try
         {
             // MUST dispose: GetProcessById returns an IDisposable Process that opens an
@@ -245,7 +277,7 @@ public static class SyncFile
             // Verify process name: Windows recycles PIDs after a crash. If another program
             // (e.g. RuntimeBroker, svchost, Discord) inherits the PID, it is NOT Skua.
             string name = process.ProcessName.ToLowerInvariant();
-            if (!name.Contains("skua") && !name.Contains("vibeskua") && name != "dotnet")
+            if (!name.Contains("skua") && !name.Contains("vibeskua") && !name.Contains("movi") && name != "dotnet")
                 return false;
 
             // If the process started after the sync file was written, the PID was recycled to a new process.
@@ -267,6 +299,66 @@ public static class SyncFile
         catch (ArgumentException)
         {
             return false; // no such process
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Android/Linux process liveness check via /proc/&lt;pid&gt;.
+    /// On Android, /proc/&lt;pid&gt;/stat comm (Process.ProcessName) is truncated to 15 chars
+    /// ("com.arglax.movi" or "main"), so we inspect /proc/&lt;pid&gt; directly.
+    /// </summary>
+    private static bool IsUnixProcessAlive(int pid)
+    {
+        try
+        {
+            string procDir = $"/proc/{pid}";
+            if (!System.IO.Directory.Exists(procDir))
+                return false;
+
+            try
+            {
+                string statPath = $"{procDir}/stat";
+                if (File.Exists(statPath))
+                {
+                    string stat = File.ReadAllText(statPath);
+                    int closeParen = stat.LastIndexOf(')');
+                    if (closeParen > 0 && closeParen + 2 < stat.Length)
+                    {
+                        char state = stat[closeParen + 2];
+                        if (state is 'Z' or 'X')
+                            return false;
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore stat read errors and continue checking cmdline
+            }
+
+            try
+            {
+                string cmdlinePath = $"{procDir}/cmdline";
+                if (File.Exists(cmdlinePath))
+                {
+                    string cmdline = File.ReadAllText(cmdlinePath).Replace('\0', ' ').Trim();
+                    if (!string.IsNullOrEmpty(cmdline))
+                    {
+                        return cmdline.Contains("skua", StringComparison.OrdinalIgnoreCase)
+                            || cmdline.Contains("movi", StringComparison.OrdinalIgnoreCase)
+                            || cmdline.Contains("dotnet", StringComparison.OrdinalIgnoreCase);
+                    }
+                }
+            }
+            catch
+            {
+                // On Android with hidepid=2, only same-UID processes are visible in /proc.
+            }
+
+            return true;
         }
         catch
         {

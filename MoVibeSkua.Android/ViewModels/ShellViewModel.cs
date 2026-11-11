@@ -169,6 +169,40 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBotMode;
 
+    [ObservableProperty]
+    private bool _hasHardwareAlert;
+
+    [ObservableProperty]
+    private string _hardwareAlertText = string.Empty;
+
+    [ObservableProperty]
+    private Material.Icons.MaterialIconKind _hardwareAlertIcon = Material.Icons.MaterialIconKind.AlertCircle;
+
+    [ObservableProperty]
+    private string _hardwareAlertBrush = "#D97706";
+
+    private DispatcherTimer? _hardwareAlertTimer;
+
+    public void PostHardwareAlert(string message, Material.Icons.MaterialIconKind icon = Material.Icons.MaterialIconKind.AlertCircle, string brush = "#D97706", int durationMs = 3800)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            HardwareAlertText = message;
+            HardwareAlertIcon = icon;
+            HardwareAlertBrush = brush;
+            HasHardwareAlert = true;
+
+            _hardwareAlertTimer?.Stop();
+            _hardwareAlertTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(durationMs) };
+            _hardwareAlertTimer.Tick += (_, _) =>
+            {
+                _hardwareAlertTimer?.Stop();
+                HasHardwareAlert = false;
+            };
+            _hardwareAlertTimer.Start();
+        });
+    }
+
     private DispatcherTimer? _crestTimer;
     private DateTime _lastCrestTap;
     private int _crestTaps;

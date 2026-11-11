@@ -13,8 +13,10 @@ public class Broadcaster
     private readonly IScriptInterface _bot;
     private readonly Func<bool> _enabled;
     private readonly Func<bool> _questClone;
+    private readonly Func<bool> _questSync;
     private readonly Action<string> _log;
     private DateTime _lastQuestPublish = DateTime.MinValue;
+    private DateTime _lastQuestSyncPublish = DateTime.MinValue;
     private DateTime _lastAttackingSeen = DateTime.MinValue;
     private volatile bool _publishing;
     private readonly object _writeLock = new();
@@ -36,19 +38,25 @@ public class Broadcaster
     private bool _wasEnabled = true;
 
     private List<string> _followers = new();
+    private string _sendAllTarget = "";
+    private string _sendAllCommand = "";
+    private List<string> _sendAllRecipients = new();
+    private long _sendAllIssuedUtcTicks;
+    private bool _sendAllPending;
 
     private readonly Func<string?> _followingProvider;
     private readonly Func<string?> _scriptNameProvider; // null = no script running
     private readonly Func<string?> _declinedProvider;
     private readonly Func<bool> _parkingProvider;
 
-    public Broadcaster(IScriptInterface bot, Func<bool> enabled, Func<bool> questClone,
+    public Broadcaster(IScriptInterface bot, Func<bool> enabled, Func<bool> questClone, Func<bool> questSync,
         Func<string?> followingProvider, Func<string?> scriptNameProvider,
         Func<string?> declinedProvider, Func<bool> parkingProvider, Action<string> log)
     {
         _bot = bot;
         _enabled = enabled;
         _questClone = questClone;
+        _questSync = questSync;
         _followingProvider = followingProvider;
         _scriptNameProvider = scriptNameProvider;
         _declinedProvider = declinedProvider;
@@ -67,6 +75,29 @@ public class Broadcaster
         lock (_writeLock)
             _followers = followers.Select(f => f.Trim()).Where(f => f.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         WriteNow();
+    }
+
+    public bool PublishSendAllGoto(string target, IEnumerable<string> recipients)
+    {
+        string normalizedTarget = target.Trim();
+        List<string> normalizedRecipients = recipients
+            .Select(name => name.Trim())
+            .Where(name => name.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (normalizedTarget.Length == 0 || normalizedRecipients.Count == 0)
+            return false;
+
+        lock (_writeLock)
+        {
+            _sendAllTarget = normalizedTarget;
+            _sendAllCommand = Guid.NewGuid().ToString("N");
+            _sendAllRecipients = normalizedRecipients;
+            _sendAllIssuedUtcTicks = 0;
+            _sendAllPending = true;
+        }
+
+        return WriteNow();
     }
 
     public void Start()
@@ -111,6 +142,16 @@ public class Broadcaster
                     if (loggedIn)
                     {
                         WriteNow(); // no-op unless something actually changed
+                        string publishUser = _bot.Player!.Username;
+
+                        // Publish active/registered quest IDs cheaply and frequently.
+                        // Followers register these quests locally for their own drops and turn-ins.
+                        if (_questSync() &&
+                            (DateTime.UtcNow - _lastQuestSyncPublish).TotalSeconds >= 2)
+                        {
+                            _lastQuestSyncPublish = DateTime.UtcNow;
+                            QuestSync.Publish(_bot, publishUser);
+                        }
 
                         // EXPERIMENTAL quest-state publishing: at login, then every 2
                         // minutes. Runs on a background task - the 800 flash-call read
@@ -122,7 +163,6 @@ public class Broadcaster
                         {
                             _lastQuestPublish = DateTime.UtcNow;
                             _publishing = true;
-                            string publishUser = _bot.Player!.Username;
                             Task.Run(() =>
                             {
                                 try { QuestClone.Publish(_bot, publishUser); }
@@ -154,23 +194,23 @@ public class Broadcaster
         WriteOffline();
     }
 
-    public void WriteNow()
+    public bool WriteNow()
     {
         try
         {
             if (!_enabled())
-                return;
+                return false;
 
             IScriptPlayer? player = _bot.Player;
             if (player?.LoggedIn != true || string.IsNullOrEmpty(player.Username))
-                return;
+                return false;
 
             // Mid-transition the map reports unloaded or a bogus name ("-1"); keep the
             // previous file contents until the new map has settled.
             IScriptMap? map = _bot.Map;
             string mapName = map?.Name?.ToLowerInvariant() ?? "";
             if (map?.Loaded != true || string.IsNullOrEmpty(mapName) || mapName == "-1")
-                return;
+                return false;
 
             // Hysteresis: report attacking immediately (passive followers engage fast),
             // but only report NOT attacking after ~4s of calm. Farming is fight-pause-
@@ -193,6 +233,11 @@ public class Broadcaster
 
             lock (_writeLock)
             {
+                // Start the command's expiry window only when it can actually be
+                // published. A map transition must not consume its 60-second lifetime.
+                if (_sendAllPending)
+                    _sendAllIssuedUtcTicks = DateTime.UtcNow.Ticks;
+
                 if (!player.Username.Equals(_lastUsername, StringComparison.OrdinalIgnoreCase))
                 {
                     _lastClassName = "";
@@ -229,13 +274,26 @@ public class Broadcaster
                     ScriptName = SafeGet(_scriptNameProvider) ?? "",
                     Declined = SafeGet(_declinedProvider) ?? "",
                     Parking = SafeGetBool(_parkingProvider),
+                    SendAllTarget = _sendAllTarget,
+                    SendAllCommand = _sendAllCommand,
+                    SendAllRecipients = _sendAllRecipients.ToList(),
+                    SendAllIssuedUtcTicks = _sendAllIssuedUtcTicks,
                 };
 
-                WriteIfChanged(data);
+                bool written = WriteIfChanged(data);
+                if (written && _sendAllPending)
+                {
+                    _sendAllPending = false;
+                    DebugLog.Log("Broadcaster", $"published send-all goto to {_sendAllRecipients.Count} accounts: {_sendAllTarget}");
+                }
+
+                return written;
             }
         }
-        catch
+        catch (Exception ex)
         {
+            DebugLog.Log("Broadcaster", $"sync write exception: {ex.Message}");
+            return false;
         }
     }
 
@@ -282,21 +340,21 @@ public class Broadcaster
         catch { return false; }
     }
 
-    private void WriteIfChanged(SyncData data)
+    private bool WriteIfChanged(SyncData data)
     {
         string serialized = data.Serialize();
         if (serialized == _lastWritten)
-            return;
+            return true;
 
         if (SyncFile.Write(data))
         {
             _lastWritten = serialized;
             DebugLog.Log("Broadcaster", $"wrote: {DebugLog.Describe(data)}");
+            return true;
         }
-        else
-        {
-            DebugLog.Log("Broadcaster", $"WRITE FAILED: {DebugLog.Describe(data)}");
-        }
+
+        DebugLog.Log("Broadcaster", $"WRITE FAILED: {DebugLog.Describe(data)}");
+        return false;
     }
 
     /// <summary>

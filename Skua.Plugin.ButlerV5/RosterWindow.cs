@@ -1,9 +1,11 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Skua.Shared.Avalonia.Services;
 
 namespace ButlerV5;
 
@@ -19,6 +21,12 @@ public sealed class RosterWindow : UserControl
     private readonly Button _releaseAllButton;
     private readonly Button _summonAllButton;
     private readonly TextBlock _footerText;
+    private readonly TextBox _targetPlayerText;
+    private readonly WrapPanel _targetHistory;
+    private readonly TextBlock _targetHistoryLabel;
+    private readonly Flyout? _targetFlyout;
+    private readonly Border? _inlineTargetBar;
+    private readonly Button _sendToPlayerButton;
     private string _lastSnapshot = "";
 
     public RosterWindow(ButlerV5Plugin plugin)
@@ -26,12 +34,15 @@ public sealed class RosterWindow : UserControl
         _plugin = plugin;
         AvaloniaUi.PrepareView(this);
 
+        bool useInlineTargetBar = PluginWindow.PageHost != null;
+
         Grid root = new()
         {
             Margin = new Thickness(14),
-            RowDefinitions = new RowDefinitions("Auto,*,Auto"),
+            RowDefinitions = new RowDefinitions("Auto,*,Auto,Auto"),
         };
 
+        // Your account and follow state on the left; Stop following / Release all on the right, as in the original.
         Grid header = new()
         {
             Margin = new Thickness(2, 0, 2, 12),
@@ -49,25 +60,93 @@ public sealed class RosterWindow : UserControl
         StackPanel headerButtons = new()
         {
             Orientation = Orientation.Horizontal,
-            VerticalAlignment = VerticalAlignment.Center,
             Spacing = 6,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(8, 0, 0, 0),
         };
         _stopButton = AvaloniaUi.Button("Stop following", () =>
         {
             _plugin.StopFollow();
             Refresh(force: true);
         }, AvaloniaUi.Red);
+        headerButtons.Children.Add(_stopButton);
+
         _releaseAllButton = AvaloniaUi.Button("Release all", () =>
         {
             _plugin.ReleaseFollowers();
             Refresh(force: true);
         }, AvaloniaUi.OrangeButton);
         AvaloniaUi.SetToolTip(_releaseAllButton, "Clear this account's followers list; released butlers park at their configured location.");
-        headerButtons.Children.Add(_stopButton);
         headerButtons.Children.Add(_releaseAllButton);
         Grid.SetColumn(headerButtons, 1);
         header.Children.Add(headerButtons);
         root.Children.Add(header);
+
+        // "Send to player" panel: used in a Flyout on desktop and as an inline collapsible bar on mobile
+        // (so opening the Android soft keyboard lifts the page without dismissing a light-dismiss popup).
+        StackPanel targetPanel = new();
+        if (!useInlineTargetBar)
+            targetPanel.Width = 340;
+
+        TextBlock targetCaption = AvaloniaUi.TextBlock(12, AvaloniaUi.SubText);
+        targetCaption.Text = "/goto a player with this account and every available butler.";
+        targetCaption.TextWrapping = TextWrapping.Wrap;
+        targetCaption.Margin = new Thickness(0, 0, 0, 8);
+        targetPanel.Children.Add(targetCaption);
+
+        Grid targetRow = new() { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        _targetPlayerText = new TextBox
+        {
+            Watermark = "Player name (not one of your butlers)",
+            VerticalContentAlignment = VerticalAlignment.Center,
+            MinHeight = 32,
+            Margin = new Thickness(0, 0, 6, 0),
+        };
+        _targetPlayerText.KeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Enter)
+                return;
+            e.Handled = true;
+            SendAllToPlayer();
+        };
+        targetRow.Children.Add(_targetPlayerText);
+        Button sendAllToPlayer = AvaloniaUi.Button("Send", SendAllToPlayer, AvaloniaUi.Accent);
+        Grid.SetColumn(sendAllToPlayer, 1);
+        targetRow.Children.Add(sendAllToPlayer);
+        targetPanel.Children.Add(targetRow);
+
+        _targetHistoryLabel = AvaloniaUi.TextBlock(11, AvaloniaUi.SubText);
+        _targetHistoryLabel.Text = "Recent";
+        _targetHistoryLabel.Margin = new Thickness(0, 10, 0, 4);
+        targetPanel.Children.Add(_targetHistoryLabel);
+        _targetHistory = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
+        targetPanel.Children.Add(_targetHistory);
+
+        if (useInlineTargetBar)
+        {
+            _inlineTargetBar = new Border
+            {
+                Child = targetPanel,
+                Background = AvaloniaUi.PanelRaised,
+                BorderBrush = AvaloniaUi.Divider,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(7),
+                Padding = new Thickness(10, 8),
+                Margin = new Thickness(0, 8, 0, 0),
+                IsVisible = false,
+            };
+            Grid.SetRow(_inlineTargetBar, 2);
+            root.Children.Add(_inlineTargetBar);
+        }
+        else
+        {
+            _targetFlyout = new Flyout { Content = targetPanel, Placement = PlacementMode.TopEdgeAlignedRight };
+            _targetFlyout.Opened += (_, _) =>
+            {
+                UpdateTargetHistory();
+                _targetPlayerText.Focus();
+            };
+        }
 
         _rows = new StackPanel();
         ScrollViewer scroll = new()
@@ -88,29 +167,48 @@ public sealed class RosterWindow : UserControl
         Grid.SetRow(listPanel, 1);
         root.Children.Add(listPanel);
 
-        Grid footer = new()
-        {
-            Margin = new Thickness(2, 10, 2, 0),
-            ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"),
-        };
+        // Status on the left, buttons on the right; FooterBar stacks them only when one row is too narrow.
+        FooterBar footer = new();
         _footerText = AvaloniaUi.TextBlock(11, AvaloniaUi.SubText);
-        _footerText.VerticalAlignment = VerticalAlignment.Center;
+        _footerText.TextWrapping = TextWrapping.Wrap;
+        _footerText.Background = Brushes.Transparent; // hit-testable across its whole box, for the tooltip
         footer.Children.Add(_footerText);
+        WrapPanel footerActions = new()
+        {
+            Orientation = Orientation.Horizontal,
+            ItemsAlignment = WrapPanelItemsAlignment.End,
+            ItemSpacing = 6,
+            LineSpacing = 6,
+        };
+
+        _sendToPlayerButton = AvaloniaUi.Button("Send to player", () =>
+        {
+            if (_inlineTargetBar == null)
+                return;
+            _inlineTargetBar.IsVisible = !_inlineTargetBar.IsVisible;
+            if (_inlineTargetBar.IsVisible)
+            {
+                UpdateTargetHistory();
+                _targetPlayerText.Focus();
+            }
+        });
+        if (_targetFlyout != null)
+            _sendToPlayerButton.Flyout = _targetFlyout;
+        footerActions.Children.Add(_sendToPlayerButton);
 
         _summonAllButton = AvaloniaUi.Button("Summon all", () =>
         {
             _plugin.SummonAll();
             Refresh(force: true);
         });
-        _summonAllButton.Margin = new Thickness(0, 0, 6, 0);
-        Grid.SetColumn(_summonAllButton, 1);
-        footer.Children.Add(_summonAllButton);
+        footerActions.Children.Add(_summonAllButton);
 
         Button settings = AvaloniaUi.Button("Settings", _plugin.OpenSettings);
-        AvaloniaUi.SetToolTip(settings, "Open Butler's settings.");
-        Grid.SetColumn(settings, 2);
-        footer.Children.Add(settings);
-        Grid.SetRow(footer, 2);
+        AvaloniaUi.SetToolTip(settings, "Open Butler's settings and debug log.");
+        footerActions.Children.Add(settings);
+        footer.Children.Add(footerActions);
+        footer.Margin = new Thickness(2, 12, 2, 2);
+        Grid.SetRow(footer, 3);
         root.Children.Add(footer);
 
         Content = root;
@@ -119,6 +217,44 @@ public sealed class RosterWindow : UserControl
         _timer.Tick += (_, _) => Refresh();
         _timer.Start();
         Refresh(force: true);
+    }
+
+    private void SendAllToPlayer()
+    {
+        string target = _targetPlayerText.Text?.Trim() ?? "";
+        _plugin.SendAllToPlayer(target);
+        if (target.Length > 0)
+        {
+            _targetFlyout?.Hide();
+            if (_inlineTargetBar != null)
+                _inlineTargetBar.IsVisible = false;
+        }
+        Refresh(force: true);
+    }
+
+    private void UpdateTargetHistory()
+    {
+        _targetHistory.Children.Clear();
+        foreach (string name in _plugin.RecentPlayerTargets.Take(8))
+        {
+            Button chip = new()
+            {
+                Content = name,
+                FontSize = 11,
+                Padding = new Thickness(8, 2),
+                MinHeight = 24,
+            };
+            chip.Classes.Add("skua-button");
+            AvaloniaUi.SetToolTip(chip, $"Use {name}.");
+            chip.Click += (_, _) =>
+            {
+                _targetPlayerText.Text = name;
+                _targetPlayerText.CaretIndex = name.Length;
+                _targetPlayerText.Focus();
+            };
+            _targetHistory.Children.Add(chip);
+        }
+        _targetHistoryLabel.IsVisible = _targetHistory.Children.Count > 0;
     }
 
     /// <summary>Called by the plugin once the window or page showing this view has closed.</summary>
@@ -138,6 +274,7 @@ public sealed class RosterWindow : UserControl
 
     private void Refresh(bool force = false)
     {
+        // Your own account is the header; the list is everyone else.
         List<SyncData> online = Roster.GetOnline(_plugin.OwnUsername);
         HashSet<string> myFollowers = new(_plugin.CurrentFollowers, StringComparer.OrdinalIgnoreCase);
         string? followingWho = _plugin.FollowingWho;
@@ -153,6 +290,10 @@ public sealed class RosterWindow : UserControl
         _releaseAllButton.IsVisible = myFollowers.Count > 0;
         _releaseAllButton.IsEnabled = !pluginOff;
         _summonAllButton.IsEnabled = !pluginOff && followingWho == null;
+        _sendToPlayerButton.IsEnabled = !pluginOff;
+        AvaloniaUi.SetToolTip(_sendToPlayerButton, pluginOff
+            ? "Butler is disabled. Turn it on in Settings first."
+            : "Send this account and every available butler to another player.");
         AvaloniaUi.SetToolTip(_summonAllButton, pluginOff
             ? "Butler is disabled. Turn it on in Settings first."
             : followingWho == null
@@ -165,7 +306,10 @@ public sealed class RosterWindow : UserControl
             _timer.Interval = interval;
         _footerText.Text = pluginOff
             ? "Butler is DISABLED - turn it on in Settings"
-            : $"{online.Count} other plugin account{(online.Count == 1 ? "" : "s")} online - refreshes every {refreshSeconds}s";
+            : $"{online.Count} other plugin account{(online.Count == 1 ? "" : "s")} online";
+        AvaloniaUi.SetToolTip(_footerText, pluginOff
+            ? "Open Settings and turn on 'Enable Butler'."
+            : $"The list updates as soon as an account changes, and checks again every {refreshSeconds}s.");
 
         string myServer = _plugin.MyServerName;
         string snapshot = string.Join(";", online.Select(d =>

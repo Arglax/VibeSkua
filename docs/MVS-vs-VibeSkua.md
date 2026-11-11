@@ -24,7 +24,8 @@ Mostly the same pages, rearranged for a phone screen:
 - **Auto re-login** and the relogin watchdog.
 - **Streamer mode.**
 - **Plugins** that ship with VibeSkua (Daily Tracker, ButlerV5, Cosmetics). They open as pages instead of
-  windows.
+  windows, and Butler includes VibeSkua's latest features (`Send to player` with recent target history,
+  `Follow master's quests`, `Copy master's walking`, and responsive mobile layouts).
 - **Discord / Nexus webhooks.** Options kept; screenshots are taken in an Android way.
 - **Console, Spammer, Logger:** behind a developer mode.
 
@@ -131,7 +132,9 @@ fields keep focus (otherwise the password couldn't be typed).
 
 **Army on Android.** Each extra client runs in its own Android process with its own WebView data folder,
 because one WebView data folder can't be shared between processes. The first client's service keeps the
-others alive.
+others alive. For Butler's cross-process sync files, Android truncates `/proc/<pid>/stat` process names to
+15 characters (`com.arglax.movi`), so `SyncFile.IsProcessAlive` checks `/proc/<pid>` and `/proc/<pid>/cmdline`
+directly on Android so Army clients detect each other as online.
 
 **Re-login on a bad connection.** When the login server stopped answering, the relogin watchdog started a
 new round 1.5 s after the last one gave up, every ~20 s indefinitely. It now pauses for 2, 5, 15, then

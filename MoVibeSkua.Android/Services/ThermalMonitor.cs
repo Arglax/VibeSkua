@@ -61,6 +61,7 @@ public static class ThermalMonitor
         }
         double battery = BatteryCelsius();
         PerformanceMode.OnTemperature(battery, status);
+        PerformanceGuard.Instance.UpdateThermalMetrics(status, headroom, battery);
         string json = string.Create(CultureInfo.InvariantCulture,
             $"{{\"t\":\"thermal\",\"status\":{status},\"headroom\":{headroom:0.00},\"battery\":{battery:0.0}}}");
         if (json == _lastJson)

@@ -103,14 +103,101 @@ details.report pre { white-space: pre-wrap; word-break: break-word; max-height: 
   background: rgba(127,127,127,.08); padding: 8px; border-radius: 6px; }
 details.report h3 { font-size: 13px; margin: 10px 0 4px; }
 </style>
+<!-- app-theme -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap">
+<style id="app-theme">
+/* MoVibeSkua look: AQW's dark brown panels with gold trim, red buttons and the MVS crest.
+   Only tokens and decoration; every chart still reads its colours from the tokens below. */
+:root{
+  color-scheme:dark;
+  --bg:#0C0806;--surface:#1A110B;--card:#1E150E;--card-hi:#2A1D13;--line:#4A3820;--grid:#2E2216;
+  --text:#F6EBD3;--text-2:#DCC79C;--muted:#A88F6A;
+  --brand:#D8443A;--gold:#E8C15A;--trim:#8A6A2E;--btn:#B3261E;--btn-deep:#6E120E;
+  --s1:#E8C15A;--s2:#D8443A;--s3:#5FB27A;
+  --o1:#5C4418;--o2:#8A6A2E;--o3:#B98F3E;--o4:#E8C15A;--o5:#F4DC97;
+  --tip:#160E09;
+  --head:"Cinzel",Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    color-scheme:light;
+    --bg:#EFE3C8;--surface:#E6D6B4;--card:#FBF3E0;--card-hi:#F4E8CC;--line:#C9AE7A;--grid:#E8DABA;
+    --text:#2A1A0C;--text-2:#55391E;--muted:#7A5E3C;
+    --brand:#A3241C;--gold:#8A6420;--trim:#A88444;--btn:#B3261E;--btn-deep:#7A140F;
+    --s1:#A87A1E;--s2:#B3261E;--s3:#2F7F4A;
+    --o1:#E9D29A;--o2:#D4B068;--o3:#B98F3E;--o4:#8A6A2E;--o5:#5C4418;
+    --tip:#FBF3E0;
+  }
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#EFE3C8;--surface:#E6D6B4;--card:#FBF3E0;--card-hi:#F4E8CC;--line:#C9AE7A;--grid:#E8DABA;
+  --text:#2A1A0C;--text-2:#55391E;--muted:#7A5E3C;
+  --brand:#A3241C;--gold:#8A6420;--trim:#A88444;--btn:#B3261E;--btn-deep:#7A140F;
+  --s1:#A87A1E;--s2:#B3261E;--s3:#2F7F4A;
+  --o1:#E9D29A;--o2:#D4B068;--o3:#B98F3E;--o4:#8A6A2E;--o5:#5C4418;
+  --tip:#FBF3E0;
+}
+body{
+  background:
+    radial-gradient(1200px 520px at 50% -160px,color-mix(in srgb,var(--btn) 22%,transparent),transparent 70%),
+    radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.35)),
+    var(--bg);
+  background-attachment:fixed;
+}
+header{padding-bottom:16px;margin-bottom:20px;border-bottom:1px solid var(--trim);position:relative}
+header::after{content:"";position:absolute;left:50%;bottom:-5px;width:9px;height:9px;transform:translateX(-50%) rotate(45deg);
+  background:var(--gold);box-shadow:0 0 0 3px var(--bg)}
+.brandline{display:flex;align-items:center;gap:14px}
+.crest{width:64px;height:64px;object-fit:contain;filter:drop-shadow(0 3px 8px rgba(0,0,0,.6))}
+h1{font:700 26px/1.15 var(--head);letter-spacing:.04em;color:var(--gold);
+  text-shadow:0 1px 0 rgba(0,0,0,.6),0 0 18px color-mix(in srgb,var(--gold) 25%,transparent)}
+h1 em{font-style:normal;color:var(--text-2);font-weight:600;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;margin-left:4px}
+h2{font:700 14.5px/1.3 var(--head);letter-spacing:.05em;color:var(--gold)}
+.card,.tile{
+  background:linear-gradient(180deg,var(--card-hi),var(--card) 46px);
+  border:1px solid var(--trim);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.45),inset 0 1px 0 color-mix(in srgb,var(--gold) 22%,transparent),0 6px 18px rgba(0,0,0,.28);
+  position:relative;
+}
+.card{border-radius:12px}
+.tile{border-radius:10px}
+/* Gold corner studs, like AQW's framed windows. */
+.card::before,.card::after{content:"";position:absolute;top:7px;width:5px;height:5px;transform:rotate(45deg);background:var(--trim)}
+.card::before{left:7px}.card::after{right:7px}
+.tiles{grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+.tile b{font-size:25px;white-space:nowrap;color:var(--text)}
+.tile:first-child b{color:var(--gold)}
+.tile span{color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;font-size:11px}
+button,.chip{border-color:var(--trim);color:var(--text-2);background:color-mix(in srgb,var(--card-hi) 80%,transparent);border-radius:8px}
+button:hover{border-color:var(--gold);color:var(--text)}
+button.primary{
+  background:linear-gradient(180deg,var(--btn),var(--btn-deep));
+  border:1px solid var(--gold);color:#FFF1D2;font-weight:700;letter-spacing:.03em;
+  text-shadow:0 1px 0 rgba(0,0,0,.55);box-shadow:inset 0 1px 0 rgba(255,220,160,.35),0 2px 6px rgba(0,0,0,.35);
+}
+button.primary:hover{filter:brightness(1.12);color:#fff}
+.seg{border-color:var(--trim)}
+.seg button{background:transparent}
+.seg button[aria-pressed="true"]{background:color-mix(in srgb,var(--gold) 16%,transparent);color:var(--gold);box-shadow:inset 0 -2px 0 var(--gold)}
+.hb .t,.stack,.dwell{background:color-mix(in srgb,var(--surface) 70%,#000 0%);box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
+.hb .t i{background:linear-gradient(90deg,var(--trim),var(--s1))}
+th{color:var(--gold);font-family:var(--head);letter-spacing:.04em;font-size:11.5px}
+tbody tr:hover{background:color-mix(in srgb,var(--gold) 7%,transparent)}
+input[type=search]{border-color:var(--trim)}
+#tip{border-color:var(--trim)}
+
+</style>
+<!-- /app-theme -->
 </head>
 <body>
 <main>
 <header>
+  <div class="brandline"><img class="crest" src="mvs-crest.png" alt="">
   <div>
-    <h1>MoVibeSkua telemetry</h1>
+    <h1>MoVibeSkua <em>Telemetry</em></h1>
     <div class="sub" id="generated">No data yet</div>
-  </div>
+  </div></div>
   <div class="actions">
     <button id="demo" type="button">Show demo data</button>
     <button id="theme" type="button" aria-label="Switch light or dark theme">Theme</button>

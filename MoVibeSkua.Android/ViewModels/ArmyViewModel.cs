@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Android.App;
 using Android.Content;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.DependencyInjection;
 using CommunityToolkit.Mvvm.Input;
 using MoVibeSkua.Android.Platform;
 using MoVibeSkua.Android.Usage;
@@ -61,6 +63,26 @@ public sealed partial class ArmyViewModel : ObservableRecipient
     }
 
     protected override void OnDeactivated() => _timer.Stop();
+
+    [RelayCommand]
+    private void OpenButler()
+    {
+        IPluginManager? manager = Ioc.Default.GetService<IPluginManager>();
+        IPluginContainer? container = manager?.Containers.FirstOrDefault(c =>
+            c.Plugin.Name.Equals("Butler", StringComparison.OrdinalIgnoreCase) ||
+            c.Plugin.GetType().Name.Contains("Butler", StringComparison.OrdinalIgnoreCase));
+        if (container is null)
+        {
+            Status = "Butler plugin is not loaded. Check Menu -> Manage Plugins.";
+            return;
+        }
+
+        MethodInfo? openWindow = container.Plugin.GetType().GetMethod(
+            "OpenWindow",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+            Type.EmptyTypes);
+        openWindow?.Invoke(container.Plugin, null);
+    }
 
     [RelayCommand]
     private void Add()

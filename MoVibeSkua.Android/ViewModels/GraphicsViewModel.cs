@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Android.Content;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using CommunityToolkit.Mvvm.Input;
@@ -46,6 +47,14 @@ public partial class GraphicsViewModel : ObservableObject
         new Choice("Bright", "bright")
     };
 
+    public static readonly IReadOnlyList<Choice> TargetFpsOptions = new[]
+    {
+        new Choice("30 FPS (Power Saver / AQW Default)", "30"),
+        new Choice("48 FPS (Cinematic Balanced)", "48"),
+        new Choice("60 FPS (Maximum Smoothness)", "60"),
+        new Choice("Unlimited (Device Screen Refresh)", "0")
+    };
+
     private const string PrefsName = "movibeskua.shell";
     private readonly ISharedPreferences _prefs;
     private bool _loading;
@@ -63,12 +72,46 @@ public partial class GraphicsViewModel : ObservableObject
         AutoSmooth = _prefs.GetBoolean("gfx.auto", true);
         HeatWarnings = _prefs.GetBoolean("gfx.heat", true);
         SmoothMotion = _prefs.GetBoolean("gfx.smooth", device.DefaultSmoothMotion);
+        Services.PerformanceGuard guard = Services.PerformanceGuard.Instance;
+        EnablePerformanceGuard = guard.EnablePerformanceGuard;
+        TargetFps = Find(TargetFpsOptions, guard.TargetFps.ToString(CultureInfo.InvariantCulture));
+        AutoThrottleOnOverheat = guard.AutoThrottleOnOverheat;
+        ShowHardwareAlerts = guard.ShowHardwareAlerts;
+        _loading = false;
+        RefreshTelemetry();
+        _telemetryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        _telemetryTimer.Tick += (_, _) => RefreshTelemetry();
+        _telemetryTimer.Start();
         _loading = false;
     }
 
     public IReadOnlyList<Choice> ResolutionChoices => Resolutions;
     public IReadOnlyList<Choice> AntiAliasChoices => AntiAliasing;
     public IReadOnlyList<Choice> ColourChoices => ColourStyles;
+    public IReadOnlyList<Choice> TargetFpsChoices => TargetFpsOptions;
+
+    [ObservableProperty]
+    private bool _enablePerformanceGuard;
+
+    [ObservableProperty]
+    private Choice _targetFps = TargetFpsOptions[0];
+
+    [ObservableProperty]
+    private bool _autoThrottleOnOverheat;
+
+    [ObservableProperty]
+    private bool _showHardwareAlerts;
+
+    [ObservableProperty]
+    private string _liveThermalStatus = "Normal";
+
+    [ObservableProperty]
+    private string _liveMemoryStatus = "Checking...";
+
+    [ObservableProperty]
+    private string _livePacingStatus = "30 FPS locked";
+
+    private DispatcherTimer? _telemetryTimer;
 
     [ObservableProperty]
     private Choice _resolution;
@@ -104,6 +147,66 @@ public partial class GraphicsViewModel : ObservableObject
     partial void OnAutoSmoothChanged(bool value) => Changed();
     partial void OnHeatWarningsChanged(bool value) => Changed();
     partial void OnSmoothMotionChanged(bool value) => Changed();
+
+    partial void OnEnablePerformanceGuardChanged(bool value)
+    {
+        if (_loading) return;
+        Services.PerformanceGuard.Instance.EnablePerformanceGuard = value;
+        RefreshTelemetry();
+    }
+
+    partial void OnTargetFpsChanged(Choice value)
+    {
+        if (_loading) return;
+        if (int.TryParse(value.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int fps))
+            Services.PerformanceGuard.Instance.TargetFps = fps;
+        RefreshTelemetry();
+    }
+
+    partial void OnAutoThrottleOnOverheatChanged(bool value)
+    {
+        if (_loading) return;
+        Services.PerformanceGuard.Instance.AutoThrottleOnOverheat = value;
+        RefreshTelemetry();
+    }
+
+    partial void OnShowHardwareAlertsChanged(bool value)
+    {
+        if (_loading) return;
+        Services.PerformanceGuard.Instance.ShowHardwareAlerts = value;
+    }
+
+    public void RefreshTelemetry()
+    {
+        Services.PerformanceGuard guard = Services.PerformanceGuard.Instance;
+        int effective = Services.PerformanceGuard.EffectiveTargetFps;
+        if (!guard.EnablePerformanceGuard)
+            LivePacingStatus = "Disabled (Unlimited)";
+        else if (guard.IsThermalThrottled)
+            LivePacingStatus = $"Throttled to {effective} FPS (Thermal Guard)";
+        else if (guard.IsDynamicThrottled)
+            LivePacingStatus = $"Dynamic Stepped to {effective} FPS (Strain Guard)";
+        else
+            LivePacingStatus = effective > 0 ? $"Locked: {effective} FPS" : "Unlimited";
+
+        int status = guard.CurrentThermalStatus;
+        double battery = guard.CurrentBatteryTemp;
+        string statusStr = status switch
+        {
+            0 => "None (Cool)",
+            1 => "Light",
+            2 => "Moderate",
+            3 => "Severe",
+            4 => "Critical (Throttled)",
+            5 => "Emergency",
+            6 => "Shutdown",
+            _ => "Normal"
+        };
+        LiveThermalStatus = battery > 0 ? $"{statusStr} ({battery:0.0}°C)" : statusStr;
+
+        Services.MemoryMetrics mem = guard.GetMemoryMetrics();
+        LiveMemoryStatus = $"{mem.UsedMb:0} MB used / {mem.AvailableMb:0} MB free (Total: {mem.TotalMb:0} MB)";
+    }
 
     [RelayCommand]
     private void ApplyPreset(string preset)

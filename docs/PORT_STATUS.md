@@ -99,8 +99,8 @@ There are no automated tests for the Android app yet; every check above was done
 
 | Function | Ported | Tested | Description | Solution |
 |---|---|---|---|---|
-| Plugin manager | ✅ Yes | 👀 Opens | Load and unload plugins. | VibeSkua's page (Menu → Plugins → Manage Plugins). |
-| Bundled plugins (Daily Tracker, ButlerV5, Cosmetics) | ✅ Yes | 🖥️ Emulator | The plugins that ship with VibeSkua on PC, under Menu → Plugins. | Packed in the APK and loaded on start. Android can't create their windows, so they now open through `PluginWindow`: a window on PC and a page in MVS (one build of each plugin runs on both). A page shorter than the window was scrolls instead of squeezing. All three pages open; Cosmetics downloads its 67,000-item catalog (fixed: it read the download on the UI thread, which Android refuses). Nothing tried with a character yet. |
+| Plugin manager | ✅ Yes | 👀 Opens | Load, open, configure and unload plugins. | VibeSkua's page (Menu → Plugins → Manage Plugins), with an Open button for plugins that provide a window/page. |
+| Bundled plugins (Daily Tracker, ButlerV5, Cosmetics) | ✅ Yes | 🖥️ Emulator | The plugins that ship with VibeSkua on PC, under Menu → Plugins (plus a Butler shortcut on the Army page). | Packed in the APK (built automatically during APK packaging) and loaded on start. Android can't create their windows, so they open through `PluginWindow`: a window on PC and a page in MVS (one build of each plugin runs on both). Butler (`Skua.Plugin.ButlerV5`) includes VibeSkua's full feature set (`Send to player` with recent target chips, `Follow master's quests`, `Copy master's walking`, responsive settings/log layout, and `/proc/<pid>` liveness checks for Android Army processes). All three pages open; Cosmetics downloads its 67,000-item catalog. |
 
 ## New in MVS
 

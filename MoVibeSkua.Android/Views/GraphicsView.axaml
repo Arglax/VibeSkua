@@ -92,6 +92,59 @@
             </Border>
 
             <Border Classes="gfx-card">
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <materialIcons:MaterialIcon Kind="ShieldCheckOutline" Width="16" Height="16" Foreground="{DynamicResource SkuaAccentBrush}" />
+                        <TextBlock Classes="gfx-title" Text="Performance Guard &amp; Frame Pacing" />
+                    </StackPanel>
+                    
+                    <CheckBox Content="Enable Performance Guard" IsChecked="{Binding EnablePerformanceGuard}" />
+                    <TextBlock Classes="gfx-note"
+                               Text="Locks the game surface and Avalonia UI render loop to a configured target FPS without jitter, monitors hardware stress, and protects against sudden thermal shutdowns and Android LMK process termination." />
+
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto" ColumnSpacing="10" IsEnabled="{Binding EnablePerformanceGuard}">
+                        <TextBlock Grid.Column="0" Classes="gfx-label" Text="Target FPS" />
+                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding TargetFpsChoices}" SelectedItem="{Binding TargetFps}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GraphicsViewModel+Choice">
+                                    <TextBlock Text="{Binding Label}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <CheckBox Content="Auto-throttle on overheat" IsChecked="{Binding AutoThrottleOnOverheat}" IsEnabled="{Binding EnablePerformanceGuard}" />
+                    <TextBlock Classes="gfx-note"
+                               Text="Automatically steps frame target down to 30 FPS and pauses high-cost animations when Android reports critical thermal status (API 29+) or battery exceeds 47°C." />
+
+                    <CheckBox Content="Show hardware alerts (thermal &amp; memory)" IsChecked="{Binding ShowHardwareAlerts}" />
+                    <TextBlock Classes="gfx-note"
+                               Text="Displays non-intrusive notification toasts when thermal throttling or low-memory trimming occurs without disrupting active scripts or army sessions." />
+
+                    <!-- Live Hardware Telemetry Card -->
+                    <Border Background="{DynamicResource SkuaBackgroundBrush}" CornerRadius="6" Padding="10" Margin="0,4,0,0">
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <materialIcons:MaterialIcon Kind="Gauge" Width="14" Height="14" Foreground="{DynamicResource SkuaAccentBrush}" />
+                                <TextBlock Text="Hardware Telemetry &amp; Diagnostics" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource SkuaAccentBrush}" />
+                            </StackPanel>
+                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="4">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Classes="gfx-note" Text="Render Pace:" />
+                                <TextBlock Grid.Row="0" Grid.Column="1" FontSize="11" FontWeight="SemiBold" Text="{Binding LivePacingStatus}" />
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Classes="gfx-note" Text="Thermal Status:" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" FontSize="11" Text="{Binding LiveThermalStatus}" />
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Classes="gfx-note" Text="Memory Status:" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" FontSize="11" Text="{Binding LiveMemoryStatus}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="gfx-card">
                 <StackPanel Spacing="8">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <materialIcons:MaterialIcon Kind="RocketLaunchOutline" Width="16" Height="16" Foreground="{DynamicResource SkuaAccentBrush}" />
