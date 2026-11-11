@@ -335,6 +335,9 @@ public sealed class PerformanceGuard
         _mainHandler?.PostDelayed(PeriodicCheck, 1000);
     }
 
+    /// <summary>0 = normal, 1 = warm (moderate), 2 = hot (critical); between 42 and 44 C the last level holds.</summary>
+    private int _thermalLevel;
+
     public void OnThermalStatusChanged(int status)
     {
         _currentThermalStatus = status;
@@ -365,6 +368,13 @@ public sealed class PerformanceGuard
         // 0: None, 1: Light, 2: Moderate, 3: Severe, 4: Critical, 5: Emergency, 6: Shutdown (-1: unknown)
         bool isCritical = status >= 4 || battery >= 47.0;
         bool isModerate = !isCritical && (status >= 2 || battery >= 44.0);
+
+        // Called every second: act (log, alert, throttle) only when the level changes. Repeating it posted
+        // the warning banner and a log line every second while the phone sat at 44 C (2026-11-12).
+        int level = isCritical ? 2 : isModerate ? 1 : (status <= 1 && battery < 42.0) ? 0 : _thermalLevel;
+        if (level == _thermalLevel)
+            return;
+        _thermalLevel = level;
 
         if (isCritical)
         {

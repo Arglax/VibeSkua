@@ -192,6 +192,7 @@ public partial class MobileShellView : UserControl
             RightRailFrame.Padding = new Thickness(2, 4, 2 + s.Right, 4);
             TopBar.Padding = new Thickness(2, 2, 6, 2);
             TopBar.MinHeight = 48;
+            SyncRailColumns();
         }
         else
         {
@@ -207,6 +208,20 @@ public partial class MobileShellView : UserControl
             RightRailFrame.Height = BottomBarHeight + bottom;
             RightRailFrame.Padding = new Thickness(4, 2, 4, 2 + bottom);
         }
+    }
+
+    // The landscape grid's rail columns follow the rails exactly (0 when a rail is hidden), so their
+    // width never depends on what else sits in those columns.
+    private void SyncRailColumns()
+    {
+        if (_landscape != true || Root.ColumnDefinitions.Count != 3)
+            return;
+        double left = LeftRailFrame.IsVisible ? LeftRailFrame.Width : 0;
+        double right = RightRailFrame.IsVisible ? RightRailFrame.Width : 0;
+        if (Root.ColumnDefinitions[0].Width.Value != left || !Root.ColumnDefinitions[0].Width.IsAbsolute)
+            Root.ColumnDefinitions[0].Width = new GridLength(left, GridUnitType.Pixel);
+        if (Root.ColumnDefinitions[2].Width.Value != right || !Root.ColumnDefinitions[2].Width.IsAbsolute)
+            Root.ColumnDefinitions[2].Width = new GridLength(right, GridUnitType.Pixel);
     }
 
     private void OnBackRequested(object? sender, RoutedEventArgs e)
@@ -437,9 +452,12 @@ public partial class MobileShellView : UserControl
 
         if (landscape)
         {
-            Root.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            // Rail columns are fixed widths (ApplyInsets sets them with the rails), never Auto: anything
+            // that lands in a rail column without its own span (a banner, a dialog) would otherwise widen
+            // the rail and push the game aside.
+            Root.ColumnDefinitions.Add(new ColumnDefinition(RailWidth, GridUnitType.Pixel));
             Root.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
-            Root.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            Root.ColumnDefinitions.Add(new ColumnDefinition(RailWidth, GridUnitType.Pixel));
             Place(LeftRailFrame, 0, 0);
             Place(Split, 0, 1);
             Place(RightRailFrame, 0, 2);
