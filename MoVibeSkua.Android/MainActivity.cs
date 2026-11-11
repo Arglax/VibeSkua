@@ -38,6 +38,8 @@ public class MainActivity : AvaloniaMainActivity<App>
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         Current = this;
+        // Flash calls from the UI thread can't be answered while it waits (see ControlChannel.IsUiThread).
+        Skua.Flash.Ruffle.ControlChannel.IsUiThread = () => global::Android.OS.Looper.MyLooper() == global::Android.OS.Looper.MainLooper;
         Platform.Army.SeparateWebViewData();
         if (!System.Diagnostics.Trace.Listeners.OfType<Platform.LogcatTraceListener>().Any())
             System.Diagnostics.Trace.Listeners.Add(new Platform.LogcatTraceListener());

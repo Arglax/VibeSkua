@@ -137,11 +137,32 @@ public sealed class ControlChannel : IDisposable
     /// Calls an ExternalInterface callback registered by the SWF and returns the raw JSON of the
     /// result (null for null/undefined). Returns null without waiting when the page is not connected.
     /// </summary>
+    /// <summary>
+    /// Set by the Android host: true on the app's main (UI) thread. The page answers calls only between
+    /// game frames, and the WebView's frames are driven through that same thread, so a call that waits
+    /// there can never be answered: it stalled for the whole timeout (the Options page froze the app,
+    /// "MVS isn't responding", 2026-11-12). From that thread a call is sent without waiting (setters still
+    /// reach the game) and returns null at once.
+    /// </summary>
+    public static Func<bool>? IsUiThread { get; set; }
+
+    private static readonly ConcurrentDictionary<string, byte> _uiThreadCallsSeen = new();
+
     public string? Call(string function, string argsJson, CancellationToken ct = default)
     {
         WebSocket? socket = _socket;
         if (socket is null || socket.State != WebSocketState.Open)
             return null;
+
+        if (IsUiThread?.Invoke() == true)
+        {
+            if (_uiThreadCallsSeen.TryAdd(function, 0))
+                Trace.WriteLine($"[Ruffle] '{function}' called on the UI thread: sent without waiting for its answer.");
+            int noWaitId = Interlocked.Increment(ref _nextId);
+            string noWait = $"{{\"t\":\"call\",\"id\":{noWaitId},\"f\":{JsonSerializer.Serialize(function)},\"a\":{argsJson}}}";
+            _ = Task.Run(() => { try { Send(socket, noWait); } catch { } });
+            return null;
+        }
 
         int id = Interlocked.Increment(ref _nextId);
         TaskCompletionSource<string?> tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -172,7 +193,7 @@ public sealed class ControlChannel : IDisposable
     public (bool Ok, string? Raw)[]? CallBatch(IReadOnlyList<(string Function, string ArgsJson)> calls)
     {
         WebSocket? socket = _socket;
-        if (socket is null || socket.State != WebSocketState.Open || calls.Count == 0)
+        if (socket is null || socket.State != WebSocketState.Open || calls.Count == 0 || IsUiThread?.Invoke() == true)
             return null;
 
         int id = Interlocked.Increment(ref _nextId);
