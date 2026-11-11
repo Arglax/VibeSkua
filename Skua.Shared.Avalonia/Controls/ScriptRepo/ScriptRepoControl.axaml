@@ -76,7 +76,7 @@
 
     <Grid x:Name="RepoLayout" RowDefinitions="Auto,*,Auto" Margin="12" RowSpacing="10">
 
-        <!-- 1. Search, what it looks in, category, name order -->
+        <!-- 1. Search, what it looks in, category, order (name or date) -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" IsEnabled="{Binding !IsBusy}">
             <TextBox Classes="repo-search" Watermark="Search scripts by name, path or tag" Text="{Binding SearchText, Mode=TwoWay}">
                 <TextBox.InnerLeftContent>
@@ -96,7 +96,8 @@
             <ComboBox Classes="repo-filter" ItemsSource="{Binding FilterOptions}" SelectedItem="{Binding FilterBy, Mode=TwoWay}"
                       ToolTip.Tip="Category" />
             <ToggleButton Classes="app-toggle repo-sort" Width="32" Padding="0" HorizontalContentAlignment="Center"
-                          IsChecked="{Binding SortDescending, Mode=TwoWay}"
+                          IsChecked="{Binding IsSortReversed, Mode=OneWay}"
+                          Command="{Binding CycleSortCommand}"
                           ToolTip.Tip="{Binding SortDirectionText, StringFormat='Order: {0}'}">
                 <materialIcons:MaterialIcon Kind="{Binding SortDirectionIcon}" Width="16" Height="16" />
             </ToggleButton>

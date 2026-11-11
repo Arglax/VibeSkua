@@ -29,6 +29,7 @@ public class HotKeys
     private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
 
     public static bool IsHostProcess { get; set; } = false;
+    public static int ParentHostProcessId { get; set; } = 0;
     public static IntPtr ActiveChildHwnd { get; set; } = IntPtr.Zero;
     public static IntPtr HostHwnd { get; set; } = IntPtr.Zero;
     public static Func<uint, IntPtr>? GetChildHwndForPid { get; set; }
@@ -110,7 +111,8 @@ public class HotKeys
         "ToggleUntargetDead",
         "ToggleUntargetSelf",
         "PlayerRest",
-        "RejectAllDrops"
+        "RejectAllDrops",
+        "TogglePauseScript"
     };
 
     public static int GetActionId(string actionName) => _actionList.IndexOf(actionName);
@@ -198,6 +200,7 @@ public class HotKeys
             // Utilities
             "Logout" => "Safely logs your character out to the login screen.",
             "StopScript" => "Stops the currently running bot script.",
+            "TogglePauseScript" => "Pauses the running bot script, or resumes it if it is paused.",
             "PlayerRest" => "Forces your character to sit and rest.",
             "RejectAllDrops" => "Instantly rejects all items in the drop UI.",
             "LoadScript" => "Opens the file browser to load a new script.",
@@ -409,6 +412,7 @@ public class HotKeys
         _hotkeyRegistry["ToggleInfiniteRange"] = new RelayCommand(() => ExecuteOrForward("ToggleInfiniteRange", () => Ioc.Default.GetRequiredService<IScriptOption>().InfiniteRange ^= true));
         _hotkeyRegistry["Logout"] = new RelayCommand(() => ExecuteOrForward("Logout", () => Ioc.Default.GetRequiredService<IScriptServers>().Logout()));
         _hotkeyRegistry["StopScript"] = new RelayCommand(() => ExecuteOrForward("StopScript", () => Ioc.Default.GetRequiredService<IScriptManager>().StopScript()));
+        _hotkeyRegistry["TogglePauseScript"] = new RelayCommand(() => ExecuteOrForward("TogglePauseScript", TogglePauseScriptLocal));
         _hotkeyRegistry["JumpToHome"] = new RelayCommand(() => ExecuteOrForward("JumpToHome", () => Ioc.Default.GetRequiredService<IScriptMap>().Join("home", "Enter", "Spawn")));
 
         // Army Control
@@ -558,6 +562,14 @@ public class HotKeys
     private static void ToggleScriptLocal()
     {
         StrongReferenceMessenger.Default.Send<ToggleScriptMessage, int>((int)MessageChannels.ScriptStatus);
+    }
+
+    private static async void TogglePauseScriptLocal()
+    {
+        // Same as the Script Loader's Pause/Resume button; its status text follows ScriptPaused.
+        IScriptManager manager = Ioc.Default.GetRequiredService<IScriptManager>();
+        if (manager.ScriptRunning)
+            await manager.SetPausedAsync(!manager.ScriptPaused);
     }
 
     private static void LoadScriptLocal()

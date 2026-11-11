@@ -2,7 +2,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Styling;
+using Skua.Shared.Avalonia.Controls.Shell;
 
 namespace ButlerV5;
 

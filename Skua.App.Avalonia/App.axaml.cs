@@ -39,6 +39,8 @@ public partial class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+        // The client's monocle is platinum; the Manager keeps the shared gold default.
+        Skua.Shared.Avalonia.Controls.Shell.WindowTitleBar.SetDefaultIcon("avares://Skua.Shared.Avalonia/Assets/SkuaClientShellImage.png");
     }
 
     [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SetParent", SetLastError = true)]
@@ -80,6 +82,7 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         RegisterGlobalExceptionHandlers();
+        Skua.Shared.Avalonia.Services.PointerCaptureReset.Track();
 
         ServiceCollection services = new();
         services.AddCommonServices();
@@ -101,6 +104,7 @@ public partial class App : Application
         Skua.App.Avalonia.AppStartup.Services.AddSkuaMainAppViewModels(services);
 
         Ioc.Default.ConfigureServices(services.BuildServiceProvider());
+        GrandpaModeState.Set(Ioc.Default.GetRequiredService<Skua.Core.Interfaces.ISettingsService>().Get<bool>("GrandpaMode"));
 
         Task.Run(() =>
         {
@@ -154,7 +158,11 @@ public partial class App : Application
             }
             else HostInstanceId = null;
         }
+        if (hasEmbedFlag)
+            Environment.SetEnvironmentVariable("VIBESKUA_EMBED", "1");
+
         _parentHostProcessId = hasEmbedFlag ? hostPid : 0;
+        Skua.Core.AppStartup.HotKeys.ParentHostProcessId = _parentHostProcessId;
         if (_parentHostProcessId > 0)
             Skua.Shared.Avalonia.Controls.Shell.WindowTitleBar.ArtworkPathChanged += OnTitleBarArtworkPathChanged;
         if (_parentHostProcessId > 0 && themeService is AvaloniaThemeService initialTheme)
@@ -208,6 +216,8 @@ public partial class App : Application
                 };
                 desktop.MainWindow = mainChild;
                 mainChild.HideTitleBar();
+                mainChild.Closing += (_, e) => LogEmbeddedLifecycle("MainWindow.Closing", Environment.StackTrace);
+                mainChild.Closed += (_, _) => LogEmbeddedLifecycle("MainWindow.Closed");
 
                 mainChild.Opened += (s, ev) => 
                 {
@@ -310,7 +320,11 @@ public partial class App : Application
                 else
                     ThemeResourceApplicator.ApplyTitleBarTheme(masterWindow, themeService.IsDarkTheme);
             }
-            desktop.Exit += OnDesktopExit;
+            desktop.Exit += (sender, e) =>
+            {
+                LogEmbeddedLifecycle($"Desktop.Exit (ExitCode={e.ApplicationExitCode})");
+                OnDesktopExit(sender, e);
+            };
         }
 
         Task.Run(() => TryInitializeStartupServices());
@@ -392,6 +406,15 @@ public partial class App : Application
 
         try
         {
+            Ioc.Default.GetService<IRemoteControlService>()?.Start();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Startup remote control init failed: {ex.GetType().Name}: {ex.Message}");
+        }
+
+        try
+        {
             IGetScriptsService? getScripts = Ioc.Default.GetService<IGetScriptsService>();
             if (getScripts is null)
                 return;
@@ -412,6 +435,28 @@ public partial class App : Application
             }
         }
         catch { }
+    }
+
+    private static void LogEmbeddedLifecycle(string eventName, string? details = null)
+    {
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("VIBESKUA_EMBED")))
+            return;
+
+        try
+        {
+            string directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "VibeSkuaTabs");
+            System.IO.Directory.CreateDirectory(directory);
+            string entry = $"{DateTimeOffset.UtcNow:O} | PID={Environment.ProcessId} | {eventName}";
+            if (!string.IsNullOrWhiteSpace(details))
+                entry += Environment.NewLine + details;
+            System.IO.File.AppendAllText(
+                System.IO.Path.Combine(directory, $"{Environment.ProcessId}.lifecycle.log"),
+                entry + Environment.NewLine);
+        }
+        catch (Exception exception)
+        {
+            System.Diagnostics.Trace.WriteLine($"Embedded lifecycle logging failed: {exception}");
+        }
     }
 
     private static void OnDesktopExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
@@ -440,6 +485,7 @@ public partial class App : Application
                 {
                     try { await Ioc.Default.GetRequiredService<IDiagnosticsService>().DisposeAsync(); } catch { }
                     try { Ioc.Default.GetRequiredService<ICaptureProxy>().Stop(); } catch { }
+                    try { Ioc.Default.GetService<IRemoteControlService>()?.Stop(); } catch { }
                     try
                     {
                         await ((IAsyncDisposable)Ioc.Default.GetRequiredService<IScriptBoost>()).DisposeAsync();
@@ -776,7 +822,7 @@ public partial class App : Application
     {
         try
         {
-            using var stream = AssetLoader.Open(new Uri("avares://Skua.Shared.Avalonia/Assets/SkuaIcon.ico"));
+            using var stream = AssetLoader.Open(new Uri("avares://Skua.Shared.Avalonia/Assets/SkuaClientIcon.ico"));
             var icon = new WindowIcon(stream);
 
             _trayIcon = new TrayIcon

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Skua.App.Avalonia.Plugins;
+using Skua.App.Avalonia.Services;
 using Skua.App.Avalonia.ViewModels;
 using Skua.App.Avalonia.ViewModels.AdvancedSkills;
 using Skua.App.Avalonia.ViewModels.AppLogs;
@@ -97,6 +98,10 @@ public static class Services
         services.AddSingleton<IAuraMonitorService, AuraMonitorService>();
         services.AddSingleton<IJunkService, JunkService>();
         services.AddSingleton<BackgroundThemeService>();
+        // The remote control server listens on every network interface with no authentication and can load
+        // and run any script path: never on a phone (MVS), where it would expose the game to the Wi-Fi.
+        if (!System.OperatingSystem.IsAndroid())
+            services.AddSingleton<IRemoteControlService, RemoteControlService>();
 
         return services;
     }
@@ -112,6 +117,7 @@ public static class Services
             new("Script Repo", () => s.GetRequiredService<ScriptRepoViewModel>()),
             new("Scheduler", () => s.GetRequiredService<ScriptSchedulerViewModel>()),
             new("Logs", () => s.GetRequiredService<LogsViewModel>()),
+            new("Notification Center", () => s.GetRequiredService<NotificationCenterViewModel>()),
             new("Auto", () => s.GetRequiredService<AutoViewModel>()),
             new("Jump", () => s.GetRequiredService<JumpViewModel>()),
             new("Fast Travel", () => s.GetRequiredService<FastTravelViewModel>()),
@@ -158,6 +164,8 @@ public static class Services
 
         services.AddTransient<ConsoleViewModel>();
         services.AddTransient<DiagnosticsViewModel>();
+        services.AddSingleton<NotificationCenterViewModel>();
+        services.AddTransient<CalendarViewModel>();
 
         services.AddSingleton<ScriptRepoViewModel>();
         services.AddSingleton<ScriptLoaderViewModel>();

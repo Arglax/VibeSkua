@@ -29,11 +29,26 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
         OptionDictionary = GenerateDictionary().ToImmutableDictionary();
         StrongReferenceMessenger.Default.Register<ScriptOption, ScriptStoppedMessage, int>(this, (int)MessageChannels.ScriptStatus, ScriptStopped);
         StrongReferenceMessenger.Default.Register<ScriptOption, MapChangedMessage, int>(this, (int)MessageChannels.GameEvents, MapChanged);
+        StrongReferenceMessenger.Default.Register<ScriptOption, LoginMessage, int>(this, (int)MessageChannels.GameEvents, LoggedIn);
         _isInitializing = false;
+    }
+
+    // Every login runs the game's initInterface, which hides ui.mcFPS; it runs before the world joins the first map.
+    private bool _reapplyShowFPS;
+
+    private void LoggedIn(ScriptOption recipient, LoginMessage message)
+    {
+        recipient._reapplyShowFPS = recipient._showFPS;
     }
 
     private void MapChanged(ScriptOption recipient, MapChangedMessage message)
     {
+        if (recipient._reapplyShowFPS)
+        {
+            recipient._reapplyShowFPS = false;
+            try { recipient.Flash.SetGameObject("ui.mcFPS.visible", true); } catch { }
+        }
+
         if (recipient.StreamerMode)
         {
             Task.Run(async () => 
@@ -165,6 +180,10 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
 
     [ObservableProperty]
     private bool _safeRelogin;
+
+    // Deliberately not on IScriptOption: it is a UI setting only, scripts don't get a handle on it
+    [ObservableProperty]
+    private bool _reloginFallback;
 
     [ModuleBinding("DisableCollisions")]
     private bool _disableCollisions;

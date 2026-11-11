@@ -41,9 +41,30 @@
     </Style>
     <Style Selector=":is(UserControl).mvs TextBlock.cat"><Setter Property="FontSize" Value="13" /><Setter Property="Foreground" Value="#E8C15A" /></Style>
   </UserControl.Styles>
-  <Grid RowDefinitions="*,Auto" Margin="12">
+  <Grid RowDefinitions="Auto,*,Auto" Margin="12">
+    <!-- Notice: saved enum choices that were reset because the script no longer has them -->
+    <Border Grid.Row="0"
+            Margin="0,0,0,10"
+            Background="{DynamicResource SkuaSurfaceAltBrush}"
+            BorderBrush="{DynamicResource SkuaAccentBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="12,8"
+            IsVisible="{Binding ResetNotice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+      <Grid ColumnDefinitions="Auto,*">
+        <materialIcons:MaterialIcon Kind="AlertCircleOutline" Width="16" Height="16" VerticalAlignment="Top"
+                                    Margin="0,0,8,0"
+                                    Foreground="{DynamicResource SkuaAccentBrush}" />
+        <TextBlock Grid.Column="1"
+                   Text="{Binding ResetNotice}"
+                   FontSize="12"
+                   Foreground="{DynamicResource SkuaTextBrush}"
+                   TextWrapping="Wrap" />
+      </Grid>
+    </Border>
+
     <!-- Options List Panel -->
-    <Border Grid.Row="0" x:Name="ListFrame"
+    <Border Grid.Row="1" x:Name="ListFrame"
             Background="{DynamicResource SkuaSurfaceBrush}"
             BorderBrush="{DynamicResource SkuaBorderBrush}"
             BorderThickness="1"
@@ -113,7 +134,7 @@
     </Border>
 
     <!-- Bottom Selected Option Info Card -->
-    <Border Grid.Row="1" x:Name="InfoCard"
+    <Border Grid.Row="2" x:Name="InfoCard"
             Margin="0,10,0,0"
             Background="{DynamicResource SkuaSurfaceAltBrush}"
             BorderBrush="{DynamicResource SkuaBorderBrush}"

@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.DependencyInjection;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Skua.App.Avalonia.ViewModels.Options;
+using Skua.App.Avalonia.Services;
 using Skua.Core.Interfaces;
 using Skua.Core.Interfaces.Services;
 using Skua.Core.Scripts;
@@ -69,6 +70,13 @@ internal class Options
         List<DisplayOptionItemViewModelBase> appOptions = new()
         {
             CreateSettingOptionItem<bool>("Show Username in Title", "Whether to display logged-in character name in window title", "ShowUsernameInTitle"),
+            CreateSettingOptionItem<bool>("Auto-jump on Position Change", "Automatically jump when selecting a map cell or pad in the Jump control", "AutoJumpOnPositionChange"),
+            new CommandOptionItemViewModel<bool>("Grandpa Mode", "Larger, easier-to-read text in logs and packet output", "GrandpaMode", new RelayCommand<bool>(enabled =>
+            {
+                ISettingsService settings = Ioc.Default.GetRequiredService<ISettingsService>();
+                settings.Set("GrandpaMode", enabled);
+                GrandpaModeState.Set(enabled);
+            }), Ioc.Default.GetRequiredService<ISettingsService>().Get<bool>("GrandpaMode")),
             CreateSettingOptionItem<bool>("Auto Update Scripts", "Whether to auto update scripts when MVS starts (MVS asks first when this is off), needs \"Check for Script Updates\" to be true", "AutoUpdateBotScripts"),
             CreateSettingOptionItem<bool>("Check for Script Updates", "Whether to check for script updates when MVS starts", "CheckBotScriptsUpdates"),
             CreateSettingOptionItem<bool>("Auto Update Advanced Skill Sets", "Whether to auto update the advanced skill sets (the class skill orders scripts use) when MVS starts, needs \"Check for Advanced Skill Sets Updates\" to be true", "AutoUpdateAdvanceSkillSetsUpdates"),
@@ -83,6 +91,26 @@ internal class Options
             new CommandOptionItemViewModel<IRelayCommand>("Test MVS Nexus Webhook", new AsyncRelayCommand(async () => {
                 await Ioc.Default.GetRequiredService<IDiscordWebhookService>().TestNexusWebhookAsync();
             })) { ActionText = "Test" },
+            new CommandOptionItemViewModel<bool>("Remote Control Server Enabled", "Run local HTTP server for Android controller and mobile dashboard connectivity", "RemoteControlServerEnabled", new RelayCommand<bool>(enabled =>
+            {
+                Ioc.Default.GetRequiredService<ISettingsService>().Set("RemoteControlServerEnabled", enabled);
+                var remoteService = Ioc.Default.GetService<IRemoteControlService>();
+                if (enabled)
+                    remoteService?.Start();
+                else
+                    remoteService?.Stop();
+            }), s.GetRequiredService<ISettingsService>().Get<bool>("RemoteControlServerEnabled")),
+            new CommandOptionItemViewModel<int>("Remote Control Server Port", "Port for mobile controller and dashboard (default: 8088)", "RemoteControlPort", "Port", new RelayCommand<string>(value =>
+            {
+                if (!int.TryParse(value, out int result) || result < 1024 || result > 65535) return;
+                Ioc.Default.GetRequiredService<ISettingsService>().Set("RemoteControlPort", result);
+                var remoteService = Ioc.Default.GetService<IRemoteControlService>();
+                if (remoteService != null && remoteService.IsRunning)
+                {
+                    remoteService.Stop();
+                    remoteService.Start();
+                }
+            }), s.GetRequiredService<ISettingsService>().Get<int>("RemoteControlPort")),
             CreateSettingOptionItem<bool>("Notify on Script Started", "Send alerts and initial statistics when a script starts running", "WebhookNotifyStarted"),
             CreateSettingOptionItem<bool>("Notify on Script Stopped", "Send session summary and statistics when a script finishes or stops", "WebhookNotifyStopped"),
             CreateSettingOptionItem<bool>("Notify on Script Crashed", "Send alerts when a script crashes with an error", "WebhookNotifyCrashed"),
@@ -131,7 +159,8 @@ internal class Options
         // Nothing in the Android app reads these: it has no window title, Ruffle has no Flash Player
         // cache or animation setting, and junk item updates only run in the desktop Manager.
         if (OperatingSystem.IsAndroid())
-            appOptions.RemoveAll(o => o.Tag is "ShowUsernameInTitle" or "ClientAnim" or "ClearFlashCache" or "CheckJunkItemsUpdates" or "AutoUpdateJunkItems");
+            appOptions.RemoveAll(o => o.Tag is "ShowUsernameInTitle" or "ClientAnim" or "ClearFlashCache" or "CheckJunkItemsUpdates" or "AutoUpdateJunkItems"
+                or "RemoteControlServerEnabled" or "RemoteControlPort");
 
         return new ApplicationOptionsViewModel(appOptions);
 

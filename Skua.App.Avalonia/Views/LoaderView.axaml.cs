@@ -38,7 +38,9 @@ public partial class LoaderView : UserControl
         CacheGrid.RowSpacing = narrow ? 8 : 0;
         SetOrClear(CacheLabel, MaxWidthProperty, narrow, 0d);
         CacheLabel.Margin = narrow ? default : new Thickness(0, 0, 4, 0);
-        CacheSeparator.IsVisible = !narrow;
+        Grid.SetRow(ProbeCheck, narrow ? 3 : 0);
+        Grid.SetColumn(ProbeCheck, narrow ? 0 : 3);
+        Grid.SetColumnSpan(ProbeCheck, narrow ? 6 : 1);
         Grid.SetRow(RangeBox, narrow ? 1 : 0);
         Grid.SetColumn(RangeBox, narrow ? 0 : 4);
         Grid.SetColumnSpan(RangeBox, narrow ? 6 : 1);

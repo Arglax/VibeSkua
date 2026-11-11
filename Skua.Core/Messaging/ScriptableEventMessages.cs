@@ -5,6 +5,7 @@ using Skua.Core.Models.Shops;
 namespace Skua.Core.Messaging;
 
 public sealed record LogoutMessage();
+public sealed record PlayerDisconnectedMessage();
 public sealed record LogoutRequestedMessage();
 public sealed record LoginMessage(string Username);
 public sealed record PlayerDeathMessage();
@@ -25,6 +26,7 @@ public sealed record CounterAttackMessage(bool Faded);
 public sealed record ItemAddedToBankMessage(ItemBase Item, int QuantityNow);
 public sealed record RunToAreaMessage(string Zone);
 public sealed record ItemDroppedMessage(ItemBase Item, bool AddedToInv = false, int QuantityNow = 0);
+public sealed record DropPickupResultMessage(int ItemID, bool Success);
 public sealed record ShopLoadedMessage(ShopInfo Info);
 public sealed record BankLoadedMessage();
 public sealed record ItemBoughtMessage(int CharItemID);

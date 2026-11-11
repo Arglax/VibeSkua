@@ -31,6 +31,7 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
     private readonly ILogService _logger;
     private readonly IDialogService _dialogService;
     private readonly ISettingsService _settingsService;
+    private bool _playerDead;
 
     public bool ShouldExit => Manager.ShouldExit;
     public Version Version { get; }
@@ -70,7 +71,7 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
     public IScriptHandlers Handlers { get; }
     public ICaptureProxy GameProxy { get; }
     public IScriptAccounts Accounts { get; }
-    public IScriptOptionContainer? Config => Manager.Config;
+    public IScriptOptionContainer? Config => Manager.RunningConfig ?? Manager.Config;
     public Random Random { get; set; } = new Random();
 
     public ScriptInterface(
@@ -305,13 +306,35 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
 
                 bool currentInGame = Flash.IsWorldLoaded && Player.LoggedIn;
                 bool currentPlaying = currentInGame && Player.Alive;
+
+                // Track connected gameplay regardless of whether a script is running.
+                // Each snapshot is several Flash calls plus an inventory scan; on a phone that runs every 5 s
+                // unless a script is running (bot calls share the game thread between frames).
+                _limit.LimitedRun("gameplayStats", OperatingSystem.IsAndroid() && !Manager.ScriptRunning ? 5000 : 1000, () =>
+                {
+                    // Wait for the character data and inventory to finish loading before taking the first
+                    // snapshot. Otherwise the initial zero gold value is counted as earned gold on login.
+                    if (!currentInGame || !Player.Loaded)
+                    {
+                        Stats.UpdateGameplaySnapshot(0, 0, 0, 0, 0, 0, 0, 0, false);
+                        return;
+                    }
+
+                    InventoryItem? equippedClass = Inventory.Items?.Find(item => item is { Equipped: true, Category: ItemCategory.Class });
+                    // iCurCP is progress within the current class rank; iCPToRank is that rank's point requirement.
+                    int currentClassPoints = Flash.GetGameObject<int>("world.myAvatar.objData.iCurCP", 0);
+                    int classPointsToRank = Flash.GetGameObject<int>("world.myAvatar.objData.iCPToRank", 0);
+                    Stats.UpdateGameplaySnapshot(Player.XP, Player.RequiredXP, Player.Level, Player.Gold,
+                        equippedClass?.ID ?? 0, currentClassPoints, classPointsToRank, Player.CurrentClassRank, true);
+                });
+
                 if (currentInGame)
                 {
                     wasPlaying = true;
                     if (_reloginFailedRounds != 0 || _reloginPausedUntil != 0)
                         ResetReloginBackoff();
                     Servers.LastIP = Player.ServerIP ?? Servers.LastIP;
-                    if (Servers.IsIntentionalLogout)
+                    if (Servers.IsIntentionalLogout && !Servers.IsLogoutInProgress)
                         Servers.IsIntentionalLogout = false;
 
                     if (!catching)
@@ -331,6 +354,9 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                 else
                 {
                     catching = false;
+                    if (wasPlaying || Manager.ScriptRunning)
+                        Messenger.Send<PlayerDisconnectedMessage, int>(new(), (int)MessageChannels.GameEvents);
+
                     if ((wasPlaying || Manager.ScriptRunning) && !_waitForLogin && !Servers.IsIntentionalLogout && Options.AutoRelogin && WatchdogEnabled)
                     {
                         wasPlaying = false;
@@ -410,6 +436,7 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
             return (Environment.TickCount, connDetail);
         if (connDetail.Contains("has been lost") && !_waitForLogin)
         {
+            Messenger.Send<PlayerDisconnectedMessage, int>(new(), (int)MessageChannels.GameEvents);
             if (!Servers.IsIntentionalLogout)
             {
                 Log("Connection lost detected. Triggering auto re-login.");
@@ -492,6 +519,7 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                 break;
 
             case "connectionLost":
+                Messenger.Send<PlayerDisconnectedMessage, int>(new(), (int)MessageChannels.GameEvents);
                 Log("Flash socket connection lost event received.");
                 if (!_waitForLogin && !Servers.IsIntentionalLogout && Options.AutoRelogin && WatchdogEnabled)
                 {
@@ -576,10 +604,19 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                             dynamic p = data.p?[Player.Username.ToLower()]!;
                             if (p is not null && p.intHP == 0)
                             {
-                                Stats.Deaths++;
-                                Messenger.Send<PlayerDeathMessage, int>((int)MessageChannels.GameEvents);
+                                // Combat-state packets can repeat while the player remains dead.
+                                if (!_playerDead)
+                                {
+                                    Stats.Deaths++;
+                                    Messenger.Send<PlayerDeathMessage, int>((int)MessageChannels.GameEvents);
+                                }
+
+                                _playerDead = true;
                                 break;
                             }
+
+                            if (p is not null)
+                                _playerDead = false;
                             dynamic anims = data.anims?[0]!;
                             if (anims is not null)
                             {
@@ -652,9 +689,12 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
 
                         case "getDrop":
                             bool toBank = Convert.ToBoolean(data.bBank);
+                            Messenger.Send<DropPickupResultMessage, int>(new(Convert.ToInt32(data.ItemID), data.bSuccess == 1), (int)MessageChannels.GameEvents);
                             if (data.bSuccess == 1)
                             {
-                                Stats.Drops += (int)data.iQty;
+                                int pickedUpQuantity = Convert.ToInt32(data.iQty);
+                                Stats.RecordItemPickup(pickedUpQuantity);
+                                Stats.Drops += pickedUpQuantity;
                                 Stats.GetSpace();
                             }
                             if (toBank)
@@ -709,6 +749,7 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                             break;
 
                         case "loginResponse":
+                            _playerDead = false;
                             if (Flash.IsWorldLoaded)
                                 Stats.GetSpace();
                             Options.CustomName = string.Empty;
@@ -729,9 +770,33 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                             _waitForLogin = false;
                             Messenger.Send<LoginMessage, int>(new(Convert.ToString(data[4])), (int)MessageChannels.GameEvents);
                             break;
+
+                        case "chatm":
+                        case "whisper":
+                        case "warning":
+                        case "server":
+                            try
+                            {
+                                var partsList = new List<string>();
+                                foreach (var elem in data)
+                                {
+                                    partsList.Add(Convert.ToString(elem) ?? string.Empty);
+                                }
+                                string reconstructed = "%xt%" + string.Join("%", partsList) + "%";
+                                Messenger.Send<PacketMessage, int>(new(reconstructed), (int)MessageChannels.GameEvents);
+                            }
+                            catch { }
+                            break;
                     }
                 }
                 Messenger.Send<ExtensionPacketMessage, int>(new(packet), (int)MessageChannels.GameEvents);
+                break;
+
+            case "packetFromServer":
+                if (args is { Length: > 0 } && args[0] is string serverPacket && !string.IsNullOrWhiteSpace(serverPacket))
+                {
+                    Messenger.Send<PacketMessage, int>(new(serverPacket), (int)MessageChannels.GameEvents);
+                }
                 break;
 
             case "packet":
@@ -909,7 +974,9 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
     private void Relogin(int delay, bool startScript, CancellationTokenSource reloginCts)
     {
         reloginCts.Token.ThrowIfCancellationRequested();
-        Servers.DisconnectForRelogin();
+        // A login loop already running (e.g. the startup login) owns the login screen; this one queues behind it.
+        if (!Servers.IsReloginInProgress)
+            Servers.DisconnectForRelogin();
         Log($"Waiting {delay}ms for re-login.");
         _reloginTask = Schedule(delay, async _ =>
         {
