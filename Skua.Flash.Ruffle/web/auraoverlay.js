@@ -37,7 +37,13 @@
     ];
 
     let seen = store.get("auraSeen", {});
-    let descs = {}, lastDesc = 0;
+    let descs = {}, lastDesc = 0, lastDescRead = 0;
+    // Aura names the server had no description for at the last read (read again on the next new name).
+    const descMiss = new Set();
+    // Nothing to read or draw while the page is hidden, the app is in the background or headless.
+    function paused() {
+        return document.hidden || !!window.__mvsNoDraw || !!window.__mvsBackground;
+    }
     let clockOffset = null;
     // Recent clock-offset samples, one per aura cast (name + cast time), so the median can be taken.
     const offSamples = new Map();
@@ -432,34 +438,71 @@
         return !(window.__mvsOpts && window.__mvsOpts.mvsAuras === false);
     }
 
+    // Reads are gated on the game's own change counter: every aura packet goes through
+    // World.handleAuraEvent, which bumps dataLeaf.hudAurasV (World.hudAuraSync) before it updates
+    // dataLeaf.auras. So each poll reads a few numbers, and the aura lists only when a counter moved,
+    // the target changed, or FULL_MS passed (a safety net). Before: ~10 JSON reads every 250 ms.
+    const FULL_MS = 2000;
+    const gate = { me: { v: null, at: 0 }, t: { v: null, at: 0, key: "" }, user: "" };
+
+    function sideChanged(g, v, now) {
+        if (v !== g.v || now - g.at > FULL_MS) { g.v = v; g.at = now; return true; }
+        return false;
+    }
+
     function poll() {
-        if (!enabled()) return;
-        const me = read("world.myAvatar.objData.strUsername") || "";
-        state.me = me;
-        if (!me) { state.mine = []; state.theirs = []; state.target = null; return; }
+        if (!enabled() || paused()) return;
         const now = Date.now();
+        // hudAurasV is undefined until the leaf's first aura, so the avatar's id says "logged in".
+        const myId = read("world.myAvatar.dataLeaf.entID");
+        if (myId == null) {
+            state.me = ""; state.mine = []; state.theirs = []; state.target = null;
+            gate.me.v = gate.t.v = null; gate.t.key = ""; gate.user = "";
+            return;
+        }
+        if (myId !== state.myId || !state.me) {
+            state.myId = myId;
+            state.me = read("world.myAvatar.objData.strUsername") || "";
+        }
         if (now - lastDesc > DESC_MS) {
             lastDesc = now;
-            const d = read("world.auraDescs");
-            if (d && typeof d === "object") descs = d;
             state.cls = read("world.myAvatar.objData.strClassName") || "";
             // The game's own touch controls (skill buttons down the right side, the drops bar) are up.
             state.mobile = call("mvsMobileActive") === true;
             loadWiki();
         }
-        state.myId = read("world.myAvatar.dataLeaf.entID");
-        const mine = auraList("world.myAvatar.dataLeaf", "me");
-        if (mine) state.mine = mine;
-        if (read("world.myAvatar.target.dataLeaf.intHP") != null) {
-            state.target = {
-                name: read("world.myAvatar.target.objData.strMonName") || read("world.myAvatar.target.objData.strUsername") || "Target",
-                mapId: read("world.myAvatar.target.dataLeaf.MonMapID")
-            };
-            const theirs = auraList("world.myAvatar.target.dataLeaf", "t");
-            if (theirs) state.theirs = theirs;
+        if (sideChanged(gate.me, read("world.myAvatar.dataLeaf.hudAurasV"), now)) {
+            const mine = auraList("world.myAvatar.dataLeaf", "me");
+            if (mine) state.mine = mine;
+        }
+        // The target: a monster has MonMapID, a player only entID.
+        const tMon = read("world.myAvatar.target.dataLeaf.MonMapID");
+        const tEnt = tMon == null ? read("world.myAvatar.target.dataLeaf.entID") : null;
+        if (tMon != null || tEnt != null) {
+            const key = tMon != null ? "m:" + tMon : "p:" + tEnt;
+            if (key !== gate.t.key) {
+                gate.t.key = key; gate.t.v = null;
+                state.target = {
+                    name: read("world.myAvatar.target.objData.strMonName") || read("world.myAvatar.target.objData.strUsername") || "Target",
+                    mapId: tMon
+                };
+            }
+            if (sideChanged(gate.t, read("world.myAvatar.target.dataLeaf.hudAurasV"), now)) {
+                const theirs = auraList("world.myAvatar.target.dataLeaf", "t");
+                if (theirs) state.theirs = theirs;
+            }
         } else {
             state.target = null;
             state.theirs = [];
+            gate.t.key = ""; gate.t.v = null;
+        }
+        // The server's own aura descriptions (World.auraDescs) grow all session: read them only when an
+        // aura shows up that has none yet, at most every DESC_MS.
+        if (now - lastDescRead > DESC_MS && state.mine.concat(state.theirs).some(a => !(a.name in descs) && !descMiss.has(a.name))) {
+            lastDescRead = now;
+            const d = read("world.auraDescs");
+            if (d && typeof d === "object") descs = d;
+            for (const a of state.mine.concat(state.theirs)) if (!(a.name in descs)) descMiss.add(a.name);
         }
         resolveCasters(now);
         let changed = false;
@@ -706,6 +749,7 @@
     }
 
     function draw() {
+        if (paused()) return;
         const W = windows();
         if (!enabled()) {
             for (const w of Object.values(W)) { w.el.style.display = "none"; w.pill.style.display = "none"; }
@@ -751,6 +795,7 @@
             if (w.el.classList.contains("min")) toggleMin(w);
             w.forceUntil = Date.now() + 5000;
             w.sig = "";
+            gate.me.at = gate.t.at = 0;
             poll();
             draw();
         }

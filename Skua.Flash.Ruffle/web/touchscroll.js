@@ -1,9 +1,9 @@
 // Finger-swipe scrolling for the game's lists (inventory, shops, bank, quests, drops, mail, ...).
 //
-// AQW's lists scroll with the mouse wheel; its own touch scrolling only runs in its mobile mode,
-// which MVS keeps off (parts of it draw with BitmapData.draw, which Ruffle's WebGL renderer can't
-// run). So a vertical finger drag that starts on a scrollable window becomes wheel steps at the
-// spot where the finger went down, tracking the finger 1:1, with a short fling after release.
+// AQW's lists scroll with the mouse wheel; its own touch scrolling (TouchScroll) only runs while its
+// Mobile Controls are on, and then the lists it handles (GAME_SCROLLS below) are left to it. Otherwise
+// a vertical finger drag that starts on a scrollable window becomes wheel steps at the spot where the
+// finger went down, tracking the finger 1:1, with a short fling after release.
 //
 // Ruffle reports what the finger pressed (window.__mvsPressChain, the AS3 classes from the
 // pressed object up to the stage). Drags that start anywhere else (the map, house items being
@@ -27,7 +27,19 @@
     // off-stage release below read as a huge drag and flung the list to its end every time.
     const GAME_SCROLLS = /^(LPF\w+|MailWindow|monsterDrops|keybinds|KeybindsPanel|mcOption|QFrameMC|OFrameMC|QTrackerMC|FactionsMC|cellMenu)$/;
 
+    // The game's touch mode changes rarely: asked at most every 3 s, not on every finger press.
+    let touchOn = false, touchAt = 0;
     function gameTouchOn() {
+        const now = Date.now();
+        if (now - touchAt < 3000) return touchOn;
+        touchAt = now;
+        touchOn = askGameTouch();
+        return touchOn;
+    }
+    window.__mvsGameTouchOn = gameTouchOn;
+    window.addEventListener("mvsoption", () => { touchAt = 0; });
+
+    function askGameTouch() {
         try {
             const r = document.querySelector("ruffle-player").ruffle();
             let v = null;

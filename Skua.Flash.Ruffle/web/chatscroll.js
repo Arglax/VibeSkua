@@ -82,6 +82,10 @@
         const p = player(), c = canvas();
         if (!p || !c || !e.composedPath().includes(p)) return;
         chat = chatAt(toStage(c, e.clientX, e.clientY));
+        // With the game's touch controls on, the new chat (Chat2) scrolls itself (its TouchScroll on
+        // ui.nc acts only while Mobile.active); the classic chat's own touch layer works only while its
+        // input is open, so that one stays ours.
+        if (chat === "new" && window.__mvsGameTouchOn && window.__mvsGameTouchOn()) chat = null;
     }, true);
 
     window.addEventListener("wheel", e => {

@@ -74,9 +74,37 @@
     function applyQuality() {
         // stage.quality also sets Ruffle's anti-aliasing (MSAA). Empty = leave it to the game's own switch.
         const q = governedQuality();
-        if (!q || !player) return;
+        if (!player) return;
+        // Held only while a quality is chosen here or the governor has stepped down; at level 0 with the
+        // game's own setting the game decides again.
+        holdGameQuality(gfx.quality || (gfx.auto && gov.level > 0) ? q : "");
+        if (!q) return;
         try { player.ruffle().callExternalInterface("setGameObject", "stage.quality", q); } catch (e) { }
     }
+    // The game's own Visuals AUTO (userPreference.data.quality == "AUTO": World.as re-rates the frame rate
+    // every 24 frames and steps stage.quality) would undo the quality set here within seconds. While a
+    // quality is set here, the game's setting holds that fixed value in memory (never flushed here); the
+    // player's "AUTO" comes back as soon as this page stops setting one, and when the page goes away.
+    // Only that one key is read or written: userPreference also holds the remembered login.
+    let heldPref = null;
+    function holdGameQuality(q) {
+        try {
+            if (q) {
+                if (heldPref === null) {
+                    let cur = null;
+                    try { cur = JSON.parse(player.ruffle().callExternalInterface("getGameObject", "userPreference.data.quality")); } catch (e) { cur = null; }
+                    if (cur !== "AUTO") return;
+                    heldPref = cur;
+                }
+                player.ruffle().callExternalInterface("setGameObject", "userPreference.data.quality", ["LOW", "MEDIUM", "HIGH"].indexOf(q) >= 0 ? q : "HIGH");
+            } else if (heldPref !== null) {
+                player.ruffle().callExternalInterface("setGameObject", "userPreference.data.quality", heldPref);
+                heldPref = null;
+            }
+        } catch (e) { }
+    }
+    window.addEventListener("pagehide", () => holdGameQuality(""));
+
 
     // ---------------- MVS options (the game's Options, "MVS" rows) ----------------
     // skua.swf (MobileHudUI) owns them in the game's settings and tells the page each value through
@@ -116,9 +144,12 @@
     // A hot phone also sets a floor, so it cools down before Android slows the whole phone.
     const aaLadder = ["8X8", "HIGH", "MEDIUM", "LOW"];
     const govLevels = [
-        { smooth: true, aa: 0, res: 1 }, { smooth: false, aa: 0, res: 1 }, { smooth: false, aa: 1, res: 1 },
-        { smooth: false, aa: 2, res: 1 }, { smooth: false, aa: 2, res: 0.8 }, { smooth: false, aa: 3, res: 0.8 },
-        { smooth: false, aa: 3, res: 0.65 }
+        // Step 1 is the game's own Crowd Mode (other players drawn as one picture each, AvatarMC.crowdSync):
+        // the biggest saving in busy towns, and it costs no sharpness.
+        { smooth: true, crowd: false, aa: 0, res: 1 }, { smooth: true, crowd: true, aa: 0, res: 1 },
+        { smooth: false, crowd: true, aa: 0, res: 1 }, { smooth: false, crowd: true, aa: 1, res: 1 },
+        { smooth: false, crowd: true, aa: 2, res: 1 }, { smooth: false, crowd: true, aa: 2, res: 0.8 },
+        { smooth: false, crowd: true, aa: 3, res: 0.8 }, { smooth: false, crowd: true, aa: 3, res: 0.65 }
     ];
     // Ruffle MVS switch: clips the game took off the stage (old monsters after each respawn, spent skill
     // effects, avatars of players who left) are invisible but Flash keeps animating them until memory is
@@ -175,10 +206,43 @@
         window.__mvsInterp = governedSmooth();
     }
 
+    // The game's Crowd Mode (litePreference.data.sCrowd: "off" / "auto" / "on"). Game.crowdSample, run by
+    // the game every 48 frames, applies "on" / "off" and decides itself on "auto". Unset (the game's
+    // default) reads as off, so it becomes "auto". The governor's crowd step holds "on" in memory and
+    // puts the player's value back when it steps up again (and when the page goes away).
+    let heldCrowd = null;
+    function governedCrowd() {
+        return !!(gfx.auto && govLevels[gov.level] && govLevels[gov.level].crowd);
+    }
+    function readCrowd() {
+        try {
+            const raw = player.ruffle().callExternalInterface("getGameObject", "litePreference.data.sCrowd");
+            return raw == null || raw === "null" ? null : JSON.parse(raw);
+        } catch (e) { return null; }
+    }
+    function applyCrowd() {
+        try {
+            if (!player) return;
+            if (governedCrowd()) {
+                if (heldCrowd === null) heldCrowd = readCrowd() || "auto";
+                player.ruffle().callExternalInterface("setGameObject", "litePreference.data.sCrowd", "on");
+            } else if (heldCrowd !== null) {
+                player.ruffle().callExternalInterface("setGameObject", "litePreference.data.sCrowd", heldCrowd);
+                heldCrowd = null;
+            }
+        } catch (e) { }
+    }
+    function defaultCrowd() {
+        try {
+            if (player && readCrowd() === null) player.ruffle().callExternalInterface("setGameObject", "litePreference.data.sCrowd", "auto");
+        } catch (e) { }
+    }
+    window.addEventListener("pagehide", () => { gov.level = 0; applyCrowd(); });
+
     function levelKey(level) {
         const saved = gov.level;
         gov.level = level;
-        const key = governedSmooth() + "|" + governedQuality() + "|" + governedScale();
+        const key = governedSmooth() + "|" + governedQuality() + "|" + governedScale() + "|" + governedCrowd();
         gov.level = saved;
         return key;
     }
@@ -198,6 +262,7 @@
         setPixelRatio(gfx.dpr, governedScale());
         applyQuality();
         applySmooth();
+        applyCrowd();
         log("governor: level " + level + " (" + why + "; " + gov.lastFps + " fps of " + gov.gameRate +
             ", aa " + (governedQuality() || "game") + ", ratio " + window.devicePixelRatio + ", in-between " + governedSmooth() + ")");
         if (up) gov.failedUpAt = Date.now();
@@ -205,7 +270,7 @@
 
     // A level that lowers anti-aliasing or resolution (the in-betweening step is 1).
     function isGpuStep(level) {
-        return level >= 2;
+        return level >= 3;
     }
 
     function recentFps() {
@@ -224,7 +289,9 @@
         gov.lastFps = fps;
         if (!gfx.auto || !player || document.hidden || window.__mvsNoDraw || player.style.visibility === "hidden") return;
         if (!window.__mvsOpts.mvsImproveFps) return;
-        if (Date.now() - gov.rateAt > 15000) { gov.rateAt = Date.now(); readGameRate(); }
+        // The game's frame rate changes only with its Max FPS option: read it at start, when the measured
+        // rate runs past it (raised), and otherwise at most once a minute.
+        if (!gov.rateAt || fps > gov.gameRate + 5 || Date.now() - gov.rateAt > 60000) { gov.rateAt = Date.now(); readGameRate(); }
         if (gov.settle > 0) { gov.settle--; return; }
         gov.recent.push(fps);
         if (gov.recent.length > 4) gov.recent.shift();
@@ -291,7 +358,7 @@
         }
         // Warm only warns (full speed up to 47 C); hot sets the cooler mode's floor: no in-betweening,
         // lighter anti-aliasing and 80% resolution, so the GPU and the phone run cooler.
-        gov.floor = gfx.auto && heat === "hot" ? 4 : 0;
+        gov.floor = gfx.auto && heat === "hot" ? 5 : 0;
         if (gov.floor > 0) gov.trial = null;
         if (gov.level < gov.floor) setLevel(gov.floor, "phone " + heat);
         if (window.MvsOverlays && window.MvsOverlays.heat)
@@ -425,7 +492,7 @@
 
     // Called by the patched ruffle.js for every ExternalInterface.call from the SWF.
     window.__skuaExt = function (name, args) {
-        if (name === "loaded") { setStatus(""); setTimeout(applyQuality, 0); setTimeout(applyTouchUi, 0); }
+        if (name === "loaded") { setStatus(""); setTimeout(applyQuality, 0); setTimeout(applyTouchUi, 0); setTimeout(defaultCrowd, 0); }
         if (name === "mvsMenu") { try { window.MvsOverlays.menu(args); } catch (e) { log("menu: " + e); } }
         if (name === "mvsDrops") { try { window.MvsOverlays.dropsList(args); } catch (e) { log("drops: " + e); } }
         if (name === "mvsOption") {

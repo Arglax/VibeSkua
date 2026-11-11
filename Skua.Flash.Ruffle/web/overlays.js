@@ -467,6 +467,60 @@
         try { return ruffle().callExternalInterface(fn, id); } catch (e) { return ""; }
     }
 
+    // The game's own drop settings, one key at a time (nothing is dumped).
+    function gameGet(path) {
+        try {
+            const v = ruffle().callExternalInterface("getGameObject", path);
+            return v == null || v === "null" ? null : JSON.parse(v);
+        } catch (e) { return null; }
+    }
+    function gameSet(path, v) {
+        try { ruffle().callExternalInterface("setGameObject", path, v); return true; } catch (e) { return false; }
+    }
+    function gameFlush() {
+        try { ruffle().callExternalInterface("callGameFunction", "litePreference.flush"); } catch (e) { }
+    }
+    // The game's "Item Drops Block List" (litePreference.data.blackList: [{label, value: ItemID}]):
+    // the game throws those drops away as the drop packet arrives (Game.as), before anything is drawn
+    // or sent here. Blocking adds to it; older name-only entries here are moved over as they drop.
+    function nativeBlockList() {
+        const l = gameGet("litePreference.data.blackList");
+        return Array.isArray(l) ? l : [];
+    }
+    function blockNative(d) {
+        const list = nativeBlockList();
+        if (list.some(b => Number(b && b.value) === d.id)) return;
+        list.push({ label: String(d.n).toUpperCase(), value: d.id });
+        if (gameSet("litePreference.data.blackList", list)) gameFlush();
+    }
+    function unblockNative(name) {
+        const up = String(name).toUpperCase(), list = nativeBlockList();
+        const left = list.filter(b => String(b && b.label).toUpperCase() !== up);
+        if (left.length !== list.length && gameSet("litePreference.data.blackList", left)) gameFlush();
+    }
+    function blockedNames() {
+        const names = new Set(blocked);
+        for (const b of nativeBlockList()) if (b && b.label) names.add(String(b.label).toLowerCase());
+        return [...names];
+    }
+    // "Ask before declining" is the game's own "Warn When Declining" (dOptions.warnDecline).
+    function readWarnDecline() {
+        const w = gameGet("litePreference.data.dOptions.warnDecline");
+        if (w === true || w === false) askDecline = w;
+    }
+    function setWarnDecline(on) {
+        askDecline = on;
+        if (gameSet("litePreference.data.dOptions.warnDecline", on)) gameFlush();
+        saveRules();
+    }
+    // Decline all: the game's own clear (customDrops.onUpdate empties its drop list in one go).
+    function declineAll() {
+        try {
+            if (ruffle().callExternalInterface("callGameFunction", "cDropsUI.onUpdate") !== "null") return;
+        } catch (e) { }
+        decline(drops.map(d => d.id));
+    }
+
     function keep(ids) {
         let full = false;
         for (const id of ids) if (dropsCall("mvsDropAccept", id) === "full") full = true;
@@ -491,7 +545,7 @@
         try { drops = JSON.parse(String(v || "[]")); } catch (e) { drops = []; }
         const auto = [], autoKeep = [];
         for (const d of drops) {
-            if (blocked.has(d.n.toLowerCase())) auto.push(d.id);
+            if (blocked.has(d.n.toLowerCase())) { auto.push(d.id); blockNative(d); }
             else if (keepAC && d.ac) autoKeep.push(d.id);
         }
         if (auto.length) decline(auto);
@@ -524,6 +578,7 @@
         dropsEl = document.createElement("div");
         dropsEl.id = "mvs-drops";
         dropsEl.addEventListener("click", onDropsClick);
+        readWarnDecline();
         document.body.appendChild(dropsEl);
         drawDrops();
     }
@@ -531,7 +586,7 @@
     function drawDrops() {
         const n = drops.length, picked = dropsPicked.size;
         if (dropsView === "blocked") {
-            const names = [...blocked].sort();
+            const names = blockedNames().sort();
             dropsEl.innerHTML = `<div class="hd"><div class="tt">Auto-decline list<small>${names.length} name${names.length === 1 ? "" : "s"}, declined as soon as they drop</small></div>
                 <button data-a="back">\u2190 Back</button><button class="sq" data-a="close">\u2715</button></div>
                 <div class="list">${names.length ? names.map(nm => `<div class="row"><div class="nm"><b>${esc(nm)}</b></div>
@@ -567,7 +622,7 @@
             <div class="ft"><span class="grow">${dropsSelect ? picked + " selected" : "Tip: Select lets you keep or decline several at once."}</span>
             ${dropsSelect ? "" : `<span class="sw${askDecline ? " yes" : ""}" data-a="askdecline"><i></i>Ask before declining</span>
             <span class="sw${keepAC ? " yes" : ""}" data-a="keepac"><i></i>Always keep AC items</span>
-            <button data-a="blocked">\u26D4 Auto-decline list (${blocked.size})</button>`}
+            <button data-a="blocked">\u26D4 Auto-decline list (${blockedNames().length})</button>`}
             ${dropsSelect ? `<button data-a="blocksel" ${picked ? "" : "disabled"}>\u26D4 Always decline</button>
             <button class="ok" data-a="keepsel" ${picked ? "" : "disabled"}>\u2714 Keep ${picked}</button>
             <button class="no" data-a="declinesel" ${picked ? "" : "disabled"}>\u2716 Decline ${picked}</button>` : ""}</div>`;
@@ -595,23 +650,23 @@
                 if (askDecline && armed !== "block:" + id) { arm("block:" + id); break; }
                 armed = "";
                 const d = drops.find(x => x.id === id);
-                if (d) { blocked.add(d.n.toLowerCase()); saveRules(); }
+                if (d) { blocked.add(d.n.toLowerCase()); saveRules(); blockNative(d); }
                 decline([id]);
                 break;
             }
-            case "askdecline": askDecline = !askDecline; saveRules(); break;
+            case "askdecline": setWarnDecline(!askDecline); break;
             case "select": dropsSelect = !dropsSelect; dropsPicked.clear(); break;
             case "keepall": keep(drops.map(d => d.id)); break;
             case "declineall":
                 // Two taps, so one stray tap cannot throw everything away.
                 if (!declineArm) { declineArm = setTimeout(() => { declineArm = 0; if (dropsEl) drawDrops(); }, 3000); break; }
                 clearTimeout(declineArm); declineArm = 0;
-                decline(drops.map(d => d.id));
+                declineAll();
                 break;
             case "keepsel": keep([...dropsPicked]); dropsPicked.clear(); break;
             case "declinesel": decline([...dropsPicked]); dropsPicked.clear(); break;
             case "blocksel":
-                for (const d of drops) if (dropsPicked.has(d.id)) blocked.add(d.n.toLowerCase());
+                for (const d of drops) if (dropsPicked.has(d.id)) { blocked.add(d.n.toLowerCase()); blockNative(d); }
                 saveRules();
                 decline([...dropsPicked]); dropsPicked.clear();
                 break;
@@ -621,7 +676,7 @@
                 break;
             case "blocked": dropsView = "blocked"; break;
             case "back": dropsView = "list"; break;
-            case "unblock": blocked.delete(el.dataset.n); saveRules(); break;
+            case "unblock": blocked.delete(el.dataset.n); saveRules(); unblockNative(el.dataset.n); break;
             default:
                 // A row tap in select mode picks it.
                 if (dropsSelect && el.classList.contains("row")) {
