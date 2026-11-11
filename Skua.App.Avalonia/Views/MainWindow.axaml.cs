@@ -242,6 +242,7 @@ public partial class MainWindow : Window
                 "Junk Items" => MaterialIconKind.DeleteSweepOutline,
                 "Calendar" => MaterialIconKind.CalendarMonth,
                 "Skills" => MaterialIconKind.LightningBoltOutline,
+                "Aura Tracker" => MaterialIconKind.ShieldStarOutline,
                 "Stats" => MaterialIconKind.ChartLine,
                 "Notification Center" => MaterialIconKind.BellOutline,
                 "Runtime" => MaterialIconKind.PlayNetworkOutline,
