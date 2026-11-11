@@ -218,6 +218,8 @@
 .mvs-aw .tm { flex: none; min-width: 3em; text-align: right; font: 600 1em monospace; color: #C8B89A; }
 .mvs-aw .tag { flex: none; padding: 0 .35em; border-radius: .35em; font-size: .8em; font-weight: 800; }
 .mvs-aw .sum { color: #A89C84; font-size: .9em; margin: .15em 0 0 2.4em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mvs-aw .sum .by { color: #E8C15A; font-weight: 700; }
+.mvs-aw .row.noheal .sum .by, .mvs-aw .row.enrage .sum .by { color: #FFF; }
 .mvs-aw .bar { position: absolute; left: 0; bottom: 0; width: 100%; height: .2em; background: #40A8C8;
   transform-origin: 0 50%; will-change: transform; }
 .mvs-aw .bar.low { background: #FF9A3C; }
@@ -373,12 +375,24 @@
         if (!hud || typeof hud !== "object") return null;   // not readable right now: keep what we had
         const raw = read(leafPath + ".auras");
         const byName = {};
+        // AQW keeps one record per aura name per caster (World.updateAuraData matches nam, casterType
+        // and casterId), so every player's Decay or taunt on a boss is its own record. A re-cast by the
+        // same caster only updates dur/val, not ts, so ts is when that caster first applied it.
+        const casters = {};
         if (Array.isArray(raw)) {
             for (const a of raw) {
                 if (!a || !a.nam) continue;
                 const b = byName[a.nam];
                 if (!b || Number(a.ts) > Number(b.ts)) byName[a.nam] = a;
+                if (a.casterType === "m" || a.casterType === "p") {
+                    const list = casters[a.nam] || (casters[a.nam] = []);
+                    const k = a.casterType + ":" + a.casterId;
+                    const at = list.find(c => c.k === k);
+                    if (!at) list.push({ k, type: a.casterType, id: a.casterId, ts: Number(a.ts) || 0 });
+                    else if (Number(a.ts) > at.ts) at.ts = Number(a.ts);
+                }
             }
+            for (const n of Object.keys(casters)) casters[n].sort((x, y) => y.ts - x.ts);
         }
         // The hud records' end times are in the game's own clock (getTimer); the aura records' cast
         // times are wall clock. Where both were written for the same cast, end minus duration against
@@ -408,7 +422,7 @@
             const end = fromCast !== null && fromHud !== null ? Math.max(fromCast, fromHud) : (fromCast ?? fromHud);
             out.push({ key: who + ":" + name, who, name, n: Math.max(1, Number(h.n) || Number(a.val) || 1),
                 dur: Number(h.dur) || Number(a.dur) || 0, end, icon: h.icon || a.icon || "",
-                casterType: a.casterType, casterId: a.casterId, seq: Number(h.seq) || 0 });
+                casterType: a.casterType, casterId: a.casterId, casters: casters[name] || [], seq: Number(h.seq) || 0 });
         }
         return out;
     }
@@ -447,6 +461,7 @@
             state.target = null;
             state.theirs = [];
         }
+        resolveCasters(now);
         let changed = false;
         for (const a of state.mine.concat(state.theirs)) {
             if (a.n > (seen[a.name] || 0)) { seen[a.name] = a.n; changed = true; }
@@ -454,15 +469,87 @@
         if (changed) store.set("auraSeen", seen);
     }
 
+    // ---- who cast it ----
+    // Players: World.avatars is keyed by the caster's entID (World.as: avatars[uid], pnm = uoName);
+    // the display name is objData.strUsername. Monsters: skua.swf's availableMonsters lists the cell's
+    // monsters with MonMapID and strMonName. Looked up only for casters on screen, at most every 15 s each.
+    const casterInfo = {};          // "p:123" / "m:4" -> { name, cls, at }
+    let monsAt = 0;
+
+    function resolveCasters(now) {
+        const want = new Set();
+        for (const a of state.mine.concat(state.theirs)) for (const c of a.casters || []) want.add(c);
+        let needMons = false;
+        for (const c of want) {
+            const info = casterInfo[c.k];
+            if (info && now - info.at < 15000) continue;
+            if (c.type === "p") {
+                if (c.id === state.myId) { casterInfo[c.k] = { name: state.me, cls: state.cls, at: now, me: true }; continue; }
+                const base = "world.avatars." + c.id;
+                const name = read(base + ".objData.strUsername") || read(base + ".pnm");
+                const cls = read(base + ".objData.strClassName");
+                casterInfo[c.k] = { name: name || "", cls: cls || "", at: now };
+            } else needMons = true;
+        }
+        if (needMons && now - monsAt > 3000) {
+            monsAt = now;
+            let mons = null;
+            try { const r = call("availableMonsters"); mons = typeof r === "string" ? JSON.parse(r) : null; } catch (e) { mons = null; }
+            if (Array.isArray(mons)) {
+                for (const m of mons) {
+                    if (m && m.MonMapID != null) casterInfo["m:" + m.MonMapID] = { name: m.strMonName || "", cls: "", at: now };
+                }
+            }
+            for (const c of want) {
+                if (c.type === "m" && !casterInfo[c.k] && state.target && c.id === state.target.mapId) {
+                    casterInfo[c.k] = { name: state.target.name, cls: "", at: now };
+                }
+            }
+        }
+    }
+
+    function casterName(c) {
+        const info = casterInfo[c.k];
+        if (c.type === "p" && c.id === state.myId) return "You";
+        if (info && info.name) return info.name;
+        return c.type === "m" ? "a monster" : "a player";
+    }
+
     // ---- drawing ----
 
     function sourceOf(a) {
-        if (a.casterType === "m") {
-            if (state.target && state.target.mapId != null && a.casterId === state.target.mapId) return state.target.name + " (your target)";
-            return "A monster";
-        }
-        if (a.casterType === "p") return a.casterId === state.myId ? "You (" + state.me + ")" : "Another player";
-        return "Unknown";
+        if (!a.casters || !a.casters.length) return "Unknown (the game sent no caster)";
+        return a.casters.map(casterName).join(", ");
+    }
+
+    // Short "by ..." for a row: the latest caster, plus how many others have it up too.
+    function byLine(a) {
+        const cs = a.casters || [];
+        if (!cs.length) return "";
+        // Your own class buffs on yourself need no credit line; everything else does.
+        if (a.who === "me" && cs.length === 1 && cs[0].type === "p" && cs[0].id === state.myId) return "";
+        return "by " + casterName(cs[0]) + (cs.length > 1 ? " +" + (cs.length - 1) : "");
+    }
+
+    // A caster's own class decides what its aura does: a party buff from someone else's Lord of Order
+    // is read from Lord of Order, not from your class.
+    function casterClass(a) {
+        const c = (a.casters || [])[0];
+        if (!c || c.type !== "p") return "";
+        if (c.id === state.myId) return state.cls;
+        const info = casterInfo[c.k];
+        return info ? info.cls : "";
+    }
+
+    function fxInfo(name, cls) {
+        if (!wiki || !wiki.fx || !cls) return null;
+        const f = wiki.fx[normClass(cls)];
+        if (!f) return null;
+        const base = String(name).replace(/^[IVXLC0-9]+\s*-\s*/, "").replace(/\s*\(reversed\)\s*/i, "").replace(/^the\s+/i, "").trim();
+        if (f[base]) return f[base];
+        const lower = base.toLowerCase();
+        for (const k of Object.keys(f)) if (k.toLowerCase() === lower) return f[k];
+        return null;
     }
 
     function decorate(list, now) {
@@ -470,7 +557,10 @@
             a.left = a.end != null ? (a.end - now) / 1000 : null;
             // Auras cast by you are described by your class; others by the game's description, if any.
             const mine = a.casterType === "p" && a.casterId === state.myId;
-            a.wiki = mine ? wikiInfo(a.name, state.cls) : null;
+            const ccls = casterClass(a);
+            a.wiki = ccls ? wikiInfo(a.name, ccls) : null;
+            a.fx = ccls ? fxInfo(a.name, ccls) : null;
+            a.fxCls = ccls;
             // Forge procs are yours; a monster's "Decay" is not Dauntless's.
             a.enh = mine || a.casterType !== "m" ? enhInfo(a.name, a.who) : null;
             a.max = limitFromDesc(descs[a.name]) || (a.wiki ? a.wiki.max : 0) || (a.enh ? a.enh.max : 0);
@@ -504,11 +594,15 @@
         return `×${a.n}${a.nocap ? "<small> no cap</small>" : ""}`;
     }
 
+    // What the aura gives, shortest reliable source first: the effect line pulled from the caster's
+    // class (tools/build_aura_effects.py), a forge/scroll proc's effects, the server's own description,
+    // and only then the skill sentence that names it.
     function summary(a) {
+        if (a.fx) return a.fx.e;
+        if (a.enh) return a.enh.t.replace(/;\s*/g, ", ");
         const d = descs[a.name];
-        if (d) return String(d).replace(/<[^>]*>/g, " ");
+        if (d) return String(d).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
         if (a.wiki) return a.wiki.text;
-        if (a.enh) return a.enh.t;
         return a.sp ? a.sp.note : "";
     }
 
@@ -518,23 +612,27 @@
         const icon = url ? `<span class="ic" style="background-image:url(${url})"></span>`
             : `<span class="ic">${esc(a.name.replace(/^[IVXLC0-9]+\s*-\s*/, "").charAt(0).toUpperCase())}</span>`;
         const sum = summary(a);
+        const by = byLine(a);
         let info = "";
         if (open.has(a.key)) {
-            const lines = [`<b>Source:</b> ${esc(sourceOf(a))}`];
+            const cs = a.casters || [];
+            const lines = [`<b>${cs.length > 1 ? "Applied by (latest first)" : "Applied by"}:</b> ${esc(sourceOf(a))}`];
             if (a.stacks) {
                 lines.push(`<b>Stacks:</b> ${a.n}${a.max > 1 ? " of " + a.max + (a.full ? " (max)" : "")
                     : a.nocap ? " (no cap)" : " (limit unknown; most seen " + a.most + ")"}`);
             }
             lines.push(`<b>Duration:</b> ${a.dur > 0 ? a.dur + "s" : "until removed"}`);
-            const from = a.wiki && a.wiki.from ? a.wiki.from : (!a.wiki && a.enh ? a.enh.src : "");
-            if (sum) lines.push(`<span class="wd">${esc(sum)}</span>` + (from ? ` <i>(${esc(from)}, AQW Wiki)</i>` : ""));
+            if (sum) lines.push(`<b>Gives:</b> <span class="wd">${esc(sum)}</span>`);
+            const from = a.fx ? a.fx.from + " (" + a.fxCls + ")" : a.wiki && a.wiki.from ? a.wiki.from + " (" + a.fxCls + ")" : a.enh ? a.enh.src : "";
+            if (from) lines.push(`<i>From ${esc(from)}, AQW Wiki</i>`);
             if (a.sp && sum !== a.sp.note) lines.push(esc(a.sp.note));
             info = `<div class="info">${lines.join("<br>")}</div>`;
         }
+        const sub = [by ? `<span class="by">${esc(by)}</span>` : "", sum ? esc(sum) : ""].filter(Boolean).join(" · ");
         return `<div class="${cls}" data-k="${esc(a.key)}"><div class="top">${icon}` +
             (a.sp ? `<span class="tag">${a.sp.tag}</span>` : "") +
             `<span class="nm">${esc(a.name)}</span><span class="st">${stackText(a)}</span><span class="tm"></span></div>` +
-            (sum && !open.has(a.key) ? `<div class="sum">${esc(sum)}</div>` : "") +
+            (sub && !open.has(a.key) ? `<div class="sum">${sub}</div>` : "") +
             `<div class="bar"></div>${info}</div>`;
     }
 
