@@ -839,7 +839,8 @@
         const live = list.filter(a => a.left === null || a.left > -1);
         // Heal-blocking auras (NO HEAL: Decay, Noxious Decay) lead their group.
         const rank = a => (a.sp && a.sp.kind === "noheal" ? -1 : a.sp ? 0 : a.full ? 1 : a.stacks ? 2 : 3);
-        const tier = a => (a.pin >= 0 ? a.pin : pins.length + order.indexOf(a.group));
+        // Focus (Scroll of Enrage's taunt) is the built-in first pin: above user pins and every group.
+        const tier = a => ((a.sp && a.sp.tag === "TAUNT") || (a.group === "enrage" && /^focus$/i.test(a.name)) ? -1 : a.pin >= 0 ? a.pin : pins.length + order.indexOf(a.group));
         live.sort((x, y) => tier(x) - tier(y) || rank(x) - rank(y) || y.seq - x.seq);
         return live;
     }
