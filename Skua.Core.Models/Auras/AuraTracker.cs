@@ -139,6 +139,15 @@ public class AuraTrackerEntry
     /// <summary>"by Name +2", empty for your own buffs on yourself.</summary>
     public string ByLine { get; init; } = string.Empty;
     public int Sequence { get; init; }
+
+    /// <summary>The effect line split into colored pills.</summary>
+    public IReadOnlyList<EffectPill> Pills { get; init; } = Array.Empty<EffectPill>();
+
+    /// <summary>Which filter chip it belongs to.</summary>
+    public AuraCategory Category { get; init; }
+
+    /// <summary>Its priority group.</summary>
+    public AuraPriorityGroup Group { get; init; }
 }
 
 public class AuraTrackerResult

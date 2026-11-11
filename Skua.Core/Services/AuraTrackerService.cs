@@ -81,6 +81,8 @@ public partial class AuraTrackerService : IAuraTrackerService
         };
     }
 
+    public IReadOnlyList<string> KnownAuraNames => _data.Value.KnownNames;
+
     public (int Size, byte[] Argb)? GetIcon(string iconLink, int size)
     {
         if (string.IsNullOrWhiteSpace(iconLink))
@@ -170,6 +172,12 @@ public partial class AuraTrackerService : IAuraTrackerService
             source = string.Empty;
         }
 
+        bool scrollSource = tag == AuraTag.Scroll
+            || (wiki is null && proc is not null && proc.Source.StartsWith("Scroll of", StringComparison.OrdinalIgnoreCase));
+        IReadOnlyList<EffectPill> pills = AuraClassifier.Pills(effect, scrollSource || tag is AuraTag.Taunt or AuraTag.Reckless);
+        AuraCategory category = AuraClassifier.Categorize(rec.Name, tag, scrollSource, pills,
+            subject == SubjectType.Self && first is { IsMonster: true });
+
         string byLine = string.Empty;
         if (first is not null && !(subject == SubjectType.Self && rec.Casters.Count == 1 && mine))
             byLine = "by " + first.DisplayName + (rec.Casters.Count > 1 ? " +" + (rec.Casters.Count - 1) : string.Empty);
@@ -194,7 +202,10 @@ public partial class AuraTrackerService : IAuraTrackerService
             TagNote = tagNote,
             Casters = rec.Casters,
             ByLine = byLine,
-            Sequence = rec.Sequence
+            Sequence = rec.Sequence,
+            Pills = pills,
+            Category = category,
+            Group = AuraClassifier.GroupOf(tag, category)
         };
     }
 
@@ -263,6 +274,15 @@ public partial class AuraTrackerService : IAuraTrackerService
         private readonly Dictionary<string, List<(string Name, string Text)>> _classes = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Dictionary<string, EffectLine>> _fx = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<ProcInfo>> _procs = new(StringComparer.OrdinalIgnoreCase);
+
+        private IReadOnlyList<string>? _known;
+
+        /// <summary>Every aura name in the wiki data (class effects and forge/scroll procs), for pin search.</summary>
+        public IReadOnlyList<string> KnownNames => _known ??= _fx.Values.SelectMany(d => d.Keys)
+            .Concat(_procs.Keys)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         public static AuraData Load()
         {

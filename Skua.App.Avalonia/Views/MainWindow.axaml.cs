@@ -316,6 +316,8 @@ public partial class MainWindow : Window
     private void MainWindow_Opened(object? sender, EventArgs e)
     {
         _startup.Execute();
+        if (Ioc.Default.GetService<AuraTrackerViewModel>() is { } auraTracker)
+            AuraOverlay.Attach(this, auraTracker);
         _flash.FlashCall += OnFlashCall;
 
         try

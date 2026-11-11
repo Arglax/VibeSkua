@@ -164,7 +164,7 @@ public static class Services
         services.AddTransient<DiagnosticsViewModel>();
         services.AddSingleton<NotificationCenterViewModel>();
         services.AddTransient<CalendarViewModel>();
-        services.AddTransient<AuraTrackerViewModel>();
+        services.AddSingleton<AuraTrackerViewModel>();
 
         services.AddSingleton<ScriptRepoViewModel>();
         services.AddSingleton<ScriptLoaderViewModel>();

@@ -18,4 +18,7 @@ public interface IAuraTrackerService
     /// or null when the game has no such icon.
     /// </summary>
     (int Size, byte[] Argb)? GetIcon(string iconLink, int size);
+
+    /// <summary>Every aura name the wiki data knows, for searching pins.</summary>
+    IReadOnlyList<string> KnownAuraNames { get; }
 }
