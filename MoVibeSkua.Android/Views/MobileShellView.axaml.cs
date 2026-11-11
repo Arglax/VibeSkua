@@ -229,6 +229,22 @@ public partial class MobileShellView : UserControl
         if (e.PropertyName is nameof(ShellViewModel.HasPage) or nameof(ShellViewModel.IsGameMaximized) or nameof(ShellViewModel.CurrentPage)
             or nameof(ShellViewModel.IsPageWide))
             UpdateBodyLayout();
+        if (e.PropertyName == nameof(ShellViewModel.RailsShown))
+            ApplySidebar();
+    }
+
+    // The game's Options row "Sidebar": off hides both rails in landscape except the crest (the game
+    // view is a native WebView, so nothing can float over it; the crest keeps a thin column).
+    private void ApplySidebar()
+    {
+        bool shown = _vm?.RailsShown ?? true;
+        bool landscape = _landscape == true;
+        LeftRailFrame.IsVisible = landscape && shown;
+        RightRailScroll.IsVisible = !landscape || shown;
+        GuideSlot.IsVisible = landscape && shown;
+        UpdateRailScale();
+        ApplyInsets();
+        UpdateBodyLayout();
     }
 
     // Page views stay in PageHost after their first open and are only hidden. A bound ContentControl
@@ -450,8 +466,7 @@ public partial class MobileShellView : UserControl
         Place(DialogLayer, 0, 0);
         Grid.SetRowSpan(DialogLayer, Math.Max(1, Root.RowDefinitions.Count));
         Grid.SetColumnSpan(DialogLayer, Math.Max(1, Root.ColumnDefinitions.Count));
-        ApplyInsets();
-        UpdateBodyLayout();
+        ApplySidebar();
     }
 
     // Landscape: the right rail's own buttons. Portrait: one bottom bar with both rails' buttons (and the

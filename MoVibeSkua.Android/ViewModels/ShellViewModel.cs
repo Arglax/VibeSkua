@@ -128,6 +128,7 @@ public sealed partial class ShellViewModel : ObservableObject
         _prefs = global::Android.App.Application.Context.GetSharedPreferences(PrefsName, FileCreationMode.Private);
         _isStreamerMode = _prefs?.GetBoolean("streamerMode", false) ?? false;
         _isBotMode = _prefs?.GetBoolean("botMode", false) ?? false;
+        _sidebarOn = _prefs?.GetBoolean("sidebar", true) ?? true;
         HookScriptStreamerMode();
         HookDrops();
         ScriptLoader = scriptLoader;
@@ -606,6 +607,24 @@ public sealed partial class ShellViewModel : ObservableObject
         TogglePage("Guide", ShowGuide);
     }
 
+    /// <summary>The game's Options row "Sidebar" (saved here too, so the rails start right before the game loads).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RailsShown))]
+    private bool _sidebarOn = true;
+
+    /// <summary>Rails brought back for a while by a crest tap while the Sidebar option is off.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RailsShown))]
+    private bool _railsPeek;
+
+    public bool RailsShown => SidebarOn || RailsPeek;
+
+    partial void OnSidebarOnChanged(bool value)
+    {
+        _prefs?.Edit()?.PutBoolean("sidebar", value)?.Apply();
+        RailsPeek = false;
+    }
+
     partial void OnIsBotModeChanged(bool value)
     {
         _prefs?.Edit()?.PutBoolean("botMode", value)?.Apply();
@@ -640,8 +659,9 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     /// <summary>
-    /// The crest: one tap opens Support MVS, two quick taps switch the rails between the game's buttons
-    /// and the bot tools. One tap waits a moment for a second.
+    /// The crest: one tap opens Support MVS (or, with the Sidebar option off, shows / hides the rails),
+    /// two quick taps switch the rails between the game's buttons and the bot tools. One tap waits a
+    /// moment for a second.
     /// </summary>
     [RelayCommand]
     private void CrestTap()
@@ -657,7 +677,9 @@ public sealed partial class ShellViewModel : ObservableObject
                 _crestTimer.Stop();
                 int taps = _crestTaps;
                 _crestTaps = 0;
-                if (taps == 1)
+                if (taps == 1 && !SidebarOn)
+                    RailsPeek = !RailsPeek;
+                else if (taps == 1)
                     TogglePage("Support", OpenSupport);
             };
         }
@@ -782,6 +804,13 @@ public sealed partial class ShellViewModel : ObservableObject
                 {
                     bool on = !raw.Contains("mvsDrops:off");
                     Dispatcher.UIThread.Post(() => SetDropsRail(on));
+                }
+                // "Sidebar" (and the "MVS UI" master switch, which skua.swf folds into it): off hides
+                // the rails beside the game; the crest stays so one tap brings them back.
+                if (raw.Contains("mvsSidebar:"))
+                {
+                    bool on = !raw.Contains("mvsSidebar:off");
+                    Dispatcher.UIThread.Post(() => SidebarOn = on);
                 }
             }
         };

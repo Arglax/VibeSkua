@@ -85,8 +85,11 @@
     function mvsOptStored(key) {
         try { return localStorage.getItem("mvs.opt." + key) !== "off"; } catch (e) { return true; }
     }
+    // skua.swf sends each value with the "MVS UI" master switch already applied (master off = every
+    // UI option off), so the stored copies are the values to use.
     window.__mvsOpts = {
         mvsImproveFps: mvsOptStored("mvsImproveFps"), mvsLongDash: mvsOptStored("mvsLongDash"),
+        mvsBigUi: mvsOptStored("mvsBigUi"), mvsSidebar: mvsOptStored("mvsSidebar"),
         mvsSwipe: mvsOptStored("mvsSwipe"), mvsAuras: mvsOptStored("mvsAuras"), mvsDrops: mvsOptStored("mvsDrops")
     };
     window.__mvsSwipeScroll = window.__mvsOpts.mvsSwipe;
@@ -102,7 +105,7 @@
             if (!on && gov.level !== 0) setLevel(0, "Improve FPS off");
             applySmooth();
         }
-        if (key === "mvsLongDash" && was !== undefined && was !== on) log("Long Dash " + (on ? "on" : "off") + ": takes effect the next time the game starts");
+        if ((key === "mvsLongDash" || key === "mvsBigUi") && was !== undefined && was !== on) log(key + " " + (on ? "on" : "off") + ": takes effect the next time the game starts");
         try { window.dispatchEvent(new CustomEvent("mvsoption", { detail: { key, on } })); } catch (e) { }
     }
 
@@ -658,7 +661,8 @@
         // The game's touch dash goes 180 px from a stand; the dash it replaced crossed the screen.
         const consts = {};
         if (window.__mvsOpts.mvsLongDash) consts["MoveInput.DASH_PX"] = 540;
-        if (touchRowH > 0) {
+        // "Bigger UI" (MVS options, folded into the "MVS UI" master switch): the taller list rows.
+        if (touchRowH > 0 && window.__mvsOpts.mvsBigUi) {
             consts["LPFFrameInvAQ.ROW_H"] = touchRowH;
             // The touch skill buttons keep the game's size (58 and 80 px before its own Mobile UI Size
             // setting); skua.swf lays them out (see MobileHudUI). SkillCluster.SK_S / AA_S can make
