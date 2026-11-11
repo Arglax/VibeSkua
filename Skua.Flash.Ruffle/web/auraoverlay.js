@@ -36,6 +36,105 @@
           note: "Enraged: expect bigger hits until it ends." }
     ];
 
+    // ---- display rules shared with desktop VibeSkua (aura-rules-spec.md, approved 2026-11-12) ----
+    const PILL = { buff: "#E8B931", hot: "#4CC26A", dot: "#E5484D", debuff: "#8A6CFF", scroll: "#F08A24", neutral: "#8E8E8E" };
+    const GROUPS = ["enrage", "scrolls", "potions", "debuffs", "other"];
+    const GROUP_NAMES = { enrage: "Scroll of Enrage", scrolls: "Scrolls", potions: "Potions", debuffs: "Debuffs", other: "Everything else" };
+    const FILTERS = [["all", "All"], ["buff", "Buffs"], ["debuff", "Debuffs"], ["sp", "Scrolls & potions"]];
+    const POTION_RE = /tonic|elixir|potion|draught|brew|philter|felicitous|tincture|serum/i;
+
+    function clauseKind(c) {
+        // Healing turned into damage (Decay, Noxious Decay) is a debuff, not a DoT or HoT.
+        if (/convert\w*\s+heal\w*\s+(in)?to\s+damage|\bheal\w*\b.*\bas\s+damage\b/i.test(c)) return "debuff";
+        if (/\bdots?\b|damage over time|\bburn|\bbleed|\bpoison|\bdeals?\b.*\bevery\b/i.test(c)) return "dot";
+        if (/\bhots?\b|\bregen|healing over time|\bheals?\b.*\b(every|over)\b/i.test(c)) return "hot";
+        if (/\bstun|heal(ing)?[\s-]*block|\bdecay\b|\bcannot\b|can't|\bblocked\b|\bslow/i.test(c)) return "debuff";
+        const m = c.match(/([+\-−])\s*\d/);
+        if (!m) return "neutral";
+        let good = m[1] === "+";
+        // Lower is better for these stats, so their sign flips.
+        if (/\bcosts?\b|cooldown|consumption|\btaken\b|incoming damage/i.test(c)) good = !good;
+        return good ? "buff" : "debuff";
+    }
+
+    // Parsed once per distinct effect text, not on every draw.
+    const clauseCache = new Map();
+    function clauses(text) {
+        const key = String(text || "");
+        let v = clauseCache.get(key);
+        if (!v) {
+            v = key.split(/[,;]/).map(s => s.trim()).filter(Boolean).map(t => ({ t, k: clauseKind(t) }));
+            if (clauseCache.size > 500) clauseCache.clear();
+            clauseCache.set(key, v);
+        }
+        return v;
+    }
+
+    function norm(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim(); }
+
+    function lev(a, b) {
+        const d = [];
+        for (let i = 0; i <= a.length; i++) d[i] = [i];
+        for (let j = 1; j <= b.length; j++) d[0][j] = j;
+        for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) {
+            d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        }
+        return d[a.length][b.length];
+    }
+
+    // Best-match score of typed text q against an aura name (0 = no match).
+    function matchScore(q, name) {
+        const n = norm(name);
+        if (!q || !n) return 0;
+        if (n === q) return 1000;
+        if (n.startsWith(q)) return 800 - (n.length - q.length);
+        const words = n.split(" ");
+        if (words.some(w => w.startsWith(q))) return 700;
+        if (n.includes(q)) return 600;
+        let i = 0, first = -1, last = -1;
+        for (let p = 0; p < n.length && i < q.length; p++) {
+            if (n[p] === q[i]) { if (first < 0) first = p; last = p; i++; }
+        }
+        if (i === q.length) return 500 - ((last - first + 1) - q.length);
+        const dist = Math.min(lev(q, n), ...words.map(w => lev(q, w)));
+        if (dist <= Math.max(1, Math.floor(q.length / 3))) return 400 - 50 * dist;
+        return 0;
+    }
+
+    function knownNames() {
+        const out = new Map();
+        const add = n => { const k = String(n).toLowerCase(); if (n && !out.has(k)) out.set(k, String(n)); };
+        if (wiki && wiki.auras) Object.keys(wiki.auras).forEach(add);
+        if (wiki && wiki.fx) for (const c of Object.values(wiki.fx)) Object.keys(c).forEach(add);
+        Object.keys(seen).forEach(add);
+        return [...out.values()];
+    }
+
+    function bestMatches(text, limit) {
+        const q = norm(text);
+        if (!q) return [];
+        return knownNames().map(n => ({ n, s: matchScore(q, n) })).filter(x => x.s > 0)
+            .sort((a, b) => b.s - a.s || a.n.length - b.n.length).slice(0, limit);
+    }
+
+    function getPins() { return String(store.get("auraPins", "")).split(";").map(s => s.trim()).filter(Boolean); }
+    function setPins(p) { store.set("auraPins", p.join(";")); }
+    function getOrder() {
+        const o = String(store.get("auraOrder", GROUPS.join(","))).split(",").filter(k => GROUPS.includes(k));
+        for (const g of GROUPS) if (!o.includes(g)) o.push(g);
+        return o;
+    }
+
+    function pinIndex(a, pins, text) {
+        const nn = norm(a.name), lname = a.name.toLowerCase(), lt = String(text || "").toLowerCase();
+        for (let i = 0; i < pins.length; i++) if (norm(pins[i]) === nn) return i;
+        for (let i = 0; i < pins.length; i++) {
+            const p = pins[i].toLowerCase();
+            if (lname.includes(p) || lt.includes(p)) return i;
+        }
+        return -1;
+    }
+
     let seen = store.get("auraSeen", {});
     let descs = {}, lastDesc = 0, lastDescRead = 0;
     // Aura names the server had no description for at the last read (read again on the next new name).
@@ -258,7 +357,31 @@
 .mvs-ap { position: fixed; z-index: 31; width: 30px; height: 30px; border-radius: 50%; border: 1px solid #8A6A2E;
   background: rgba(22, 17, 12, 0.86); color: #E8C15A; font: 700 13px system-ui, sans-serif; padding: 0; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
 .mvs-ap.max { border-color: #40E0FF; color: #40E0FF; animation: mvsAuraGlow 1.1s ease-in-out infinite alternate; }
-.mvs-ap.noheal { border-color: #FF5A4E; color: #FF5A4E; }`;
+.mvs-ap.noheal { border-color: #FF5A4E; color: #FF5A4E; }
+.mvs-aw { width: 22em; }
+.mvs-aw .top .nm { min-width: 5.5em; }
+.mvs-aw .top .by { flex: 0 1 auto; min-width: 1.5em; max-width: 5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #E8B931; font-weight: 700; font-size: .9em; }
+.mvs-aw .top .by.you { color: #9A8F7A; }
+.mvs-aw .pls { display: flex; flex-wrap: wrap; gap: .2em; margin: .2em 0 0 2.4em; }
+.mvs-aw .pl { padding: 0 .4em; border-radius: .6em; font-size: .85em; font-weight: 600; color: var(--c);
+  border: 1px solid var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.mvs-aw .row.scroll { border-color: #F08A24; background: rgba(70,32,6,.55); }
+.mvs-aw .row.scroll .tag { background: #F08A24; color: #1A0E04; }
+.mvs-aw .flt { display: flex; flex-wrap: wrap; gap: .25em; margin: 0 .2em .3em; }
+.mvs-aw .fc { padding: .1em .5em; border-radius: .7em; border: 1px solid rgba(138,106,46,.6); color: #C8B89A; font-size: .85em; font-weight: 700; }
+.mvs-aw .fc.on { background: #E8C15A; color: #1A1206; border-color: #E8C15A; }
+.mvs-aw .cfg { padding: .3em .5em .5em; border-bottom: 1px solid rgba(138,106,46,.5); max-height: 60vh; overflow-y: auto; touch-action: pan-y; }
+.mvs-aw .cfg .ch { color: #E8C15A; font-weight: 700; margin: .3em 0 .2em; }
+.mvs-aw .cfg .pins { display: flex; flex-wrap: wrap; gap: .25em; }
+.mvs-aw .cfg .pin { padding: .1em .2em .1em .5em; border-radius: .7em; background: rgba(232,185,49,.18); border: 1px solid #E8B931; }
+.mvs-aw .cfg .pin b, .mvs-aw .cfg .og b { display: inline-block; padding: 0 .5em; color: #E8C15A; }
+.mvs-aw .cfg .hint { color: #8A806C; }
+.mvs-aw .cfg .q { width: 100%; box-sizing: border-box; margin-top: .35em; padding: .3em .4em; font: inherit; color: #EDE3CC;
+  background: rgba(0,0,0,.5); border: 1px solid #8A6A2E; border-radius: .4em; user-select: text; -webkit-user-select: text; }
+.mvs-aw .cfg .sg { padding: .3em .4em; border-bottom: 1px solid rgba(138,106,46,.3); }
+.mvs-aw .cfg .og { display: flex; align-items: center; padding: .15em 0; }
+.mvs-aw .cfg .og span { flex: 1; }
+.mvs-aw .cfg .rst { display: inline-block; margin-top: .3em; color: #C8B89A; text-decoration: underline; }`;
         document.head.appendChild(s);
     }
 
@@ -274,14 +397,25 @@
         const el = w.el;
         el.className = "mvs-aw";
         el.innerHTML = `<div class="hd"><span class="grip" title="Drag to move">⠿</span><span class="tt">${esc(title)}</span><button class="bt sz-b" title="Size">A</button><button class="bt sp-b" title="Split / join You and Target">⇆</button>` +
+            `<button class="bt cfg-b" title="Pins and order">⚙</button>` +
             `<button class="bt min-b" title="Collapse">–</button><button class="bt hide-b" title="Hide">×</button></div>` +
-            `<div class="chips"></div><div class="bd"></div>`;
+            `<div class="cfg"></div><div class="chips"></div><div class="bd"></div>`;
+        el.querySelector(".cfg-b").addEventListener("click", e => { e.stopPropagation(); toggleCfg(w); });
+        cfgEvents(w);
         if (store.get("auraMin." + key, false)) el.classList.add("min");
         el.querySelector(".sz-b").addEventListener("click", e => { e.stopPropagation(); cycleSize(); });
         el.querySelector(".sp-b").addEventListener("click", e => { e.stopPropagation(); setSplit(!store.get("auraSplit", true)); });
         el.querySelector(".min-b").addEventListener("click", e => { e.stopPropagation(); toggleMin(w); });
         el.querySelector(".hide-b").addEventListener("click", e => { e.stopPropagation(); store.set("auraHidden." + key, true); draw(); });
         el.querySelector(".bd").addEventListener("click", e => {
+            const fc = e.target.closest(".fc");
+            if (fc) {
+                const [side, f] = fc.dataset.f.split(":");
+                store.set("auraFilter." + side, f);
+                for (const x of Object.values(wins)) x.sig = "";
+                draw();
+                return;
+            }
             const row = e.target.closest(".row");
             if (!row) return;
             const k = row.dataset.k;
@@ -302,6 +436,69 @@
         pill.style.top = pillY + "px";
         document.body.appendChild(pill);
         return w;
+    }
+
+    // ---- settings panel (⚙): pins with best-match search, group order ----
+    function toggleCfg(w) {
+        w.cfgOpen = !w.cfgOpen;
+        if (w.el.classList.contains("min") && w.cfgOpen) toggleMin(w);
+        renderCfg(w);
+    }
+
+    function renderCfg(w) {
+        const c = w.el.querySelector(".cfg");
+        if (!w.cfgOpen) { c.innerHTML = ""; c.style.display = "none"; return; }
+        c.style.display = "";
+        const pins = getPins(), order = getOrder();
+        const pinHtml = pins.length ? pins.map((p, i) => `<span class="pin">${esc(p)}<b data-unpin="${i}">×</b></span>`).join("")
+            : `<span class="hint">Nothing pinned</span>`;
+        const ordHtml = order.map((g, i) => `<div class="og"><span>${i + 1}. ${GROUP_NAMES[g]}</span>` +
+            `<b data-mv="${i}:-1">▲</b><b data-mv="${i}:1">▼</b></div>`).join("");
+        c.innerHTML = `<div class="ch">Pinned (always on top)</div><div class="pins">${pinHtml}</div>` +
+            `<input class="q" type="text" placeholder="Search aura to pin…" autocomplete="off" spellcheck="false">` +
+            `<div class="sug"></div><div class="ch">Order</div>${ordHtml}<span class="rst" data-reset="1">Reset order</span>`;
+    }
+
+    function renderSug(w) {
+        const q = w.el.querySelector(".cfg .q"), s = w.el.querySelector(".cfg .sug");
+        if (!q || !s) return;
+        const m = bestMatches(q.value, 6);
+        s.innerHTML = q.value.trim() ? (m.length ? m.map(x => `<div class="sg" data-add="${esc(x.n)}">${esc(x.n)}</div>`).join("")
+            : `<div class="sg" data-add="${esc(q.value.trim())}">Pin keyword “${esc(q.value.trim())}”</div>`) : "";
+    }
+
+    function addPin(name) {
+        const p = getPins();
+        if (name && !p.some(x => x.toLowerCase() === name.toLowerCase())) p.push(name);
+        setPins(p);
+        refreshAll();
+    }
+
+    function refreshAll() {
+        for (const x of Object.values(wins || {})) { x.sig = ""; renderCfg(x); }
+        draw();
+    }
+
+    function cfgEvents(w) {
+        const c = w.el.querySelector(".cfg");
+        c.style.display = "none";
+        c.addEventListener("input", () => renderSug(w));
+        c.addEventListener("keydown", e => {
+            if (e.key !== "Enter" || !e.target.classList.contains("q")) return;
+            const v = e.target.value.trim();
+            if (!v) return;
+            const m = bestMatches(v, 1);
+            addPin(m.length ? m[0].n : v);
+        });
+        c.addEventListener("click", e => {
+            const t = e.target;
+            if (t.dataset.add) addPin(t.dataset.add);
+            else if (t.dataset.unpin != null) { const p = getPins(); p.splice(+t.dataset.unpin, 1); setPins(p); refreshAll(); }
+            else if (t.dataset.mv) {
+                const [i, d] = t.dataset.mv.split(":").map(Number), o = getOrder(), j = i + d;
+                if (j >= 0 && j < o.length) { [o[i], o[j]] = [o[j], o[i]]; store.set("auraOrder", o.join(",")); refreshAll(); }
+            } else if (t.dataset.reset) { store.set("auraOrder", GROUPS.join(",")); refreshAll(); }
+        });
     }
 
     const SIZES = [0.6, 0.72, 0.85, 1];
@@ -569,9 +766,7 @@
     function byLine(a) {
         const cs = a.casters || [];
         if (!cs.length) return "";
-        // Your own class buffs on yourself need no credit line; everything else does.
-        if (a.who === "me" && cs.length === 1 && cs[0].type === "p" && cs[0].id === state.myId) return "";
-        return "by " + casterName(cs[0]) + (cs.length > 1 ? " +" + (cs.length - 1) : "");
+        return casterName(cs[0]) + (cs.length > 1 ? " +" + (cs.length - 1) : "");
     }
 
     // A caster's own class decides what its aura does: a party buff from someone else's Lord of Order
@@ -619,10 +814,32 @@
                 a.sp = { kind: "scroll", tag: "SCROLL", note: a.enh.src + ": " + a.enh.t };
             }
         }
+        const pins = getPins(), order = getOrder();
+        for (const a of list) {
+            const text = summary(a);
+            a.cl = clauses(text);
+            const src = a.enh ? String(a.enh.src || "") : "";
+            const enrage = (a.sp && a.sp.kind === "enrage") || /^Scroll of Enrage/i.test(src);
+            const scroll = enrage || (a.sp && a.sp.kind === "scroll") || /^Scroll of/i.test(src);
+            const bad = a.cl.filter(c => c.k === "debuff" || c.k === "dot").length;
+            if (scroll) a.cat = "scroll";
+            else if (POTION_RE.test(a.name)) a.cat = "potion";
+            else if ((a.sp && a.sp.kind === "noheal") || (a.cl.length && bad * 2 > a.cl.length)
+                || (a.who === "me" && a.casterType === "m")) a.cat = "debuff";
+            else a.cat = "buff";
+            a.group = enrage ? "enrage" : scroll ? "scrolls" : a.cat === "potion" ? "potions" : a.cat === "debuff" ? "debuffs" : "other";
+            a.pin = pinIndex(a, pins, text);
+        }
         const live = list.filter(a => a.left === null || a.left > -1);
-        const rank = a => (a.sp ? 0 : a.full ? 1 : a.stacks ? 2 : 3);
-        live.sort((x, y) => rank(x) - rank(y) || x.seq - y.seq);
+        // Heal-blocking auras (NO HEAL: Decay, Noxious Decay) lead their group.
+        const rank = a => (a.sp && a.sp.kind === "noheal" ? -1 : a.sp ? 0 : a.full ? 1 : a.stacks ? 2 : 3);
+        const tier = a => (a.pin >= 0 ? a.pin : pins.length + order.indexOf(a.group));
+        live.sort((x, y) => tier(x) - tier(y) || rank(x) - rank(y) || y.seq - x.seq);
         return live;
+    }
+
+    function passes(a, f) {
+        return f === "buff" ? a.cat === "buff" : f === "debuff" ? a.cat === "debuff" : f === "sp" ? (a.cat === "scroll" || a.cat === "potion") : true;
     }
 
     function fmtTime(s) {
@@ -671,18 +888,25 @@
             if (a.sp && sum !== a.sp.note) lines.push(esc(a.sp.note));
             info = `<div class="info">${lines.join("<br>")}</div>`;
         }
-        const sub = [by ? `<span class="by">${esc(by)}</span>` : "", sum ? esc(sum) : ""].filter(Boolean).join(" · ");
+        const scroll = a.cat === "scroll";
+        const pills = (scroll ? [`<span class="pl" style="--c:${PILL.scroll}">Scroll</span>`] : [])
+            .concat(a.cl.slice(0, 6).map(c => `<span class="pl" style="--c:${scroll ? PILL.scroll : PILL[c.k]}">${esc(c.t)}</span>`)).join("");
+        const byHtml = by ? `<span class="by${by === "You" ? " you" : ""}">${esc(by)}</span>` : "";
         return `<div class="${cls}" data-k="${esc(a.key)}"><div class="top">${icon}` +
-            (a.sp ? `<span class="tag">${a.sp.tag}</span>` : "") +
-            `<span class="nm">${esc(a.name)}</span><span class="st">${stackText(a)}</span><span class="tm"></span></div>` +
-            (sub && !open.has(a.key) ? `<div class="sum">${sub}</div>` : "") +
+            `<span class="nm">${a.pin >= 0 ? "📌 " : ""}${esc(a.name)}</span>` +
+            (a.sp ? `<span class="tag">${a.sp.tag}</span>` : "") + byHtml +
+            `<span class="st">${stackText(a)}</span><span class="tm"></span></div>` +
+            (pills && !open.has(a.key) ? `<div class="pls">${pills}</div>` : "") +
             `<div class="bar"></div>${info}</div>`;
     }
 
-    function section(title, list) {
-        const rows = list.slice(0, MAX_ROWS).map(rowHtml).join("");
-        const more = list.length > MAX_ROWS ? `<div class="more">+${list.length - MAX_ROWS} more</div>` : "";
-        return `<div class="sh">${esc(title)}</div>${rows || '<div class="none">No auras</div>'}${more}`;
+    function section(title, list, side) {
+        const f = store.get("auraFilter." + side, "all");
+        const shown = list.filter(a => passes(a, f));
+        const chips = `<div class="flt">` + FILTERS.map(([k, n]) => `<span class="fc${k === f ? " on" : ""}" data-f="${side}:${k}">${n}</span>`).join("") + `</div>`;
+        const rows = shown.slice(0, MAX_ROWS).map(rowHtml).join("");
+        const more = shown.length > MAX_ROWS ? `<div class="more">+${shown.length - MAX_ROWS} more</div>` : "";
+        return `<div class="sh">${esc(title)}</div>${chips}${rows || '<div class="none">No auras</div>'}${more}`;
     }
 
     function chip(a) {
@@ -761,7 +985,7 @@
         const split = store.get("auraSplit", true);
         const hasMe = !!state.me;
         const tTitle = state.target ? "Target: " + state.target.name : "Target";
-        const meHtml = section("You", mine), tHtml = section(tTitle, theirs);
+        const meHtml = section("You", mine, "me"), tHtml = section(tTitle, theirs, "t");
         const meChips = mine.map(chip).join(""), tChips = theirs.map(a => chip(a)).join("");
         const anyMe = mine.length > 0, anyT = theirs.length > 0;
         const hid = k => store.get("auraHidden." + k, false);
@@ -801,6 +1025,26 @@
         }
     };
 
-    setInterval(poll, POLL_MS);
-    setInterval(draw, DRAW_MS);
+    // Game reads go through Ruffle's ExternalInterface on the thread the game runs on. Each poll is
+    // scheduled only after the previous one finishes, waiting max(POLL_MS, 20 × its duration) capped
+    // at 1 s, so reads stay under ~5% of the time and back off when the game is busy (same rule as
+    // desktop VibeSkua). window.__mvsAuraStats keeps the timings for measuring on a phone.
+    const stats = window.__mvsAuraStats = { polls: 0, pollMs: 0, pollMax: 0, draws: 0, drawMs: 0, drawMax: 0, wait: POLL_MS, since: Date.now() };
+    function loopPoll() {
+        const t0 = performance.now();
+        try { poll(); } catch (e) { }
+        const d = performance.now() - t0;
+        stats.polls++; stats.pollMs += d; stats.pollMax = Math.max(stats.pollMax, d);
+        stats.wait = Math.min(1000, Math.max(POLL_MS, 20 * d));
+        setTimeout(loopPoll, stats.wait);
+    }
+    function loopDraw() {
+        const t0 = performance.now();
+        try { draw(); } catch (e) { }
+        const d = performance.now() - t0;
+        stats.draws++; stats.drawMs += d; stats.drawMax = Math.max(stats.drawMax, d);
+        setTimeout(loopDraw, Math.min(1000, Math.max(DRAW_MS, 20 * d)));
+    }
+    setTimeout(loopPoll, POLL_MS);
+    setTimeout(loopDraw, DRAW_MS);
 })();
