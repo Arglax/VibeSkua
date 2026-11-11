@@ -51,7 +51,7 @@ public sealed class FramePacingController : Java.Lang.Object, Choreographer.IFra
 
     public void Start()
     {
-        if (_running)
+        if (_running || PerformanceGuard.PacingDisabled || PerformanceGuard.EffectiveTargetFps <= 0)
             return;
 
         _running = true;

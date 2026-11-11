@@ -151,8 +151,29 @@ public sealed class PerformanceGuard
     public bool IsThermalThrottled => _isThermalThrottled;
     public bool IsDynamicThrottled => _isDynamicThrottled;
 
+    /// <summary>
+    /// Test switch (2026-11-12 A/B of the login crash): a file named "ab-nopacing" in the app's external
+    /// files folder (adb shell touch /sdcard/Android/data/com.arglax.movibeskua/files/ab-nopacing) turns
+    /// the frame pacing off completely: no window refresh rate, no stage.frameRate writes, no per-frame
+    /// callback. Read once at start.
+    /// </summary>
+    public static bool PacingDisabled { get; private set; }
+
     public void Initialize(Context context)
     {
+        try
+        {
+            string? dir = context.GetExternalFilesDir(null)?.AbsolutePath;
+            PacingDisabled = dir is not null && System.IO.File.Exists(System.IO.Path.Combine(dir, "ab-nopacing"));
+            // Second test switch: the saved Lag Killer stays saved but isn't applied (real frame rates).
+            Skua.Core.Scripts.ScriptInterface.SuppressLagKiller =
+                dir is not null && System.IO.File.Exists(System.IO.Path.Combine(dir, "ab-nolagkiller"));
+        }
+        catch
+        {
+            PacingDisabled = false;
+        }
+        Trace.WriteLine($"[PerfGuard] A/B frame pacing: {(PacingDisabled ? "OFF" : "on")}");
         _prefs = context.GetSharedPreferences(PrefsName, FileCreationMode.Private);
         _powerManager = context.GetSystemService(Context.PowerService) as PowerManager;
         _activityManager = context.GetSystemService(Context.ActivityService) as ActivityManager;
@@ -185,7 +206,9 @@ public sealed class PerformanceGuard
             return;
 
         _enablePerformanceGuard = _prefs.GetBoolean(KeyEnabled, true);
-        _targetFps = _prefs.GetInt(KeyTargetFps, 30);
+        // 0 = the game decides (AQW's own Max FPS option). The 2026-11-12 A/B on the phone: pacing to 30
+        // gained no frames and its stage.frameRate write during map load timed out on every login.
+        _targetFps = _prefs.GetInt(KeyTargetFps, 0);
         _autoThrottleOnOverheat = _prefs.GetBoolean(KeyAutoThrottle, true);
         _showHardwareAlerts = _prefs.GetBoolean(KeyHardwareAlerts, true);
     }
@@ -527,7 +550,19 @@ public sealed class PerformanceGuard
 
     public void ApplyFramePacing()
     {
+        if (PacingDisabled)
+            return;
         int effective = ComputeEffectiveTargetFps();
+        if (effective <= 0)
+        {
+            // Nothing to pace: leave the game's frame rate and the screen's refresh rate alone, and stop
+            // the per-frame callback.
+            FramePacingController.Instance.ApplyWindowRefreshRate();
+            FramePacingController.Instance.Stop();
+            TargetFpsChanged?.Invoke(0);
+            return;
+        }
+        FramePacingController.Instance.Start();
         TargetFpsChanged?.Invoke(effective);
         FramePacingController.Instance.ApplyWindowRefreshRate();
 

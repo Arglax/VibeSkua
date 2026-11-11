@@ -49,10 +49,10 @@ public partial class GraphicsViewModel : ObservableObject
 
     public static readonly IReadOnlyList<Choice> TargetFpsOptions = new[]
     {
-        new Choice("30 FPS (Power Saver / AQW Default)", "30"),
-        new Choice("48 FPS (Cinematic Balanced)", "48"),
-        new Choice("60 FPS (Maximum Smoothness)", "60"),
-        new Choice("Unlimited (Device Screen Refresh)", "0")
+        new Choice("Game decides (AQW's Max FPS option)", "0"),
+        new Choice("30 FPS (power saver)", "30"),
+        new Choice("48 FPS", "48"),
+        new Choice("60 FPS", "60")
     };
 
     private const string PrefsName = "movibeskua.shell";

@@ -397,10 +397,22 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
     // default-value overload: it turns a saved false into the default. Unsaved, the model default is true.
     private bool WatchdogEnabled => _settingsService.Get<bool>("ReloginWatchdog");
 
+    /// <summary>
+    /// Test switch (MVS sets it from a file at start): keep the saved Lag Killer option as it is but don't
+    /// apply it, so measured frame rates include drawing the world.
+    /// </summary>
+    public static bool SuppressLagKiller { get; set; }
+    private bool _lagKillerLifted;
+
     private void CheckOptions()
     {
-        if (Options.LagKiller)
+        if (Options.LagKiller && !SuppressLagKiller)
             Flash.Call("killLag", true);
+        else if (Options.LagKiller && !_lagKillerLifted && Player.Playing)
+        {
+            _lagKillerLifted = true;
+            Flash.Call("killLag", false);
+        }
 
         if (!Player.Playing)
             return;

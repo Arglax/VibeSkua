@@ -721,7 +721,9 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             new ShellMenuEntry("Bot tools guide", new RelayCommand(OpenBotGuide)),
             new ShellMenuEntry("Open Bank", new RelayCommand(OpenBank)),
-            new ShellMenuEntry("Graphics & Performance", new RelayCommand(() => ShowPage("Graphics", "Graphics & Performance", Ioc.Default.GetRequiredService<GraphicsViewModel>())))
+            new ShellMenuEntry("Graphics & Performance", new RelayCommand(() => ShowPage("Graphics", "Graphics & Performance", Ioc.Default.GetRequiredService<GraphicsViewModel>()))),
+            // Black screen, nothing drawn, game and scripts keep running; one tap anywhere ends it.
+            new ShellMenuEntry("Headless mode (tap to wake)", new RelayCommand(() => { IsMenuOpen = false; CloseAllPages(); Platform.Headless.Enter(); }))
         }));
 
         foreach (IMainMenuItemViewModel item in MainMenu.MainMenuItems)

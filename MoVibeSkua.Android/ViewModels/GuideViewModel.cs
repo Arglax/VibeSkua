@@ -61,6 +61,10 @@ public sealed partial class SupportViewModel : ObservableObject
     public const string AuqwDiscordUrl = "https://discord.gg/cZgJTvjGU2";
     public const string SkuaDonationsUrl = "https://auqw.github.io/Skua-and-Grim-Donations/";
 
+    /// <summary>Black screen, nothing drawn, the game keeps running; one tap anywhere ends it.</summary>
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void EnterHeadless() => global::MoVibeSkua.Android.Platform.Headless.Enter();
+
     /// <summary>InstaPay details; the card stays hidden until these are filled in.</summary>
     public const string InstaPayName = "";
     public const string InstaPayNumber = "";

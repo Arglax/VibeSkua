@@ -143,6 +143,7 @@ public class MainActivity : AvaloniaMainActivity<App>
     {
         base.OnStart();
         Platform.BotControl.SetInBackground(false);
+        Platform.Headless.Reassert();
     }
 
     protected override void OnPause()
