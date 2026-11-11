@@ -49,6 +49,9 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
 
     public string? LastLoginError { get; private set; }
 
+    /// <summary>The last relogin landed on a fallback server rather than the one asked for (or the Relogin Server).</summary>
+    public bool LastLoginWasFallback { get; set; }
+
     // The game's own reply when it refuses the account (the text under its login box).
     private string? ReadLoginRejection()
     {
@@ -770,6 +773,9 @@ public partial class ScriptServers : ObservableRecipient, IScriptServers
                     continue;
                 }
                 attemptedServers.Add(targetServer.Name ?? string.Empty);
+                string? wantedName = !string.IsNullOrWhiteSpace(preferredName) ? preferredName : Options.ReloginServer;
+                LastLoginWasFallback = !string.IsNullOrWhiteSpace(wantedName)
+                    && !string.Equals(targetServer.Name, wantedName, StringComparison.OrdinalIgnoreCase);
 
                 ReloginLog($"Attempt {tries}/{Options.ReloginTries}: trying {targetServer.Name} [{targetServer.PlayerCount}/{targetServer.MaxPlayers}].");
 

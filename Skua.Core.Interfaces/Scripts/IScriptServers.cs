@@ -110,6 +110,9 @@ public interface IScriptServers : INotifyPropertyChanged
     /// </summary>
     string? LastLoginError { get; }
 
+    /// <summary>The last relogin landed on a fallback server, not the one asked for.</summary>
+    bool LastLoginWasFallback { get => false; set { } }
+
     /// <summary>
     /// Logs into the game with the specified username and password.
     /// </summary>

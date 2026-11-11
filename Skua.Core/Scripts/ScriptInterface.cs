@@ -768,7 +768,11 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                             Options.CustomGuild = string.Empty;
                             // A host that keeps the player logged in relogs to the server they chose, not
                             // the default one.
-                            if (ScriptOption.KeepLoggedIn)
+                            // A fallback landing (the chosen server was full or down) is not a choice: remembering
+                            // it made every later relogin go to that server, often a canned-chat one like Twig.
+                            bool fallback = Servers.LastLoginWasFallback;
+                            Servers.LastLoginWasFallback = false;
+                            if (ScriptOption.KeepLoggedIn && !fallback)
                             {
                                 try
                                 {
